@@ -1,0 +1,63 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: docker
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DATABASE_URL: sqlite:////data/db.sqlite3
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DATA_DIR: /data
+      FRONTEND_ORIGIN: http://localhost:3000
+      GOOGLE_CLIENT_SECRET_PATH: /data/secrets/google_client.json
+      GOOGLE_TOKEN_PATH: /data/secrets/google_token.json
+      NOTEBOOK_TOTAL_TIMEOUT_SECONDS: 900
+      NOTEBOOK_PENALTY_POWER: 1.5
+    volumes:
+      - ./data:/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO --concurrency=1
+    environment:
+      APP_ENV: docker
+      DATABASE_URL: sqlite:////data/db.sqlite3
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      DATA_DIR: /data
+      GOOGLE_CLIENT_SECRET_PATH: /data/secrets/google_client.json
+      GOOGLE_TOKEN_PATH: /data/secrets/google_token.json
+      NOTEBOOK_TOTAL_TIMEOUT_SECONDS: 900
+      NOTEBOOK_PENALTY_POWER: 1.5
+    volumes:
+      - ./data:/data
+    depends_on:
+      - redis
+      - backend
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend

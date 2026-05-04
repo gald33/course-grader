@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# Node
+node_modules/
+.next/
+
+# Data artifacts
+data/db.sqlite3
+data/db.sqlite3.bak-*
+data/artifacts/*
+data/snapshots/*
+data/exports/*
+data/secrets/google_token.json
+data/secrets/google_client.json
+data/secrets/*.json
+backend/data/*.sqlite
+backend/data/*.sqlite3
+
+# Student PII — raw submissions + grading spreadsheets
+submissions/
+attendance_report.xlsx
+homework_submissions.xlsx
+roster_attendance.xlsx
+*.command
+
+# OS
+.DS_Store

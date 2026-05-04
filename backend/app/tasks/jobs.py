@@ -1,0 +1,379 @@
+from __future__ import annotations
+
+import json
+import re
+import shutil
+from datetime import datetime
+from pathlib import Path
+
+from celery.utils.log import get_task_logger
+from sqlalchemy import select
+
+from app.core.config import get_settings
+from app.db.session import SessionLocal
+from app.models.entities import Artifact, Assignment, ColabSnapshot, NotebookRun, RubricDimensionScore, Submission
+from app.services.consistency import compare_report_and_notebook, flags_to_json, notebook_text_from_ipynb
+from app.services.english_comments import english_comments_score_from_notebook
+from app.services.exporter import export_student_reports_hebrew
+from app.services.notebook_runner import execute_notebook, serialize_notebook
+from app.services.pdf_service import extract_originality_score, extract_text_from_pdf
+from app.services.paths import artifact_path
+from app.services.scoring import apply_curve, get_active_curve, parse_curve_mapping
+from app.services.snapshot_service import build_snapshot_artifact, fetch_snapshot_content, persist_snapshot_file
+from app.tasks.celery_app import celery_app
+
+logger = get_task_logger(__name__)
+settings = get_settings()
+
+
+_DATA_EXTS = {
+    ".csv",
+    ".tsv",
+    ".xlsx",
+    ".xls",
+    ".json",
+    ".txt",
+    ".zip",
+    ".parquet",
+    ".pkl",
+    ".npy",
+    ".npz",
+    ".sqlite",
+    ".db",
+}
+
+_ID_PREFIX_RE = re.compile(r"^(ID_\d+(?:\+ID_\d+)*)_+(.+)$")
+
+
+def _strip_id_prefix(filename: str) -> str:
+    """Turn "ID_213+ID_324_data.csv" into "data.csv".
+
+    Files ingested through the submissions ZIP carry ID_ prefixes that encode
+    group membership; student code uses the bare filename.
+    """
+    match = _ID_PREFIX_RE.match(filename)
+    return match.group(2) if match else filename
+
+
+def _stage_data_files(db, submission_id: int, target_dir: Path) -> None:
+    """Stage a submission's data artifacts so the notebook can read them.
+
+    Files are placed both:
+      - In the notebook's working directory (relative paths like "data.csv")
+      - At /content/<name> (the Colab convention; many student notebooks hard-code
+        '/content/data.csv' or use `drive.mount('/content/drive')` then read paths
+        under /content/...)
+
+    Worker concurrency is 1, so /content/ is wiped and re-populated each run to
+    avoid leaking files between submissions.
+    """
+    artifacts = db.scalars(
+        select(Artifact).where(
+            Artifact.submission_id == submission_id,
+            Artifact.kind.in_(("data_file", "submission_file")),
+        )
+    ).all()
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    content_dir = Path("/content")
+    # Wipe stale per-run staging — only files that look like data, never
+    # arbitrary system paths. The dir is created fresh by the worker image.
+    if content_dir.exists():
+        for child in content_dir.iterdir():
+            try:
+                if child.is_file() or child.is_symlink():
+                    child.unlink()
+            except Exception:  # noqa: BLE001
+                logger.exception("Could not clear stale /content/%s", child.name)
+    else:
+        try:
+            content_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not create /content")
+
+    for art in artifacts:
+        try:
+            src = Path(art.path)
+            if not src.exists():
+                continue
+            if src.suffix.lower() not in _DATA_EXTS:
+                continue
+            clean_name = _strip_id_prefix(art.filename)
+
+            dst = target_dir / clean_name
+            if not dst.exists():
+                shutil.copy2(src, dst)
+
+            # Also expose at the Colab-style absolute path
+            try:
+                content_dst = content_dir / clean_name
+                if content_dst.exists() or content_dst.is_symlink():
+                    content_dst.unlink()
+                content_dst.symlink_to(dst)
+            except (OSError, NotImplementedError):
+                # Filesystem doesn't support symlinks (rare on Linux) — fall back to copy
+                try:
+                    shutil.copy2(dst, content_dir / clean_name)
+                except Exception:  # noqa: BLE001
+                    logger.exception("Could not mirror %s to /content/", clean_name)
+
+            logger.info("Staged data file %s -> %s (and /content/%s)", src.name, dst, clean_name)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to stage data file %s", art.filename)
+
+
+@celery_app.task(name="app.tasks.jobs.parse_originality_pdf")
+def parse_originality_pdf(artifact_id: int) -> dict:
+    with SessionLocal() as db:
+        artifact = db.get(Artifact, artifact_id)
+        if artifact is None:
+            return {"status": "missing_artifact"}
+
+        try:
+            text = extract_text_from_pdf(artifact.path)
+            score = extract_originality_score(text)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Failed to parse originality PDF")
+            return {"status": "error", "error": str(exc)}
+
+        submission = db.get(Submission, artifact.submission_id) if artifact.submission_id else None
+        if submission is None:
+            return {"status": "orphan_artifact"}
+
+        submission.originality_score_pdf = score
+        if submission.originality_score_filename is not None and score is not None:
+            submission.originality_mismatch = abs(submission.originality_score_filename - score) > 0.01
+        db.commit()
+
+        return {"status": "ok", "score": score}
+
+
+@celery_app.task(name="app.tasks.jobs.fetch_colab_snapshot")
+def fetch_colab_snapshot(snapshot_id: int) -> dict:
+    with SessionLocal() as db:
+        snapshot = db.get(ColabSnapshot, snapshot_id)
+        if snapshot is None:
+            return {"status": "missing_snapshot"}
+
+        snapshot.status = "FETCHING"
+        db.commit()
+
+        fetched = fetch_snapshot_content(snapshot)
+        if fetched is None:
+            snapshot.status = "OAUTH_REQUIRED"
+            snapshot.error_message = "Unable to fetch notebook publicly. OAuth may be required."
+            db.commit()
+            return {"status": snapshot.status}
+
+        status, content = fetched
+        file_path, digest = persist_snapshot_file(snapshot, content)
+        artifact = build_snapshot_artifact(
+            submission_id=snapshot.submission_id,
+            file_path=file_path,
+            file_name=Path(file_path).name,
+            size=len(content),
+        )
+        db.add(artifact)
+        db.flush()
+
+        snapshot.status = status
+        snapshot.content_hash = digest
+        snapshot.fetched_at = datetime.utcnow()
+        snapshot.artifact_id = artifact.id
+        snapshot.error_message = ""
+        db.commit()
+        return {"status": status, "snapshot_id": snapshot.id, "artifact_id": artifact.id}
+
+
+def _create_artifact(db, submission_id: int, kind: str, file_name: str, content: bytes, mime_type: str) -> Artifact:
+    target = artifact_path("runs", str(submission_id), file_name)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
+
+    artifact = Artifact(
+        submission_id=submission_id,
+        kind=kind,
+        filename=file_name,
+        path=str(target),
+        mime_type=mime_type,
+        size_bytes=len(content),
+        metadata_json=json.dumps({}),
+    )
+    db.add(artifact)
+    db.flush()
+    return artifact
+
+
+@celery_app.task(name="app.tasks.jobs.run_notebook")
+def run_notebook(run_id: int) -> dict:
+    with SessionLocal() as db:
+        run = db.get(NotebookRun, run_id)
+        if run is None:
+            return {"status": "missing_run"}
+
+        snapshot = db.get(ColabSnapshot, run.snapshot_id)
+        if snapshot is None or snapshot.artifact_id is None:
+            run.status = "FAILED"
+            run.error_summary = "Snapshot artifact missing"
+            db.commit()
+            return {"status": "failed", "reason": run.error_summary}
+
+        snapshot_artifact = db.get(Artifact, snapshot.artifact_id)
+        if snapshot_artifact is None:
+            run.status = "FAILED"
+            run.error_summary = "Snapshot artifact row not found"
+            db.commit()
+            return {"status": "failed", "reason": run.error_summary}
+
+        run.status = "RUNNING"
+        run.started_at = datetime.utcnow()
+        db.commit()
+
+        # Stage data artifacts (csv/xlsx/json/zip/etc.) alongside the notebook
+        # so cells like `pd.read_csv("data.csv")` resolve. Filenames stored on
+        # disk look like "ID_213+ID_324_data.csv" — strip the ID_ prefix back to
+        # the original "data.csv" the students wrote in their code.
+        _stage_data_files(db, run.submission_id, Path(snapshot_artifact.path).parent)
+
+        try:
+            result = execute_notebook(
+                snapshot_artifact.path,
+                total_timeout_seconds=settings.notebook_total_timeout_seconds,
+                penalty_power=settings.notebook_penalty_power,
+            )
+        except Exception as exc:  # noqa: BLE001
+            run.status = "FAILED"
+            run.error_summary = str(exc)
+            run.ended_at = datetime.utcnow()
+            db.commit()
+            return {"status": "failed", "reason": str(exc)}
+
+        executed_bytes = serialize_notebook(result.executed_notebook)
+        html_bytes = result.html.encode("utf-8")
+        logs_bytes = result.logs.encode("utf-8")
+
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        executed_artifact = _create_artifact(
+            db,
+            run.submission_id,
+            "executed_ipynb",
+            f"executed_{run.id}_{ts}.ipynb",
+            executed_bytes,
+            "application/x-ipynb+json",
+        )
+        html_artifact = _create_artifact(
+            db,
+            run.submission_id,
+            "executed_html",
+            f"executed_{run.id}_{ts}.html",
+            html_bytes,
+            "text/html",
+        )
+        log_artifact = _create_artifact(
+            db,
+            run.submission_id,
+            "run_logs",
+            f"run_{run.id}_{ts}.log",
+            logs_bytes,
+            "text/plain",
+        )
+
+        run.ok_cells = result.ok_cells
+        run.failed_cells = result.failed_cells
+        run.run_ratio = result.run_ratio
+        run.penalty_multiplier = result.penalty_multiplier
+        run.error_count = result.failed_cells
+        run.error_summary = result.error_summary
+        run.executed_notebook_artifact_id = executed_artifact.id
+        run.executed_html_artifact_id = html_artifact.id
+        run.log_artifact_id = log_artifact.id
+        run.ended_at = datetime.utcnow()
+        run.status = "TIMEOUT" if result.timed_out else "SUCCESS"
+
+        submission = db.get(Submission, run.submission_id)
+        if submission is not None:
+            assignment = db.get(Assignment, submission.assignment_id)
+            if assignment is not None and assignment.assignment_type in {"HW2", "PROJECT"}:
+                component = "hw2_code" if assignment.assignment_type == "HW2" else "project_code"
+                english_score = english_comments_score_from_notebook(executed_artifact.path)
+                curve = parse_curve_mapping(get_active_curve(db, submission.course_id))
+                points = curve.get("english_comments_compliance", {"points": [0, 1, 2, 3, 4, 5]})["points"]
+                adjusted = apply_curve(english_score, points)
+                row = db.scalar(
+                    select(RubricDimensionScore).where(
+                        RubricDimensionScore.submission_id == submission.id,
+                        RubricDimensionScore.component == component,
+                        RubricDimensionScore.dimension_key == "english_comments_compliance",
+                    )
+                )
+                if row is None:
+                    db.add(
+                        RubricDimensionScore(
+                            submission_id=submission.id,
+                            component=component,
+                            dimension_key="english_comments_compliance",
+                            raw_score=english_score,
+                            adjusted_score=adjusted,
+                        )
+                    )
+                else:
+                    row.raw_score = english_score
+                    row.adjusted_score = adjusted
+
+            report_artifact = db.scalar(
+                select(Artifact)
+                .where(Artifact.submission_id == submission.id, Artifact.kind == "project_report_pdf")
+                .order_by(Artifact.id.desc())
+            )
+            if report_artifact:
+                try:
+                    report_text = extract_text_from_pdf(report_artifact.path)
+                    nb_text = notebook_text_from_ipynb(executed_artifact.path)
+                    consistency = compare_report_and_notebook(report_text, nb_text)
+                    submission.consistency_summary = consistency.summary
+                    submission.consistency_flags_json = flags_to_json(consistency.flags)
+                except Exception:  # noqa: BLE001
+                    logger.exception("Consistency analysis failed")
+
+        db.commit()
+        return {
+            "status": run.status,
+            "run_id": run.id,
+            "ok_cells": run.ok_cells,
+            "failed_cells": run.failed_cells,
+            "run_ratio": run.run_ratio,
+            "penalty_multiplier": run.penalty_multiplier,
+        }
+
+
+@celery_app.task(name="app.tasks.jobs.fetch_and_run_latest")
+def fetch_and_run_latest(submission_id: int, snapshot_id: int) -> dict:
+    fetch_result = fetch_colab_snapshot(snapshot_id)
+    if fetch_result.get("status") not in {"PUBLIC_FETCHED", "PRIVATE_FETCHED"}:
+        return {"status": "snapshot_fetch_failed", "snapshot": fetch_result}
+
+    with SessionLocal() as db:
+        run = NotebookRun(
+            submission_id=submission_id,
+            snapshot_id=snapshot_id,
+            mode="latest",
+            status="QUEUED",
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+
+    run_result = run_notebook(run.id)
+    return {"status": "ok", "fetch": fetch_result, "run": run_result}
+
+
+@celery_app.task(name="app.tasks.jobs.export_student_reports")
+def export_student_reports(course_id: int) -> dict:
+    with SessionLocal() as db:
+        result = export_student_reports_hebrew(db, course_id)
+        return {
+            "status": "ok",
+            "csv_path": result.csv_path,
+            "report_dir": result.report_dir,
+            "report_count": result.report_count,
+        }

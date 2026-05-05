@@ -20,6 +20,7 @@ type RubricRow = {
   dimension_key: string;
   raw_score: number;
   adjusted_score: number;
+  approved: boolean;
 };
 
 type Run = {
@@ -36,7 +37,42 @@ type Run = {
   log_artifact_id: number | null;
   is_pinned: boolean;
   error_summary: string;
+  started_at: string | null;
+  ended_at: string | null;
 };
+
+const RUN_INFLIGHT = new Set(['QUEUED', 'RUNNING', 'queued', 'running']);
+const RUN_TERMINAL = new Set(['SUCCESS', 'TIMEOUT', 'FAILED', 'completed', 'failed', 'timeout']);
+const SNAP_INFLIGHT = new Set(['PENDING', 'FETCHING']);
+
+function isRunInFlight(status: string): boolean {
+  return RUN_INFLIGHT.has(status);
+}
+
+function isRunTerminal(status: string): boolean {
+  return RUN_TERMINAL.has(status);
+}
+
+function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function parseServerTime(s: string): number {
+  // Backend emits naive UTC datetimes (datetime.utcnow().isoformat() with no
+  // 'Z' or offset). Treat them as UTC so client elapsed math is correct.
+  const hasTZ = /[zZ]|[+-]\d{2}:?\d{2}$/.test(s);
+  return Date.parse(hasTZ ? s : s + 'Z');
+}
+
+function elapsedFrom(start: string | null, endMs: number): string {
+  if (!start) return '0:00';
+  const startMs = parseServerTime(start);
+  if (Number.isNaN(startMs)) return '0:00';
+  return formatElapsed(endMs - startMs);
+}
 
 type Snapshot = {
   id: number;
@@ -69,6 +105,20 @@ type Requirements = {
   overridden_by_manual_grade: boolean;
 };
 
+type LLMReview = {
+  model: string;
+  dimensions: Record<string, { score: number; rationale: string }>;
+  feedback_he: string;
+  usage?: Record<string, number>;
+};
+
+type DimExplanation = { score: number; rationale: string; source?: 'auto' | 'claude' };
+
+type CodeReview = {
+  component: string; // 'hw2_code' | 'project_code'
+  dimensions: Record<string, DimExplanation>;
+};
+
 type SubmissionDetail = {
   submission: {
     id: number;
@@ -90,6 +140,8 @@ type SubmissionDetail = {
   report_pdf_artifact_id: number | null;
   executed_html_artifact_id: number | null;
   artifacts: ArtifactRef[];
+  llm_review: LLMReview | null;
+  code_review: CodeReview | null;
 };
 
 type CourseSubmission = {
@@ -148,6 +200,23 @@ const DIMENSIONS: Record<string, string[]> = {
   final_talk: ['clarity', 'complexity', 'qa_answers', 'elegance', 'subjective_impression']
 };
 
+const LLM_SCORED_BY_COMPONENT: Record<string, Set<string>> = {
+  hw2_code: new Set(['processing_description', 'models_quality']),
+  project_code: new Set(['processing_description', 'models_quality']),
+  project_report: new Set([
+    'research_question_hypothesis',
+    'data_description',
+    'data_processing',
+    'models_comparison',
+    'results_analysis',
+    'consistency_with_code'
+  ])
+};
+
+function isLlmScored(component: string, dim: string): boolean {
+  return LLM_SCORED_BY_COMPONENT[component]?.has(dim) ?? false;
+}
+
 const LABELS: Record<string, string> = {
   data_scope_adequacy: 'Data scope',
   processing_description: 'Processing description',
@@ -185,6 +254,7 @@ export default function SubmissionReviewPage({
   const [queue, setQueue] = useState<CourseSubmission[]>([]);
   const [htmlDoc, setHtmlDoc] = useState('');
   const [rubricValues, setRubricValues] = useState<Record<string, number>>({});
+  const [rubricApproved, setRubricApproved] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState('');
   const [feedback, setFeedback] = useState('');
   const [toast, setToast] = useState<string | null>(null);
@@ -199,16 +269,27 @@ export default function SubmissionReviewPage({
 
   // Dirty refs hold the latest values for save-on-unload / save-on-nav
   const rubricRef = useRef<Record<string, number>>({});
+  const rubricApprovedRef = useRef<Record<string, boolean>>({});
   const notesRef = useRef({ notes: '', feedback: '' });
   const rubricDirty = useRef(false);
   const notesDirty = useRef(false);
+  // Mirror the dirty refs as state so SaveStatus re-renders on changes.
+  const [rubricDirtyState, setRubricDirtyState] = useState(false);
+  const [notesDirtyState, setNotesDirtyState] = useState(false);
   const submissionIdRef = useRef(submissionId);
   useEffect(() => {
     submissionIdRef.current = submissionId;
+    // Reset save indicators when navigating between submissions so the
+    // "Saved · HH:MM" pill from a prior submission doesn't carry over.
+    setRubricSavedAt(null);
+    setNotesSavedAt(null);
   }, [submissionId]);
   useEffect(() => {
     rubricRef.current = rubricValues;
   }, [rubricValues]);
+  useEffect(() => {
+    rubricApprovedRef.current = rubricApproved;
+  }, [rubricApproved]);
   useEffect(() => {
     notesRef.current = { notes, feedback };
   }, [notes, feedback]);
@@ -232,18 +313,29 @@ export default function SubmissionReviewPage({
   const load = useCallback(async () => {
     const data = await apiGet<SubmissionDetail>(`/api/submissions/${submissionId}`);
     setDetail(data);
-    setNotes(data.private_notes || '');
-    setFeedback(data.student_feedback || '');
-    notesDirty.current = false;
-    rubricDirty.current = false;
-    setRubricSavedAt(null);
-    setNotesSavedAt(null);
 
-    const values: Record<string, number> = {};
-    for (const row of data.rubric) {
-      values[`${row.component}:${row.dimension_key}`] = row.raw_score;
+    // Only sync notes/feedback from the server when the user has no in-progress
+    // edits. Polling fires every 2s during runs, and an unconditional reset
+    // here clobbers anything typed since the last save.
+    if (!notesDirty.current) {
+      setNotes(data.private_notes || '');
+      setFeedback(data.student_feedback || '');
+      setNotesDirtyState(false);
     }
-    setRubricValues(values);
+
+    if (!rubricDirty.current) {
+      const values: Record<string, number> = {};
+      const approved: Record<string, boolean> = {};
+      for (const row of data.rubric) {
+        const key = `${row.component}:${row.dimension_key}`;
+        values[key] = row.raw_score;
+        approved[key] = row.approved !== false;
+      }
+      setRubricValues(values);
+      setRubricApproved(approved);
+      setRubricDirtyState(false);
+    }
+
     if (data.executed_html_artifact_id) setActiveArtifact('notebook');
     else if (data.report_pdf_artifact_id) setActiveArtifact('pdf');
     else setActiveArtifact('files');
@@ -264,6 +356,58 @@ export default function SubmissionReviewPage({
   useEffect(() => {
     load();
   }, [load]);
+
+  // Poll while a run is queued/running or a snapshot is mid-fetch. Stops automatically
+  // once nothing is in flight — and resumes if the user comes back during a long run.
+  useEffect(() => {
+    if (!detail) return;
+    const inFlight =
+      detail.runs.some((r) => isRunInFlight(r.status)) ||
+      detail.snapshots.some((s) => SNAP_INFLIGHT.has(s.status));
+    if (!inFlight) return;
+    const t = setInterval(() => {
+      void load();
+    }, 2000);
+    return () => clearInterval(t);
+  }, [detail, load]);
+
+  // Tick every second so the "Running… mm:ss" label updates smoothly between polls.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!detail) return;
+    const inFlight = detail.runs.some((r) => isRunInFlight(r.status));
+    if (!inFlight) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [detail]);
+
+  // Detect run transitions (RUNNING → terminal) and surface a toast with the result.
+  const prevRunStatuses = useRef<Record<number, string>>({});
+  useEffect(() => {
+    if (!detail) return;
+    const prev = prevRunStatuses.current;
+    for (const r of detail.runs) {
+      const before = prev[r.id];
+      if (before && before !== r.status && isRunTerminal(r.status) && !isRunTerminal(before)) {
+        const elapsed =
+          r.started_at && r.ended_at
+            ? formatElapsed(parseServerTime(r.ended_at) - parseServerTime(r.started_at))
+            : null;
+        if (r.status === 'SUCCESS') {
+          const pct = Math.round((r.run_ratio || 0) * 100);
+          setToast(`Run #${r.id} done · ${pct}% cells ran${elapsed ? ` · ${elapsed}` : ''}`);
+        } else if (r.status === 'TIMEOUT') {
+          setToast(`Run #${r.id} timed out${elapsed ? ` after ${elapsed}` : ''}`);
+        } else if (r.status === 'FAILED') {
+          const reason = r.error_summary ? `: ${r.error_summary}` : '';
+          setToast(`Run #${r.id} failed${reason}`);
+        }
+      }
+    }
+    const next: Record<number, string> = {};
+    for (const r of detail.runs) next[r.id] = r.status;
+    prevRunStatuses.current = next;
+  }, [detail]);
 
   // Queue for J/K navigation — submissions in this course of the same assignment type
   useEffect(() => {
@@ -294,14 +438,16 @@ export default function SubmissionReviewPage({
     async (opts?: { silent?: boolean; targetId?: number }) => {
       const id = opts?.targetId ?? submissionIdRef.current;
       const values = rubricRef.current;
+      const approved = rubricApprovedRef.current;
       const dimensions = Object.entries(values).map(([key, value]) => {
         const [component, dimension_key] = key.split(':');
-        return { component, dimension_key, raw_score: value };
+        return { component, dimension_key, raw_score: value, approved: approved[key] !== false };
       });
       setRubricSaving(true);
       try {
         await apiPut(`/api/submissions/${id}/rubric`, { dimensions });
         rubricDirty.current = false;
+        setRubricDirtyState(false);
         setRubricSavedAt(new Date());
         if (!opts?.silent) setToast('Rubric saved');
       } finally {
@@ -322,6 +468,7 @@ export default function SubmissionReviewPage({
           feedback_student: feedback
         });
         notesDirty.current = false;
+        setNotesDirtyState(false);
         setNotesSavedAt(new Date());
         if (!opts?.silent) setToast('Notes saved');
       } finally {
@@ -339,7 +486,7 @@ export default function SubmissionReviewPage({
       void saveRubric({ silent: true });
     }, 700);
     return () => clearTimeout(t);
-  }, [rubricValues, detail, saveRubric]);
+  }, [rubricValues, rubricApproved, detail, saveRubric]);
 
   // Debounced autosave for notes (1200 ms after last keystroke)
   useEffect(() => {
@@ -368,23 +515,42 @@ export default function SubmissionReviewPage({
   const updateRubric = useCallback(
     (updater: (prev: Record<string, number>) => Record<string, number>) => {
       rubricDirty.current = true;
+      setRubricDirtyState(true);
       setRubricValues(updater);
     },
     []
   );
+
+  // Per-key score change. Always marks the dimension as approved — touching
+  // the dot is an explicit grader decision.
+  const setRubricEntry = useCallback((key: string, value: number) => {
+    rubricDirty.current = true;
+    setRubricDirtyState(true);
+    setRubricValues((prev) => ({ ...prev, [key]: value }));
+    setRubricApproved((prev) => ({ ...prev, [key]: true }));
+  }, []);
+
+  // Explicit approve/unapprove without touching the score. Used by the ✓ button.
+  const setRubricApprovalFor = useCallback((key: string, approved: boolean) => {
+    rubricDirty.current = true;
+    setRubricDirtyState(true);
+    setRubricApproved((prev) => ({ ...prev, [key]: approved }));
+  }, []);
   const updateNotes = useCallback((v: string) => {
     notesDirty.current = true;
+    setNotesDirtyState(true);
     setNotes(v);
   }, []);
   const updateFeedback = useCallback((v: string) => {
     notesDirty.current = true;
+    setNotesDirtyState(true);
     setFeedback(v);
   }, []);
 
   const queueRun = async (mode: 'snapshot' | 'latest') => {
     try {
       await apiPost(`/api/submissions/${submissionId}/runs`, { mode });
-      setToast(`Run queued (${mode})`);
+      setToast(mode === 'latest' ? 'Fetching from Colab…' : 'Queued');
       await load();
     } catch (e) {
       const msg = (e as Error).message || '';
@@ -409,6 +575,72 @@ export default function SubmissionReviewPage({
       setToast(`Couldn't pin run: ${(e as Error).message || 'unknown error'}`);
     }
   };
+
+  const [autoGrading, setAutoGrading] = useState(false);
+
+  const autoGrade = useCallback(async () => {
+    if (autoGrading) return;
+    if (!detail) return;
+    const isProject = detail.submission.assignment_type === 'PROJECT';
+    setAutoGrading(true);
+    try {
+      setToast('Auto-grade: queueing notebook run…');
+      const newRun = await apiPost<Run>(`/api/submissions/${submissionId}/runs`, { mode: 'snapshot' });
+
+      // Poll the run directly so we have a deterministic terminal-state signal
+      // here, independent of the page-level 2s polling effect.
+      const start = Date.now();
+      const timeoutMs = 16 * 60 * 1000; // worker hard-cap is 15min; pad by 1min
+      let final: Run | undefined;
+      while (Date.now() - start < timeoutMs) {
+        const elapsedSec = Math.round((Date.now() - start) / 1000);
+        const runs = await apiGet<Run[]>(`/api/submissions/${submissionId}/runs`);
+        const r = runs.find((x) => x.id === newRun.id);
+        if (r && isRunTerminal(r.status)) {
+          final = r;
+          break;
+        }
+        const phase = r?.status === 'RUNNING' ? `running (${r.ok_cells} ok, ${r.failed_cells} failed)` : 'queued';
+        setToast(`Auto-grade: notebook ${phase} · ${elapsedSec}s`);
+        await new Promise((rs) => setTimeout(rs, 2000));
+      }
+      if (!final) throw new Error('Notebook run did not finish in 16 minutes');
+      if (final.status !== 'SUCCESS') {
+        throw new Error(
+          `Notebook ${final.status.toLowerCase()}${final.error_summary ? `: ${final.error_summary}` : ''}`
+        );
+      }
+
+      setToast('Auto-grade: pinning run…');
+      await apiPost(`/api/runs/${newRun.id}/pin`);
+
+      if (isProject) {
+        setToast('Auto-grade: asking Claude (10–30s)…');
+        await apiPost(`/api/submissions/${submissionId}/llm-review`);
+        try {
+          await apiPost(`/api/submissions/${submissionId}/llm-review/apply`);
+        } catch {
+          // Non-fatal — same fallback as the standalone Claude card. Rationales
+          // still display next to each rubric row even if apply fails.
+        }
+      }
+
+      await load();
+      setToast(isProject ? 'Auto-grade complete · code + report ✓' : 'Auto-grade complete · code ✓');
+    } catch (e) {
+      const msg = (e as Error).message || '';
+      const detailMsg = (() => {
+        try {
+          return JSON.parse(msg).detail as string;
+        } catch {
+          return msg;
+        }
+      })();
+      setToast(`Auto-grade failed: ${detailMsg || 'unknown error'}`);
+    } finally {
+      setAutoGrading(false);
+    }
+  }, [autoGrading, detail, submissionId, load]);
 
   const flushAndNavigate = useCallback(
     async (nextHref: string) => {
@@ -453,6 +685,9 @@ export default function SubmissionReviewPage({
     htmlDoc,
     rubricValues,
     setRubricValues: updateRubric,
+    rubricApproved,
+    setRubricEntry,
+    setRubricApprovalFor,
     notes,
     setNotes: updateNotes,
     feedback,
@@ -467,10 +702,13 @@ export default function SubmissionReviewPage({
     setToast,
     rubricSavedAt,
     rubricSaving,
+    rubricDirty: rubricDirtyState,
     notesSavedAt,
     notesSaving,
+    notesDirty: notesDirtyState,
     courseId,
-    refresh: load
+    refresh: load,
+    now
   };
 
   return (
@@ -488,7 +726,9 @@ export default function SubmissionReviewPage({
         flushAndNavigate={flushAndNavigate}
         rubricSavedAt={rubricSavedAt}
         rubricSaving={rubricSaving}
-        rubricDirty={rubricDirty.current || notesDirty.current}
+        rubricDirty={rubricDirtyState || notesDirtyState}
+        autoGrade={() => void autoGrade()}
+        autoGrading={autoGrading}
       />
 
       {layout === 'split' ? <ReviewSplit {...sharedProps} /> : null}
@@ -536,7 +776,9 @@ function ReviewHeader({
   flushAndNavigate,
   rubricSavedAt,
   rubricSaving,
-  rubricDirty
+  rubricDirty,
+  autoGrade,
+  autoGrading
 }: {
   sub: SubmissionDetail['submission'];
   courseId: number;
@@ -551,7 +793,13 @@ function ReviewHeader({
   rubricSavedAt: Date | null;
   rubricSaving: boolean;
   rubricDirty: boolean;
+  autoGrade: () => void;
+  autoGrading: boolean;
 }) {
+  const isProject = sub.assignment_type === 'PROJECT';
+  const tooltip = isProject
+    ? 'Run notebook → pin → ask Claude to review the report'
+    : 'Run notebook + auto code metrics';
   return (
     <header
       className="sticky top-0 z-40 flex items-center gap-4 border-b border-border px-7 py-3.5"
@@ -617,6 +865,9 @@ function ReviewHeader({
           </button>
         </div>
         <SaveStatus saving={rubricSaving} savedAt={rubricSavedAt} dirty={rubricDirty} />
+        <Button size="sm" variant="ghost" onClick={autoGrade} disabled={autoGrading} title={tooltip}>
+          {autoGrading ? 'Auto-grading…' : '✦ Auto grade'}
+        </Button>
         <Button size="sm" onClick={saveRubric} title="⌘S">
           Save now
           <span className="ml-1.5 rounded border border-paper/30 bg-paper/10 px-1 text-[10px] tracking-tight">⌘S</span>
@@ -709,6 +960,9 @@ type SharedProps = {
   htmlDoc: string;
   rubricValues: Record<string, number>;
   setRubricValues: (updater: (prev: Record<string, number>) => Record<string, number>) => void;
+  rubricApproved: Record<string, boolean>;
+  setRubricEntry: (key: string, value: number) => void;
+  setRubricApprovalFor: (key: string, approved: boolean) => void;
   notes: string;
   setNotes: (v: string) => void;
   feedback: string;
@@ -723,10 +977,13 @@ type SharedProps = {
   setToast: (m: string) => void;
   rubricSavedAt: Date | null;
   rubricSaving: boolean;
+  rubricDirty: boolean;
   notesSavedAt: Date | null;
   notesSaving: boolean;
+  notesDirty: boolean;
   courseId: number;
   refresh: () => Promise<void>;
+  now: number;
 };
 
 function ReviewSplit(props: SharedProps) {
@@ -743,7 +1000,7 @@ function ReviewSplit(props: SharedProps) {
         />
         <DataFilesPanel detail={props.detail} />
         <div className="mt-3.5">
-          <RunsPanel detail={props.detail} queueRun={props.queueRun} pinRun={props.pinRun} />
+          <RunsPanel detail={props.detail} queueRun={props.queueRun} pinRun={props.pinRun} now={props.now} />
         </div>
       </div>
       <aside
@@ -751,6 +1008,7 @@ function ReviewSplit(props: SharedProps) {
         style={{ paddingRight: 28 }}
       >
         <RubricPanel {...props} />
+        <LLMReviewCard {...props} />
         <ManualGradeCard {...props} />
         <MissingFlagsCard {...props} />
         <NotesPanel
@@ -761,6 +1019,7 @@ function ReviewSplit(props: SharedProps) {
           saveNotes={props.saveNotes}
           notesSaving={props.notesSaving}
           notesSavedAt={props.notesSavedAt}
+          notesDirty={props.notesDirty}
         />
         <OverrideCard {...props} />
         <ConsistencyPanel detail={props.detail} />
@@ -782,6 +1041,7 @@ function ReviewTabs(props: SharedProps) {
       <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)' }}>
         <RubricPanel {...props} />
         <div className="grid content-start gap-3">
+          <LLMReviewCard {...props} />
           <ManualGradeCard {...props} />
           <MissingFlagsCard {...props} />
           <NotesPanel
@@ -792,9 +1052,10 @@ function ReviewTabs(props: SharedProps) {
             saveNotes={props.saveNotes}
             notesSaving={props.notesSaving}
             notesSavedAt={props.notesSavedAt}
+            notesDirty={props.notesDirty}
           />
           <OverrideCard {...props} />
-          <RunsPanel detail={props.detail} queueRun={props.queueRun} pinRun={props.pinRun} compact />
+          <RunsPanel detail={props.detail} queueRun={props.queueRun} pinRun={props.pinRun} now={props.now} compact />
           <ConsistencyPanel detail={props.detail} />
         </div>
       </div>
@@ -836,6 +1097,8 @@ function ReviewFocus(props: SharedProps & { filledCount: number; totalDims: numb
             </div>
             <RubricPanel {...props} embedded />
             <div className="my-4 h-px bg-border" />
+            <LLMReviewCard {...props} embedded />
+            <div className="my-4 h-px bg-border" />
             <ManualGradeCard {...props} embedded />
             <div className="my-4 h-px bg-border" />
             <MissingFlagsCard {...props} embedded />
@@ -848,12 +1111,13 @@ function ReviewFocus(props: SharedProps & { filledCount: number; totalDims: numb
               saveNotes={props.saveNotes}
               notesSaving={props.notesSaving}
               notesSavedAt={props.notesSavedAt}
+              notesDirty={props.notesDirty}
               embedded
             />
             <div className="my-4 h-px bg-border" />
             <OverrideCard {...props} embedded />
             <div className="my-4 h-px bg-border" />
-            <RunsPanel detail={props.detail} queueRun={props.queueRun} pinRun={props.pinRun} compact embedded />
+            <RunsPanel detail={props.detail} queueRun={props.queueRun} pinRun={props.pinRun} now={props.now} compact embedded />
           </>
         ) : null}
       </aside>
@@ -1058,7 +1322,7 @@ function RubricPanel(props: SharedProps & { embedded?: boolean }) {
                 Click a dot or press 0–5 to score. Autosaves as you go.
               </div>
             </div>
-            <SaveStatus saving={props.rubricSaving} savedAt={props.rubricSavedAt} dirty={false} />
+            <SaveStatus saving={props.rubricSaving} savedAt={props.rubricSavedAt} dirty={props.rubricDirty} />
           </div>
           <div className="hint hint-soft mb-3">
             <span className="hint-icon" style={{ background: 'var(--terracotta)' }}>
@@ -1073,9 +1337,39 @@ function RubricPanel(props: SharedProps & { embedded?: boolean }) {
       ) : null}
 
       <div className="grid gap-3.5">
-        {components.map((comp) => (
-          <RubricGroup key={comp} component={comp} rubric={rubricValues} setRubric={setRubricValues} />
-        ))}
+        {components.map((comp) => {
+          const reportZeroed =
+            comp === 'project_report' &&
+            (!!props.detail.submission.requirements?.missing_report_flag ||
+              props.detail.submission.requirements?.has_pdf === false);
+          return (
+            <div key={comp}>
+              {reportZeroed ? (
+                <div className="mb-1.5 rounded-md border border-terracotta/40 bg-terracotta-tint px-3 py-2 text-[12px] text-ink-2">
+                  Report PDF missing — <strong>project_report</strong> is forced to 0 in the gradebook regardless of the
+                  scores below. Upload a PDF or clear the &quot;Mark missing&quot; flag to restore scoring.
+                </div>
+              ) : null}
+              <RubricGroup
+                component={comp}
+                rubric={rubricValues}
+                approved={props.rubricApproved}
+                setRubricEntry={props.setRubricEntry}
+                setRubricApproval={props.setRubricApprovalFor}
+                llmDimensions={
+                  comp === 'project_report'
+                    ? props.detail.llm_review?.dimensions
+                    : (comp === 'hw2_code' || comp === 'project_code')
+                      ? props.detail.code_review?.dimensions
+                      : undefined
+                }
+                submissionId={props.detail.submission.id}
+                onRescored={props.refresh}
+                setToast={props.setToast}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {!embedded ? (
@@ -1096,47 +1390,219 @@ function RubricPanel(props: SharedProps & { embedded?: boolean }) {
 function RubricGroup({
   component,
   rubric,
-  setRubric
+  approved,
+  setRubricEntry,
+  setRubricApproval,
+  llmDimensions,
+  submissionId,
+  onRescored,
+  setToast
 }: {
   component: string;
   rubric: Record<string, number>;
-  setRubric: (updater: (prev: Record<string, number>) => Record<string, number>) => void;
+  approved: Record<string, boolean>;
+  setRubricEntry: (key: string, value: number) => void;
+  setRubricApproval: (key: string, approved: boolean) => void;
+  llmDimensions?: Record<string, { score: number; rationale: string; source?: 'auto' | 'claude' }>;
+  submissionId: number;
+  onRescored: () => Promise<void>;
+  setToast: (m: string) => void;
 }) {
   const dims = DIMENSIONS[component] || [];
-  const filled = dims.filter((d) => rubric[`${component}:${d}`] != null).length;
+  const scored = dims.filter((d) => rubric[`${component}:${d}`] != null);
+  const approvedCount = scored.filter((d) => approved[`${component}:${d}`] !== false).length;
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-1.5 flex items-baseline justify-between">
         <div className="text-[13px] font-medium capitalize text-ink">{component.replace(/_/g, ' ')}</div>
         <div className="tnum text-[11px] text-ink-3">
-          {filled}/{dims.length}
+          {approvedCount}/{scored.length}/{dims.length}
+          <span className="ml-1 text-ink-4" title="approved / scored / total">·</span>
         </div>
       </div>
       <div className="rounded-[10px] bg-paper-2 px-3.5">
         {dims.map((d, i) => {
           const key = `${component}:${d}`;
           const val = rubric[key];
+          const isApproved = val != null && approved[key] !== false;
+          const isUnapproved = val != null && approved[key] === false;
+          const llm = llmDimensions?.[d];
           return (
             <div
               key={d}
-              className="grid items-center gap-3 py-1.5"
-              style={{
-                gridTemplateColumns: '1fr auto',
-                borderBottom: i < dims.length - 1 ? '1px solid var(--line-soft)' : 'none'
-              }}
+              className="py-1.5"
+              style={{ borderBottom: i < dims.length - 1 ? '1px solid var(--line-soft)' : 'none' }}
             >
-              <div className="text-[13px]" style={{ color: val != null ? 'var(--ink)' : 'var(--ink-2)' }}>
-                {LABELS[d] || d.replace(/_/g, ' ')}
+              <div className="grid items-center gap-2.5" style={{ gridTemplateColumns: 'auto 1fr auto auto' }}>
+                <ApprovalTick
+                  state={val == null ? 'empty' : isApproved ? 'approved' : 'unapproved'}
+                  onClick={() => {
+                    if (val == null) return;
+                    setRubricApproval(key, !isApproved);
+                  }}
+                />
+                <div
+                  className="text-[13px]"
+                  style={{ color: val != null ? 'var(--ink)' : 'var(--ink-2)' }}
+                >
+                  {LABELS[d] || d.replace(/_/g, ' ')}
+                  {isUnapproved ? (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-wider text-warn">auto</span>
+                  ) : null}
+                </div>
+                <DotScale
+                  value={val}
+                  onChange={(v) => setRubricEntry(key, v)}
+                />
+                {isLlmScored(component, d) ? (
+                  <RescoreButton
+                    submissionId={submissionId}
+                    component={component}
+                    dimensionKey={d}
+                    onDone={onRescored}
+                    setToast={setToast}
+                  />
+                ) : (
+                  <div style={{ width: 20 }} />
+                )}
               </div>
-              <DotScale
-                value={val}
-                onChange={(v) => setRubric((prev) => ({ ...prev, [key]: v }))}
-              />
+              {llm ? (() => {
+                const isAuto = llm.source === 'auto';
+                const accent = isAuto ? 'var(--forest)' : 'var(--terracotta)';
+                const tint = isAuto ? 'bg-forest-tint text-forest' : 'bg-terracotta-tint text-terracotta';
+                const label = isAuto ? 'Auto' : 'Claude';
+                const isHebrew = /[֐-׿]/.test(llm.rationale);
+                const rationaleStyle: React.CSSProperties = isHebrew
+                  ? { fontFamily: 'Frank Ruhl Libre, Newsreader, serif' }
+                  : {};
+                return (
+                  <div
+                    className="mt-1 rounded-md bg-card/60 px-2 py-1.5 text-[12px] text-ink-2"
+                    style={{
+                      direction: isHebrew ? 'rtl' : 'ltr',
+                      textAlign: isHebrew ? 'right' : 'left',
+                      borderInlineStart: `2px solid ${accent}`
+                    }}
+                    title={`${label} suggests ${llm.score}/5`}
+                  >
+                    <span
+                      className={`me-1.5 inline-block rounded-full ${tint} px-1.5 py-px text-[10px] font-semibold tnum`}
+                      style={{ direction: 'ltr' }}
+                    >
+                      {label} · {llm.score}/5
+                    </span>
+                    <span style={rationaleStyle}>{llm.rationale}</span>
+                  </div>
+                );
+              })() : null}
             </div>
           );
         })}
       </div>
     </div>
+  );
+}
+
+function ApprovalTick({
+  state,
+  onClick
+}: {
+  state: 'empty' | 'approved' | 'unapproved';
+  onClick: () => void;
+}) {
+  const empty = state === 'empty';
+  const approved = state === 'approved';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={empty}
+      title={
+        empty
+          ? 'Score this dimension first'
+          : approved
+            ? 'Approved — click to mark unapproved'
+            : 'Click to approve this score'
+      }
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full transition disabled:cursor-not-allowed"
+      style={{
+        background: approved ? 'var(--ok)' : 'transparent',
+        border: empty
+          ? '1.5px dashed var(--ink-4)'
+          : approved
+            ? '1.5px solid var(--ok)'
+            : '1.5px dashed var(--warn)',
+        color: approved ? '#fff' : empty ? 'var(--ink-4)' : 'var(--warn)',
+        fontSize: 11,
+        lineHeight: 1
+      }}
+    >
+      {empty ? '' : '✓'}
+    </button>
+  );
+}
+
+function RescoreButton({
+  submissionId,
+  component,
+  dimensionKey,
+  onDone,
+  setToast
+}: {
+  submissionId: number;
+  component: string;
+  dimensionKey: string;
+  onDone: () => Promise<void>;
+  setToast: (m: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async (e) => {
+        e.stopPropagation();
+        setBusy(true);
+        setToast('Re-running LLM…');
+        try {
+          await apiPost(
+            `/api/submissions/${submissionId}/rubric/${component}/${dimensionKey}/rescore-llm`
+          );
+          await onDone();
+          setToast('Re-scored');
+        } catch (err) {
+          const raw = (err as Error).message || 'Re-score failed';
+          let detail = raw;
+          try {
+            detail = JSON.parse(raw).detail || raw;
+          } catch {
+            /* not JSON */
+          }
+          setToast(`Re-score failed: ${detail}`);
+        } finally {
+          setBusy(false);
+        }
+      }}
+      title={busy ? 'Re-scoring…' : 'Re-run LLM for this dimension'}
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full text-ink-3 transition hover:bg-paper-2 hover:text-ink disabled:opacity-40"
+    >
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={busy ? 'animate-spin' : undefined}
+      >
+        <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+        <path d="M21 3v5h-5" />
+        <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+        <path d="M3 21v-5h5" />
+      </svg>
+    </button>
   );
 }
 
@@ -1150,6 +1616,7 @@ function NotesPanel({
   saveNotes,
   notesSaving,
   notesSavedAt,
+  notesDirty,
   embedded
 }: {
   notes: string;
@@ -1159,6 +1626,7 @@ function NotesPanel({
   saveNotes: () => void;
   notesSaving: boolean;
   notesSavedAt: Date | null;
+  notesDirty: boolean;
   embedded?: boolean;
 }) {
   return (
@@ -1167,7 +1635,7 @@ function NotesPanel({
         <>
           <div className="mb-2 flex items-baseline justify-between">
             <div className="font-display text-[19px]">Notes</div>
-            <SaveStatus saving={notesSaving} savedAt={notesSavedAt} dirty={false} />
+            <SaveStatus saving={notesSaving} savedAt={notesSavedAt} dirty={notesDirty} />
           </div>
           <div className="hint hint-soft mb-3">
             <span className="hint-icon" style={{ background: 'var(--ink-3)' }}>
@@ -1205,7 +1673,7 @@ function NotesPanel({
       </div>
       {embedded ? (
         <div className="mt-2 flex justify-end">
-          <SaveStatus saving={notesSaving} savedAt={notesSavedAt} dirty={false} inline />
+          <SaveStatus saving={notesSaving} savedAt={notesSavedAt} dirty={notesDirty} inline />
         </div>
       ) : null}
     </div>
@@ -1272,12 +1740,14 @@ function RunsPanel({
   detail,
   queueRun,
   pinRun,
+  now,
   compact,
   embedded
 }: {
   detail: SubmissionDetail;
   queueRun: (mode: 'snapshot' | 'latest') => void;
   pinRun: (id: number) => void;
+  now: number;
   compact?: boolean;
   embedded?: boolean;
 }) {
@@ -1287,6 +1757,13 @@ function RunsPanel({
   );
   const hasFetched = fetchedSnapshots.length > 0;
   const hasAnySnapshot = detail.snapshots.length > 0;
+
+  // Most recent snapshot — used to show a "Fetching from Colab…" strip while
+  // a 'latest' run is waiting on its Colab fetch.
+  const latestSnapshot = detail.snapshots[0];
+  const snapshotInFlight =
+    latestSnapshot && SNAP_INFLIGHT.has(latestSnapshot.status) ? latestSnapshot : null;
+
   return (
     <div className={embedded ? '' : 'rounded-lg border border-border bg-card p-[22px] shadow-soft'}>
       {!embedded ? (
@@ -1299,7 +1776,7 @@ function RunsPanel({
                 <span className="ml-1.5 text-warn">
                   · no Colab URL yet — paste one on the queue page
                 </span>
-              ) : !hasFetched ? (
+              ) : !hasFetched && !snapshotInFlight ? (
                 <span className="ml-1.5 text-warn">
                   · waiting for snapshot fetch ({detail.snapshots[0]?.status?.toLowerCase()})
                 </span>
@@ -1331,6 +1808,25 @@ function RunsPanel({
         <div className="mb-2 text-[13px] font-medium">Runs</div>
       )}
 
+      {snapshotInFlight ? (
+        <div
+          className="mb-2 flex items-center gap-2.5 rounded-md p-2.5 text-[13px]"
+          style={{
+            background: 'var(--info-soft)',
+            color: 'var(--info)'
+          }}
+        >
+          <span
+            className="inline-block h-2 w-2 animate-pulse rounded-full"
+            style={{ background: 'var(--info)' }}
+          />
+          <span>
+            Fetching from Colab…{' '}
+            <span className="text-ink-3">({snapshotInFlight.status.toLowerCase()})</span>
+          </span>
+        </div>
+      ) : null}
+
       {runs.length === 0 ? (
         <div className="px-2 py-1 text-[13px] text-ink-3">
           {hasAnySnapshot
@@ -1339,58 +1835,192 @@ function RunsPanel({
         </div>
       ) : (
         <div className="grid gap-2">
-          {runs.map((r) => (
-            <div
-              key={r.id}
-              className="grid items-center gap-3 rounded-md p-2.5"
-              style={{
-                gridTemplateColumns: 'auto 1fr auto auto',
-                background: r.is_pinned ? 'var(--forest-tint)' : 'var(--paper-2)',
-                border: r.is_pinned ? '1px solid var(--forest-soft)' : '1px solid transparent'
-              }}
-            >
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full"
+          {runs.map((r) => {
+            const inFlight = isRunInFlight(r.status);
+            const ranIn =
+              !inFlight && r.started_at && r.ended_at
+                ? formatElapsed(parseServerTime(r.ended_at) - parseServerTime(r.started_at))
+                : null;
+            return (
+              <div
+                key={r.id}
+                className="relative grid items-center gap-3 overflow-hidden rounded-md p-2.5"
                 style={{
-                  background:
-                    r.status === 'completed'
-                      ? 'var(--ok)'
-                      : r.status === 'queued' || r.status === 'running'
-                        ? 'var(--info)'
-                        : 'var(--bad)'
+                  gridTemplateColumns: 'auto 1fr auto auto',
+                  background: r.is_pinned ? 'var(--forest-tint)' : 'var(--paper-2)',
+                  border: r.is_pinned ? '1px solid var(--forest-soft)' : '1px solid transparent'
                 }}
-              />
-              <div>
-                <div className="flex items-center gap-1.5 text-[13px]">
-                  Run <span className="tnum">#{r.id}</span>
-                  {r.is_pinned ? <span className="pill pill-forest">📍 Pinned</span> : null}
+              >
+                <span
+                  className={`inline-block rounded-full ${inFlight ? 'h-2 w-2 animate-pulse' : 'h-1.5 w-1.5'}`}
+                  style={{
+                    background: inFlight
+                      ? 'var(--info)'
+                      : r.status === 'SUCCESS'
+                        ? 'var(--ok)'
+                        : r.status === 'TIMEOUT'
+                          ? 'var(--warn)'
+                          : 'var(--bad)'
+                  }}
+                />
+                <div>
+                  <div className="flex items-center gap-1.5 text-[13px]">
+                    Run <span className="tnum">#{r.id}</span>
+                    {r.status === 'QUEUED' ? (
+                      <span className="pill pill-info">Queued…</span>
+                    ) : r.status === 'RUNNING' ? (
+                      <span className="pill pill-info tnum">
+                        Running… {elapsedFrom(r.started_at, now)}
+                      </span>
+                    ) : r.status === 'TIMEOUT' ? (
+                      <span className="pill pill-warn">Timed out</span>
+                    ) : r.status === 'FAILED' ? (
+                      <span className="pill pill-bad">Failed</span>
+                    ) : null}
+                    {r.is_pinned ? <span className="pill pill-forest">📍 Pinned</span> : null}
+                  </div>
+                  <div className="text-[11px] text-ink-3">
+                    {r.status === 'QUEUED'
+                      ? 'Waiting for worker'
+                      : r.status === 'RUNNING'
+                        ? 'Executing notebook (timeout 15:00)'
+                        : `${r.ok_cells} ok, ${r.failed_cells} failed${ranIn ? ` · ran in ${ranIn}` : ''}`}
+                  </div>
+                  {r.error_summary && !inFlight ? (
+                    <div className="mt-0.5 text-[12px] text-bad">{r.error_summary}</div>
+                  ) : null}
                 </div>
-                <div className="text-[11px] text-ink-3">
-                  {r.ok_cells} ok, {r.failed_cells} failed
+                <div className="text-right">
+                  <div className="font-display tnum text-lg">
+                    {inFlight ? '—' : r.run_ratio != null ? `${Math.round(r.run_ratio * 100)}%` : '—'}
+                  </div>
+                  <div className="text-[11px] text-ink-3">cells ran</div>
                 </div>
-                {r.error_summary ? (
-                  <div className="mt-0.5 text-[12px] text-bad">{r.error_summary}</div>
+                {inFlight ? (
+                  <span className="w-10" />
+                ) : !r.is_pinned ? (
+                  <button
+                    onClick={() => pinRun(r.id)}
+                    className="text-[13px] text-forest hover:underline"
+                  >
+                    Pin
+                  </button>
+                ) : (
+                  <span className="w-10" />
+                )}
+                {inFlight ? (
+                  <div
+                    className="absolute inset-x-0 bottom-0 h-0.5 animate-pulse"
+                    style={{ background: 'var(--info)', opacity: 0.45 }}
+                  />
                 ) : null}
               </div>
-              <div className="text-right">
-                <div className="font-display tnum text-lg">
-                  {r.run_ratio != null ? `${Math.round(r.run_ratio * 100)}%` : '—'}
-                </div>
-                <div className="text-[11px] text-ink-3">cells ran</div>
-              </div>
-              {!r.is_pinned ? (
-                <button
-                  onClick={() => pinRun(r.id)}
-                  className="text-[13px] text-forest hover:underline"
-                >
-                  Pin
-                </button>
-              ) : (
-                <span className="w-10" />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== LLM review card (Claude Sonnet 4.6) ===== */
+
+function LLMReviewCard({
+  detail,
+  refresh,
+  setToast,
+  setFeedback,
+  embedded
+}: SharedProps & { embedded?: boolean }) {
+  const isProject = detail.submission.assignment_type === 'PROJECT';
+  const review = detail.llm_review;
+  const [running, setRunning] = useState(false);
+
+  if (!isProject) return null;
+
+  const run = async () => {
+    setRunning(true);
+    setToast('Running Claude review… this takes 10–30s');
+    try {
+      await apiPost(`/api/submissions/${detail.submission.id}/llm-review`);
+      // Auto-apply suggested scores into the rubric (with approved=false so
+      // they show as "auto" and the grader still has to confirm each one).
+      try {
+        await apiPost(`/api/submissions/${detail.submission.id}/llm-review/apply`);
+      } catch (e) {
+        // Non-fatal — the rationales still show as side annotations even if apply fails
+        // eslint-disable-next-line no-console
+        console.warn('llm-review/apply failed', e);
+      }
+      setToast('Claude review applied — confirm each ✓ on the rubric');
+      await refresh();
+    } catch (e) {
+      const msg = (e as Error).message || '';
+      const detail = (() => {
+        try {
+          return JSON.parse(msg).detail as string;
+        } catch {
+          return msg;
+        }
+      })();
+      setToast(`LLM review failed: ${detail || 'unknown error'}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const useFeedback = () => {
+    if (!review) return;
+    setFeedback(review.feedback_he);
+    setToast('Pasted into student feedback — review and save');
+  };
+
+  return (
+    <div className={embedded ? '' : 'mb-3.5 rounded-lg border border-border bg-card p-[18px] shadow-soft'}>
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <div className="font-display text-[15px]">Claude review</div>
+        {review ? (
+          <span className="text-[11px] text-ink-3">{review.model}</span>
+        ) : (
+          <span className="text-[11px] text-ink-3">Sonnet 4.6 · ~$0.05</span>
+        )}
+      </div>
+      {!review ? (
+        <>
+          <div className="mb-2.5 text-[12px] text-ink-3">
+            Reads the report PDF + executed notebook and suggests 0–5 scores per project_report dimension (with Hebrew
+            rationales) plus a draft feedback paragraph. Suggestions appear next to each dot row — they don't
+            auto-fill.
+          </div>
+          <Button size="sm" onClick={run} disabled={running}>
+            {running ? 'Reviewing…' : '✦ Suggest with Claude'}
+          </Button>
+        </>
+      ) : (
+        <>
+          <div className="mb-2 text-[12px] text-ink-3">
+            Suggested scores are shown next to each rubric dimension. The Hebrew feedback draft is below — click
+            "Use" to paste it into the student feedback field.
+          </div>
+          <div
+            className="mb-2 rounded-md bg-paper-2/60 px-3 py-2.5 text-[13px] leading-relaxed text-ink"
+            style={{
+              direction: 'rtl',
+              textAlign: 'right',
+              fontFamily: 'Frank Ruhl Libre, Newsreader, serif'
+            }}
+          >
+            {review.feedback_he}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <Button variant="ghost" size="sm" onClick={run} disabled={running}>
+              {running ? 'Re-running…' : 'Re-run'}
+            </Button>
+            <Button size="sm" onClick={useFeedback}>
+              Use this feedback →
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );

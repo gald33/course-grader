@@ -75,10 +75,19 @@ class RubricDimensionIn(BaseModel):
     component: str
     dimension_key: str
     raw_score: float = Field(ge=0, le=5)
+    # Manual writes default to approved=True (the grader actively chose this
+    # score). LLM auto-apply explicitly passes False.
+    approved: bool = True
 
 
 class RubricBulkUpdate(BaseModel):
     dimensions: list[RubricDimensionIn]
+
+
+class RubricApprovalUpdate(BaseModel):
+    component: str
+    dimension_key: str
+    approved: bool
 
 
 class RubricDimensionRead(BaseModel):
@@ -86,6 +95,7 @@ class RubricDimensionRead(BaseModel):
     dimension_key: str
     raw_score: float
     adjusted_score: float
+    approved: bool = True
 
 
 class OverrideCreate(BaseModel):
@@ -111,11 +121,18 @@ class CurveRevisionIn(BaseModel):
     mapping: dict[str, CurveDimension]
 
 
+class FinalDistribution(BaseModel):
+    mean: float
+    sigma: float
+
+
 class CurveRevisionRead(BaseModel):
     id: int
     revision_number: int
     note: str
     mapping: dict[str, CurveDimension]
+    final_distribution: FinalDistribution | None = None
+    shared_bonus: float = 0.0
     created_at: datetime
 
 
@@ -191,6 +208,31 @@ class ArtifactRead(BaseModel):
     size_bytes: int
 
 
+class LLMReviewDimension(BaseModel):
+    score: int
+    rationale: str
+
+
+class LLMReviewRead(BaseModel):
+    model: str
+    dimensions: dict[str, LLMReviewDimension]
+    feedback_he: str
+    usage: dict[str, int] = {}
+
+
+class CodeReviewDimension(BaseModel):
+    """Per-dimension explanation for the code rubric (auto or LLM-sourced)."""
+
+    score: float
+    rationale: str
+    source: str  # "auto" | "claude"
+
+
+class CodeReviewRead(BaseModel):
+    component: str  # "hw2_code" | "project_code"
+    dimensions: dict[str, CodeReviewDimension]
+
+
 class SubmissionDetail(BaseModel):
     submission: SubmissionRead
     snapshots: list[SnapshotRead]
@@ -203,6 +245,8 @@ class SubmissionDetail(BaseModel):
     report_pdf_artifact_id: int | None
     executed_html_artifact_id: int | None
     artifacts: list[ArtifactRead] = []
+    llm_review: LLMReviewRead | None = None
+    code_review: CodeReviewRead | None = None
 
 
 class NotesUpdate(BaseModel):
@@ -222,12 +266,13 @@ class GradebookRow(BaseModel):
     hw2: float
     project_code: float
     project_report: float
-    initial_talk: float
+    presentation: float
     final_talk: float
     project_base: float
     bonus_points: float
     project_with_bonus: float
     final: float
+    final_uncurved: float
     overrides: dict[str, float]
 
 

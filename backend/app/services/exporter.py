@@ -6,11 +6,13 @@ from pathlib import Path
 
 from bidi.algorithm import get_display
 from fpdf import FPDF
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font
 from sqlalchemy.orm import Session
 
 from app.models.entities import Course
 from app.services.paths import export_path
-from app.services.scoring import compute_gradebook_rows
+from app.services.scoring import _get_submission_for_student, compute_gradebook_rows
 from app.utils.text import sanitize_filename
 
 
@@ -47,7 +49,7 @@ def export_gradebook_csv(db: Session, course_id: int) -> str:
             "hw2",
             "project_code",
             "project_report",
-            "initial_talk",
+            "presentation",
             "final_talk",
             "project_base",
             "bonus_points",
@@ -62,6 +64,45 @@ def export_gradebook_csv(db: Session, course_id: int) -> str:
         for row in rows:
             writer.writerow(row)
 
+    return str(out_path)
+
+
+def export_grades_report_xlsx(db: Session, course_id: int) -> str:
+    """One row per student: national id, name, final grade, student-facing feedback
+    (taken from the project submission). Saved as XLSX."""
+    course = db.get(Course, course_id)
+    if not course:
+        raise ValueError("Course not found")
+
+    rows = compute_gradebook_rows(db, course_id)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Grades"
+    headers = ["ID", "Name", "Final", "Feedback"]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    for row in rows:
+        project = _get_submission_for_student(db, course_id, row["student_id"], "PROJECT")
+        feedback = (project.feedback_student or "") if project else ""
+        ws.append([row["national_id"], row["name"], row["final"], feedback])
+
+    # Reasonable widths and let feedback wrap.
+    ws.column_dimensions["A"].width = 14
+    ws.column_dimensions["B"].width = 28
+    ws.column_dimensions["C"].width = 8
+    ws.column_dimensions["D"].width = 80
+    for r in range(2, ws.max_row + 1):
+        ws.cell(row=r, column=4).alignment = Alignment(wrap_text=True, vertical="top")
+        ws.cell(row=r, column=2).alignment = Alignment(vertical="top")
+    ws.freeze_panes = "A2"
+
+    out_path = export_path(f"{course.code}_{course.year}_{course.semester}", "grades_report.xlsx")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(out_path)
     return str(out_path)
 
 
@@ -107,7 +148,7 @@ def export_student_reports_hebrew(db: Session, course_id: int) -> ExportResult:
             f"תרגיל 2: {row['hw2']}",
             f"קוד פרויקט: {row['project_code']}",
             f"דו\"ח פרויקט: {row['project_report']}",
-            f"מצגת התחלתית: {row['initial_talk']}",
+            f"מצגת: {row['presentation']}",
             f"מצגת סופית: {row['final_talk']}",
             f"בונוס: {row['bonus_points']}",
             f"ציון סופי: {row['final']}",

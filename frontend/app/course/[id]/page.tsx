@@ -68,12 +68,13 @@ type GradebookRow = {
   hw2: number;
   project_code: number;
   project_report: number;
-  initial_talk: number;
+  presentation: number;
   final_talk: number;
   project_base: number;
   bonus_points: number;
   project_with_bonus: number;
   final: number;
+  final_uncurved: number;
 };
 
 type CurvePoints = { points: number[]; tunable: boolean };
@@ -82,6 +83,8 @@ type ActiveCurve = {
   revision_number: number;
   note: string;
   mapping: Record<string, CurvePoints>;
+  final_distribution: { mean: number; sigma: number } | null;
+  shared_bonus: number;
   created_at: string;
 };
 
@@ -125,6 +128,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [gradebook, setGradebook] = useState<GradebookRow[]>([]);
   const [activeCurve, setActiveCurve] = useState<ActiveCurve | null>(null);
+  const [dimensionDistributions, setDimensionDistributions] = useState<Record<string, number[]>>({});
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
   const [step, setStep] = useState<StepKey>('queue');
   const [toast, setToast] = useState<string | null>(null);
@@ -144,13 +148,14 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }, [toast]);
 
   const loadAll = async () => {
-    const [courseRes, assignmentsRes, submissionsRes, gradebookRes, curveRes, overridesRes] = await Promise.all([
+    const [courseRes, assignmentsRes, submissionsRes, gradebookRes, curveRes, overridesRes, distRes] = await Promise.all([
       apiGet<Course>(`/api/courses/${courseId}`),
       apiGet<Assignment[]>(`/api/courses/${courseId}/assignments`),
       apiGet<Submission[]>(`/api/courses/${courseId}/submissions`),
       apiGet<{ rows: GradebookRow[] }>(`/api/courses/${courseId}/gradebook`),
       apiGet<ActiveCurve>(`/api/courses/${courseId}/curves/active`).catch(() => null),
-      apiGet<OverrideRow[]>(`/api/courses/${courseId}/overrides`).catch(() => [] as OverrideRow[])
+      apiGet<OverrideRow[]>(`/api/courses/${courseId}/overrides`).catch(() => [] as OverrideRow[]),
+      apiGet<Record<string, number[]>>(`/api/courses/${courseId}/curves/dimension-distributions`).catch(() => ({}))
     ]);
     setCourse(courseRes);
     setAssignments(assignmentsRes);
@@ -158,6 +163,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setGradebook(gradebookRes.rows);
     setActiveCurve(curveRes);
     setOverrides(overridesRes);
+    setDimensionDistributions(distRes);
   };
 
   useEffect(() => {
@@ -230,6 +236,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               courseId={courseId}
               course={course}
               activeCurve={activeCurve}
+              dimensionDistributions={dimensionDistributions}
+              gradebook={gradebook}
               setToast={setToast}
               refresh={loadAll}
             />
@@ -246,6 +254,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           {step === 'gradebook' ? (
             <GradebookStep
               gradebook={gradebook}
+              activeCurve={activeCurve}
               courseId={courseId}
               setToast={setToast}
               refresh={loadAll}
@@ -931,7 +940,7 @@ function ImportsStep({
       </ImportTile>
 
       {/* Presentations */}
-      <ImportTile icon="🎤" title="Presentations sheet" sub="Two-sheet XLSX with initial + final talk scores per group, in Hebrew.">
+      <ImportTile icon="🎤" title="Presentations sheet" sub="Two-sheet XLSX with presentation + final talk scores per group, in Hebrew.">
         <form onSubmit={(e) => upload(e, presFile, `/api/courses/${courseId}/imports/presentations`)} className="flex items-center gap-2">
           <input type="file" accept=".xlsx" onChange={(e) => setPresFile(e.target.files?.[0] ?? null)} className="text-xs" />
           <Button type="submit" size="sm">Upload presentations</Button>
@@ -990,22 +999,29 @@ function CurveStep({
   courseId,
   course,
   activeCurve,
+  dimensionDistributions,
+  gradebook,
   setToast,
   refresh
 }: {
   courseId: number;
   course: Course;
   activeCurve: ActiveCurve | null;
+  dimensionDistributions: Record<string, number[]>;
+  gradebook: GradebookRow[];
   setToast: (m: string) => void;
   refresh: () => Promise<void>;
 }) {
   const [threshold, setThreshold] = useState(course.attendance_threshold);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [targetMean, setTargetMean] = useState(83);
+  const [targetSigma, setTargetSigma] = useState(12);
 
   useEffect(() => {
     if (!activeCurve) return;
     const d: Record<string, string> = {};
-    for (const [k, v] of Object.entries(activeCurve.mapping)) d[k] = v.points.join(', ');
+    for (const [k, v] of Object.entries(activeCurve.mapping))
+      d[k] = v.points.map((p) => Number(p.toFixed(2)).toString()).join(', ');
     setDraft(d);
   }, [activeCurve]);
 
@@ -1020,8 +1036,10 @@ function CurveStep({
     await refresh();
   };
   const calibrate = async () => {
-    await apiPost(`/api/courses/${courseId}/curves/calibrate-mean-83`);
-    setToast('Calibrated to mean 83');
+    const res = await apiPost<{ note: string }>(
+      `/api/courses/${courseId}/curves/calibrate-mean-83?target_mean=${targetMean}&target_sigma=${targetSigma}`
+    );
+    setToast(res?.note ?? `Calibrated to mean ${targetMean}`);
     await refresh();
   };
   const undoCurve = async () => {
@@ -1054,13 +1072,16 @@ function CurveStep({
 
   return (
     <div className="grid gap-4 pt-6">
+      <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
+
       <div className="hint">
         <span className="hint-icon">i</span>
         <div>
           Tune two things here: the <strong className="text-ink">attendance threshold</strong> (one number per course)
           and the <strong className="text-ink">rubric curve</strong> (six points per dimension that map raw 0–5 scores
-          to 0–100). Calibration adjusts tunable curves to land final mean ≈ 83 — locked dimensions stay put. Every save
-          creates a new revision; <em>Undo</em> reverts.
+          to 0–5 adjusted). <em>Fit grades to N(μ,σ)</em> binary-searches a single-parameter constant-Δslope curve
+          (shared across tunable dimensions, fixed at f(0)=0 and f(5)=5) and adds a uniform bonus only when the curves
+          alone can't reach the target. Every save creates a new revision; <em>Undo</em> reverts.
         </div>
       </div>
 
@@ -1103,9 +1124,31 @@ function CurveStep({
               <div className="text-[13px] text-ink-3">No curve loaded.</div>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={undoCurve}>Undo</Button>
-            <Button variant="soft" size="sm" onClick={calibrate}>✦ Calibrate to mean 83</Button>
+            <span className="text-[12px] text-ink-3">μ</span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              step={1}
+              value={targetMean}
+              onChange={(e) => setTargetMean(Number(e.target.value))}
+              className="h-8 w-[64px] rounded-md border border-border bg-card px-2 text-center font-mono text-[13px]"
+              aria-label="Target mean"
+            />
+            <span className="text-[12px] text-ink-3">σ</span>
+            <input
+              type="number"
+              min={1}
+              max={40}
+              step={1}
+              value={targetSigma}
+              onChange={(e) => setTargetSigma(Number(e.target.value))}
+              className="h-8 w-[56px] rounded-md border border-border bg-card px-2 text-center font-mono text-[13px]"
+              aria-label="Target sigma"
+            />
+            <Button variant="soft" size="sm" onClick={calibrate}>✦ Fit grades to N(μ,σ)</Button>
           </div>
         </div>
 
@@ -1122,7 +1165,7 @@ function CurveStep({
                     <div className="text-[13px] text-ink">{k.split(':')[0].replace(/_/g, ' ')}</div>
                     <div className="text-[11px] text-ink-3">{v.tunable ? 'Tunable' : 'Locked'}</div>
                   </div>
-                  <Sparkline points={v.points} />
+                  <Sparkline points={v.points} distribution={dimensionDistributions[k]} />
                   <Input
                     className="font-mono text-[12px]"
                     disabled={!v.tunable}
@@ -1142,24 +1185,50 @@ function CurveStep({
   );
 }
 
-function Sparkline({ points }: { points: number[] }) {
-  const w = 220, h = 36, pad = 4;
-  const path = points
-    .map((p, i) => {
-      const x = pad + (i / (points.length - 1)) * (w - 2 * pad);
-      const y = h - pad - (p / 100) * (h - 2 * pad);
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
+function Sparkline({ points, distribution }: { points: number[]; distribution?: number[] }) {
+  const w = 220;
+  const h = 48;
+  const pad = 4;
+  const innerW = w - 2 * pad;
+  const innerH = h - 2 * pad;
+  const xAt = (i: number) => pad + (i / (points.length - 1)) * innerW;
+  const yAt = (score: number) => pad + innerH - (Math.max(0, Math.min(5, score)) / 5) * innerH;
+  const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xAt(i).toFixed(1)} ${yAt(p).toFixed(1)}`).join(' ');
+
+  const counts = [0, 0, 0, 0, 0, 0];
+  if (distribution && distribution.length > 0) {
+    for (const v of distribution) {
+      const idx = Math.max(0, Math.min(5, Math.round(v)));
+      counts[idx]++;
+    }
+  }
+  const maxCount = Math.max(...counts, 1);
+  const barWidth = Math.min(22, (innerW / 6) * 0.75);
+
   return (
     <svg width={w} height={h} className="block">
       <line x1={pad} y1={h - pad} x2={w - pad} y2={h - pad} stroke="var(--line)" />
+      {distribution && distribution.length > 0
+        ? counts.map((c, i) => {
+            const cx = pad + (i / 5) * innerW;
+            const barH = (c / maxCount) * innerH;
+            return (
+              <rect
+                key={`b${i}`}
+                x={cx - barWidth / 2}
+                y={pad + innerH - barH}
+                width={barWidth}
+                height={barH}
+                fill="var(--forest)"
+                opacity={0.18}
+              />
+            );
+          })
+        : null}
       <path d={path} stroke="var(--forest)" strokeWidth="2" fill="none" strokeLinecap="round" />
-      {points.map((p, i) => {
-        const x = pad + (i / (points.length - 1)) * (w - 2 * pad);
-        const y = h - pad - (p / 100) * (h - 2 * pad);
-        return <circle key={i} cx={x} cy={y} r="2.2" fill="var(--forest)" />;
-      })}
+      {points.map((p, i) => (
+        <circle key={i} cx={xAt(i)} cy={yAt(p)} r="2.2" fill="var(--forest)" />
+      ))}
     </svg>
   );
 }
@@ -1256,7 +1325,7 @@ function OverridesStep({
                 value={form.component}
                 onChange={(e) => setForm({ ...form, component: e.target.value })}
               >
-                {['hw1', 'hw2', 'project_code', 'project_report', 'initial_talk', 'final_talk', 'attendance', 'bonus'].map(
+                {['hw1', 'hw2', 'project_code', 'project_report', 'presentation', 'final_talk', 'attendance', 'bonus'].map(
                   (c) => (
                     <option key={c}>{c}</option>
                   )
@@ -1347,11 +1416,13 @@ function OverridesStep({
 
 function GradebookStep({
   gradebook,
+  activeCurve,
   courseId,
   setToast,
   refresh
 }: {
   gradebook: GradebookRow[];
+  activeCurve: ActiveCurve | null;
   courseId: number;
   setToast: (m: string) => void;
   refresh: () => Promise<void>;
@@ -1367,10 +1438,27 @@ function GradebookStep({
     return arr;
   }, [gradebook, sort]);
 
-  const finals = gradebook.map((g) => g.final);
+  const finals = gradebook.map((g) => g.final).filter((v): v is number => Number.isFinite(v));
   const mean = finals.length ? (finals.reduce((a, b) => a + b, 0) / finals.length).toFixed(1) : '—';
   const median = finals.length ? finals.slice().sort((a, b) => a - b)[Math.floor(finals.length / 2)] : '—';
-  const passing = gradebook.filter((g) => g.final >= 60).length;
+  const std = stdDev(finals);
+  const stdLabel = std !== null ? std.toFixed(1) : '—';
+  const passing = gradebook.filter((g) => Number.isFinite(g.final) && g.final >= 60).length;
+
+  const finalsRaw = gradebook
+    .map((g) => g.final_uncurved)
+    .filter((v): v is number => Number.isFinite(v));
+  const meanRaw = finalsRaw.length
+    ? (finalsRaw.reduce((a, b) => a + b, 0) / finalsRaw.length).toFixed(1)
+    : '—';
+  const medianRaw = finalsRaw.length
+    ? finalsRaw.slice().sort((a, b) => a - b)[Math.floor(finalsRaw.length / 2)]
+    : '—';
+  const stdRaw = stdDev(finalsRaw);
+  const stdRawLabel = stdRaw !== null ? stdRaw.toFixed(1) : '—';
+  const passingRaw = gradebook.filter(
+    (g) => Number.isFinite(g.final_uncurved) && g.final_uncurved >= 60
+  ).length;
 
   const toggleExempt = async (enrollmentId: number, current: boolean) => {
     await apiPatch(`/api/courses/${courseId}/enrollments/${enrollmentId}/attendance-exempt`, {
@@ -1395,11 +1483,25 @@ function GradebookStep({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
-        <StatCard num={gradebook.length} lbl="Students" />
-        <StatCard num={mean} lbl="Mean final" />
-        <StatCard num={median} lbl="Median final" />
-        <StatCard num={passing} lbl="Passing" />
+      <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
+
+      <div className="grid gap-2">
+        <div className="label-eyebrow text-ink-3">With curve</div>
+        <div className="grid grid-cols-5 gap-3">
+          <StatCard num={gradebook.length} lbl="Students" />
+          <StatCard num={mean} lbl="Mean final" />
+          <StatCard num={median} lbl="Median final" />
+          <StatCard num={stdLabel} lbl="Std" />
+          <StatCard num={passing} lbl="Passing" />
+        </div>
+        <div className="label-eyebrow mt-2 text-ink-3">Without curve</div>
+        <div className="grid grid-cols-5 gap-3">
+          <StatCard num={gradebook.length} lbl="Students" />
+          <StatCard num={meanRaw} lbl="Mean final" />
+          <StatCard num={medianRaw} lbl="Median final" />
+          <StatCard num={stdRawLabel} lbl="Std" />
+          <StatCard num={passingRaw} lbl="Passing" />
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-card shadow-soft">
@@ -1427,6 +1529,12 @@ function GradebookStep({
               href={`${apiBase()}/api/courses/${courseId}/gradebook/csv`}
             >
               ⬇ Export CSV
+            </a>
+            <a
+              className="text-[13px] text-forest hover:underline"
+              href={`${apiBase()}/api/courses/${courseId}/gradebook/grades-report.xlsx`}
+            >
+              ⬇ Grades report (xlsx)
             </a>
             <button onClick={triggerExport} className="text-[13px] text-forest hover:underline">
               Queue Hebrew PDFs
@@ -1512,12 +1620,169 @@ function GradebookStep({
   );
 }
 
+function stdDev(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, v) => a + (v - mean) ** 2, 0) / (values.length - 1);
+  return Math.sqrt(variance);
+}
+
 function StatCard({ num, lbl }: { num: number | string; lbl: string }) {
   return (
     <Card className="p-4">
       <div className="font-display text-[28px] leading-none tnum">{num}</div>
       <div className="mt-1 text-[12px] uppercase tracking-wider text-ink-3">{lbl}</div>
     </Card>
+  );
+}
+
+function Histogram({
+  values,
+  targetMean,
+  targetSigma,
+  caption,
+  bucket = 5,
+  min = 0,
+  max = 100,
+  height: pxHeight = 120
+}: {
+  values: number[];
+  targetMean?: number;
+  targetSigma?: number;
+  caption?: string;
+  bucket?: number;
+  min?: number;
+  max?: number;
+  height?: number;
+}) {
+  if (!values.length) return null;
+  const numBuckets = Math.ceil((max - min) / bucket);
+  const counts = new Array<number>(numBuckets).fill(0);
+  for (const v of values) {
+    const idx = Math.max(0, Math.min(numBuckets - 1, Math.floor((v - min) / bucket)));
+    counts[idx]++;
+  }
+  const maxCount = Math.max(...counts, 1);
+
+  const W = 800;
+  const H = 100;
+  const PAD_X = 8;
+  const PAD_TOP = 6;
+  const PAD_BOTTOM = 14;
+  const innerW = W - PAD_X * 2;
+  const innerH = H - PAD_TOP - PAD_BOTTOM;
+  const barW = innerW / numBuckets;
+
+  let densityPath: string | null = null;
+  if (targetMean !== undefined && targetSigma !== undefined && targetSigma > 0) {
+    const density = (x: number) =>
+      Math.exp(-((x - targetMean) ** 2) / (2 * targetSigma * targetSigma)) /
+      (targetSigma * Math.sqrt(2 * Math.PI));
+    // Expected count per bucket = density(center) * bucketWidth * N — same units as bars.
+    const expectedPerBucket = (centerX: number) => density(centerX) * bucket * values.length;
+    const peak = expectedPerBucket(targetMean);
+    const scaleY = peak > 0 ? Math.min(1, maxCount / peak) : 1;
+    const samples = 120;
+    const pts: string[] = [];
+    for (let i = 0; i <= samples; i++) {
+      const x = min + ((max - min) * i) / samples;
+      const y = expectedPerBucket(x) * scaleY;
+      const px = PAD_X + (innerW * (x - min)) / (max - min);
+      const py = PAD_TOP + innerH - (innerH * Math.min(y, maxCount)) / maxCount;
+      pts.push(`${px.toFixed(1)},${py.toFixed(1)}`);
+    }
+    densityPath = `M ${pts.join(' L ')}`;
+  }
+
+  const meanX = targetMean !== undefined ? PAD_X + (innerW * (targetMean - min)) / (max - min) : null;
+
+  return (
+    <Card className="p-3">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="block w-full"
+        style={{ height: pxHeight }}
+        preserveAspectRatio="none"
+      >
+        {counts.map((c, i) => {
+          const h = (c / maxCount) * innerH;
+          return (
+            <rect
+              key={i}
+              x={PAD_X + i * barW + 1}
+              y={PAD_TOP + innerH - h}
+              width={Math.max(0, barW - 2)}
+              height={h}
+              className="fill-forest-tint"
+            />
+          );
+        })}
+        {densityPath && <path d={densityPath} fill="none" className="stroke-forest" strokeWidth={1.5} />}
+        {meanX !== null && (
+          <line
+            x1={meanX}
+            x2={meanX}
+            y1={PAD_TOP}
+            y2={PAD_TOP + innerH}
+            className="stroke-forest"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+            opacity={0.5}
+          />
+        )}
+        {[0, 25, 50, 60, 75, 100].map((v) => {
+          const x = PAD_X + (innerW * (v - min)) / (max - min);
+          return (
+            <g key={v}>
+              <line
+                x1={x}
+                x2={x}
+                y1={PAD_TOP + innerH}
+                y2={PAD_TOP + innerH + 2}
+                className="stroke-line-soft"
+                strokeWidth={0.5}
+              />
+              <text x={x} y={H - 2} textAnchor="middle" className="fill-ink-3" style={{ fontSize: 9 }}>
+                {v}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      {caption && <div className="mt-1 text-center text-[11px] text-ink-3">{caption}</div>}
+    </Card>
+  );
+}
+
+function DistributionPanel({
+  rows,
+  activeCurve,
+  height = 90
+}: {
+  rows: GradebookRow[];
+  activeCurve: ActiveCurve | null;
+  height?: number;
+}) {
+  if (!rows.length) return null;
+  const finals = rows.map((r) => r.final).filter((v): v is number => Number.isFinite(v));
+  const finalsRaw = rows.map((r) => r.final_uncurved).filter((v): v is number => Number.isFinite(v));
+  if (!finals.length && !finalsRaw.length) return null;
+  const dist = activeCurve?.final_distribution ?? null;
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <Histogram
+        values={finals}
+        targetMean={dist?.mean}
+        targetSigma={dist?.sigma}
+        caption={
+          dist
+            ? `With curve · target N(${dist.mean}, ${dist.sigma})`
+            : 'With curve · no calibration active'
+        }
+        height={height}
+      />
+      <Histogram values={finalsRaw} caption="Without curve · raw distribution" height={height} />
+    </div>
   );
 }
 

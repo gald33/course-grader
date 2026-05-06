@@ -10,6 +10,7 @@ __pycache__/
 # Node
 node_modules/
 .next/
+*.tsbuildinfo
 
 # Data artifacts
 data/db.sqlite3
@@ -29,6 +30,10 @@ attendance_report.xlsx
 homework_submissions.xlsx
 roster_attendance.xlsx
 *.command
+*.pdf
+
+# Claude Code runtime
+.claude/scheduled_tasks.lock
 
 # OS
 .DS_Store

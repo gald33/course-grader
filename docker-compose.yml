@@ -8,6 +8,9 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app"
+    env_file:
+      - .env
     environment:
       APP_ENV: docker
       API_HOST: 0.0.0.0
@@ -24,6 +27,7 @@ services:
       NOTEBOOK_PENALTY_POWER: 1.5
     volumes:
       - ./data:/data
+      - ./backend:/app
     ports:
       - "8000:8000"
     depends_on:
@@ -34,6 +38,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO --concurrency=1
+    env_file:
+      - .env
     environment:
       APP_ENV: docker
       DATABASE_URL: sqlite:////data/db.sqlite3
@@ -47,6 +53,7 @@ services:
       NOTEBOOK_PENALTY_POWER: 1.5
     volumes:
       - ./data:/data
+      - ./backend:/app
     depends_on:
       - redis
       - backend
@@ -55,8 +62,19 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    command: npm run dev
     environment:
       NEXT_PUBLIC_API_BASE: http://localhost:8000
+      # Force polling — Next.js's native fs watcher is unreliable inside
+      # Docker on macOS (the bind-mounted volume doesn't deliver inotify events).
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./frontend:/app
+      # Anonymous volumes shadow the bind mount so the host doesn't overwrite
+      # the container's installed deps and dev build cache.
+      - /app/node_modules
+      - /app/.next
     ports:
       - "3000:3000"
     depends_on:

@@ -14,7 +14,7 @@ nbconvert==7.16.6
 ipykernel==6.29.5
 
 # ML stack for executing student notebooks
-numpy==2.2.2
+numpy==2.0.2
 pandas==2.2.3
 scipy==1.15.1
 scikit-learn==1.6.1
@@ -40,3 +40,20 @@ pytesseract==0.3.13
 pdf2image==1.17.0
 pytest==8.3.4
 pytest-cov==6.0.0
+ruff==0.9.4
+
+# LLM review of project reports (Claude Sonnet 4.6)
+anthropic==0.69.0
+
+# Deep-learning stack for student notebooks (TF/Keras, PyTorch, HuggingFace)
+tensorflow==2.18.0
+torch==2.5.1
+torchvision==0.20.1
+transformers==4.46.3
+
+# Kaggle dataset downloader (used by student notebooks via kagglehub.dataset_download)
+kagglehub==0.3.4
+
+# Google Drive downloader (used by student notebooks via `!gdown ...`).
+# Pinned <6 because v6.0 removed the `--id` flag that older student notebooks rely on.
+gdown==5.2.0

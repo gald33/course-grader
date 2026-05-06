@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     notebook_total_timeout_seconds: int = 900
     notebook_penalty_power: float = 1.5
 
+    # LLM review of project reports
+    anthropic_api_key: str | None = None
+    llm_review_model: str = "claude-sonnet-4-6"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

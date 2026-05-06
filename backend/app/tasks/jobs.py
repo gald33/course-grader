@@ -12,9 +12,12 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.entities import Artifact, Assignment, ColabSnapshot, NotebookRun, RubricDimensionScore, Submission
+from app.services.auto_install import auto_install_missing
+from app.services.code_metrics import all_deterministic_scores
 from app.services.consistency import compare_report_and_notebook, flags_to_json, notebook_text_from_ipynb
 from app.services.english_comments import english_comments_score_from_notebook
 from app.services.exporter import export_student_reports_hebrew
+from app.services.llm_code_review import LLMCodeReviewError, review_code_dimensions
 from app.services.notebook_runner import execute_notebook, serialize_notebook
 from app.services.pdf_service import extract_originality_score, extract_text_from_pdf
 from app.services.paths import artifact_path
@@ -235,6 +238,12 @@ def run_notebook(run_id: int) -> dict:
         # the original "data.csv" the students wrote in their code.
         _stage_data_files(db, run.submission_id, Path(snapshot_artifact.path).parent)
 
+        # Resolve missing imports in the worker before nbclient spawns a kernel.
+        # Anything that was already importable (numpy, tensorflow, ...) is a
+        # no-op; anything new is pip-installed into the worker's site-packages.
+        install_report = auto_install_missing(Path(snapshot_artifact.path))
+        logger.info("auto-install pre-pass: %s discovered, %s installed", len(install_report.discovered), len(install_report.attempts))
+
         try:
             result = execute_notebook(
                 snapshot_artifact.path,
@@ -247,6 +256,10 @@ def run_notebook(run_id: int) -> dict:
             run.ended_at = datetime.utcnow()
             db.commit()
             return {"status": "failed", "reason": str(exc)}
+
+        # Prepend the auto-install report to the run log so it's visible
+        # alongside the cell output when the grader opens the .log artifact.
+        result.logs = install_report.log + result.logs
 
         executed_bytes = serialize_notebook(result.executed_notebook)
         html_bytes = result.html.encode("utf-8")
@@ -295,30 +308,84 @@ def run_notebook(run_id: int) -> dict:
             assignment = db.get(Assignment, submission.assignment_id)
             if assignment is not None and assignment.assignment_type in {"HW2", "PROJECT"}:
                 component = "hw2_code" if assignment.assignment_type == "HW2" else "project_code"
-                english_score = english_comments_score_from_notebook(executed_artifact.path)
                 curve = parse_curve_mapping(get_active_curve(db, submission.course_id))
-                points = curve.get("english_comments_compliance", {"points": [0, 1, 2, 3, 4, 5]})["points"]
-                adjusted = apply_curve(english_score, points)
-                row = db.scalar(
-                    select(RubricDimensionScore).where(
-                        RubricDimensionScore.submission_id == submission.id,
-                        RubricDimensionScore.component == component,
-                        RubricDimensionScore.dimension_key == "english_comments_compliance",
-                    )
-                )
-                if row is None:
-                    db.add(
-                        RubricDimensionScore(
-                            submission_id=submission.id,
-                            component=component,
-                            dimension_key="english_comments_compliance",
-                            raw_score=english_score,
-                            adjusted_score=adjusted,
+
+                # explanations: {dim_key: {"score": int, "rationale": str, "source": "auto" | "claude"}}
+                # Persisted as JSON in submission.code_review_json so the rubric UI can
+                # show a per-dim explanation under each row, mirroring the project_report
+                # llm_review pattern.
+                explanations: dict[str, dict[str, object]] = {}
+                raw_scores: dict[str, float] = {}
+
+                ec_score, ec_rationale = english_comments_score_from_notebook(executed_artifact.path)
+                raw_scores["english_comments_compliance"] = ec_score
+                explanations["english_comments_compliance"] = {
+                    "score": ec_score,
+                    "rationale": ec_rationale,
+                    "source": "auto",
+                }
+
+                for dim_key, scored in all_deterministic_scores(
+                    notebook_path=executed_artifact.path,
+                    staged_data_dir=Path(snapshot_artifact.path).parent,
+                ).items():
+                    raw_scores[dim_key] = scored.score
+                    explanations[dim_key] = {
+                        "score": scored.score,
+                        "rationale": scored.rationale,
+                        "source": "auto",
+                    }
+
+                # LLM scores the two judgment dims (processing_description,
+                # models_quality). Best-effort — if the API call fails the run
+                # still succeeds; existing rows for those dims are left alone.
+                try:
+                    nb_text = notebook_text_from_ipynb(executed_artifact.path)
+                    llm_result = review_code_dimensions(nb_text)
+                    for dim_key, payload in llm_result.scores.items():
+                        if isinstance(payload, dict) and "score" in payload:
+                            score = float(payload["score"])
+                            raw_scores[dim_key] = score
+                            explanations[dim_key] = {
+                                "score": score,
+                                "rationale": str(payload.get("rationale", "")),
+                                "source": "claude",
+                            }
+                except LLMCodeReviewError as exc:
+                    logger.warning("LLM code review skipped: %s", exc)
+                except Exception:  # noqa: BLE001
+                    logger.exception("LLM code review failed unexpectedly")
+
+                # Upsert every collected score, applying the active curve.
+                for dim_key, raw in raw_scores.items():
+                    cfg = curve.get(dim_key, {"points": [0, 1, 2, 3, 4, 5]})
+                    adjusted = apply_curve(raw, cfg["points"])
+                    row = db.scalar(
+                        select(RubricDimensionScore).where(
+                            RubricDimensionScore.submission_id == submission.id,
+                            RubricDimensionScore.component == component,
+                            RubricDimensionScore.dimension_key == dim_key,
                         )
                     )
-                else:
-                    row.raw_score = english_score
-                    row.adjusted_score = adjusted
+                    if row is None:
+                        db.add(
+                            RubricDimensionScore(
+                                submission_id=submission.id,
+                                component=component,
+                                dimension_key=dim_key,
+                                raw_score=raw,
+                                adjusted_score=adjusted,
+                            )
+                        )
+                    else:
+                        row.raw_score = raw
+                        row.adjusted_score = adjusted
+
+                # Persist all explanations for the rubric UI.
+                submission.code_review_json = json.dumps(
+                    {"component": component, "dimensions": explanations},
+                    ensure_ascii=False,
+                )
 
             report_artifact = db.scalar(
                 select(Artifact)

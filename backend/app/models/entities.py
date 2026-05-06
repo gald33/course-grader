@@ -94,6 +94,8 @@ class Submission(Base):
     missing_data_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     missing_code_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     manual_grade: Mapped[float | None] = mapped_column(Float, nullable=True)
+    project_llm_review_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    code_review_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     pinned_run_id: Mapped[int | None] = mapped_column(ForeignKey("notebook_runs.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -189,6 +191,10 @@ class RubricDimensionScore(Base):
     dimension_key: Mapped[str] = mapped_column(String(128), index=True)
     raw_score: Mapped[float] = mapped_column(Float)
     adjusted_score: Mapped[float] = mapped_column(Float)
+    # True once the grader has touched/approved this score. LLM auto-applied
+    # scores start as False; manual dot clicks and explicit ✓ taps both flip
+    # this to True.
+    approved: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
 
     __table_args__ = (UniqueConstraint("submission_id", "component", "dimension_key", name="uq_rubric_component_dim"),)
 

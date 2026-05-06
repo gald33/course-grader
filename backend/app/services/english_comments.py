@@ -24,7 +24,8 @@ def extract_comment_blocks(source: str) -> list[str]:
     return blocks
 
 
-def english_comments_score_from_notebook(ipynb_path: str) -> float:
+def english_comments_score_from_notebook(ipynb_path: str) -> tuple[float, str]:
+    """Returns (score, rationale) so callers can persist both."""
     nb = nbformat.read(ipynb_path, as_version=4)
     comments: list[str] = []
 
@@ -37,12 +38,13 @@ def english_comments_score_from_notebook(ipynb_path: str) -> float:
         comments.extend(extract_comment_blocks(source))
 
     if not comments:
-        return 5.0
+        return 5.0, "No comments or docstrings found — no Hebrew to flag."
 
-    english_like = 0
-    for comment in comments:
-        if not HEBREW_RE.search(comment):
-            english_like += 1
-
+    english_like = sum(1 for comment in comments if not HEBREW_RE.search(comment))
     ratio = english_like / len(comments)
-    return round(max(0.0, min(5.0, ratio * 5.0)), 2)
+    score = round(max(0.0, min(5.0, ratio * 5.0)), 2)
+    rationale = (
+        f"{english_like} of {len(comments)} comments / docstrings have no Hebrew "
+        f"characters ({round(ratio * 100)}%)."
+    )
+    return score, rationale

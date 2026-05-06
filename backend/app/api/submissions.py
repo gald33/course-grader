@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, or_, select
@@ -24,6 +25,7 @@ from app.schemas.api import (
     MissingFlagsUpdate,
     NotesUpdate,
     OverrideCreate,
+    RubricApprovalUpdate,
     RubricBulkUpdate,
     RubricDimensionRead,
     SnapshotCreate,
@@ -32,11 +34,16 @@ from app.schemas.api import (
     SubmissionRead,
     SubmissionRequirements,
 )
+from app.services.consistency import notebook_text_from_ipynb
+from app.services.llm_code_review import LLMCodeReviewError, review_code_dimensions
+from app.services.llm_review import LLMReviewError, review_project_report
+from app.services.pdf_service import extract_text_from_pdf
 from app.services.scoring import apply_curve, get_active_curve, parse_curve_mapping
 from app.tasks.dispatch import safe_delay
 from app.tasks.jobs import fetch_colab_snapshot
 
 router = APIRouter(prefix="/api", tags=["submissions"])
+logger = logging.getLogger(__name__)
 
 
 def _compute_requirements(
@@ -276,6 +283,7 @@ def get_submission_detail(submission_id: int, db: Session = Depends(get_db)) -> 
                 dimension_key=r.dimension_key,
                 raw_score=r.raw_score,
                 adjusted_score=r.adjusted_score,
+                approved=bool(r.approved),
             )
             for r in rubric_rows
         ],
@@ -299,6 +307,12 @@ def get_submission_detail(submission_id: int, db: Session = Depends(get_db)) -> 
                 .order_by(Artifact.id.asc())
             ).all()
         ],
+        llm_review=json.loads(submission.project_llm_review_json)
+        if submission.project_llm_review_json
+        else None,
+        code_review=json.loads(submission.code_review_json)
+        if submission.code_review_json
+        else None,
     )
 
 
@@ -320,6 +334,21 @@ def create_snapshot(submission_id: int, payload: SnapshotCreate, db: Session = D
         db.commit()
         db.refresh(snapshot)
     return snapshot
+
+
+@router.delete("/submissions/{submission_id}/snapshots")
+def delete_all_snapshots(submission_id: int, db: Session = Depends(get_db)) -> dict:
+    submission = db.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    snapshots = db.scalars(
+        select(ColabSnapshot).where(ColabSnapshot.submission_id == submission_id)
+    ).all()
+    for snap in snapshots:
+        db.delete(snap)
+    db.commit()
+    return {"status": "ok", "deleted": len(snapshots)}
 
 
 @router.put("/submissions/{submission_id}/rubric")
@@ -347,14 +376,268 @@ def upsert_rubric(submission_id: int, payload: RubricBulkUpdate, db: Session = D
                 dimension_key=dim.dimension_key,
                 raw_score=dim.raw_score,
                 adjusted_score=adjusted,
+                approved=dim.approved,
             )
             db.add(row)
         else:
             row.raw_score = dim.raw_score
             row.adjusted_score = adjusted
+            row.approved = dim.approved
 
     db.commit()
     return {"status": "ok", "count": len(payload.dimensions)}
+
+
+@router.post("/submissions/{submission_id}/rubric/approve")
+def set_rubric_approval(
+    submission_id: int, payload: RubricApprovalUpdate, db: Session = Depends(get_db)
+) -> dict:
+    """Toggle the approved flag on a single dimension without changing its score.
+
+    Used by the inline ✓ button — the grader confirms an LLM-suggested score
+    without nudging the dot.
+    """
+    row = db.scalar(
+        select(RubricDimensionScore).where(
+            RubricDimensionScore.submission_id == submission_id,
+            RubricDimensionScore.component == payload.component,
+            RubricDimensionScore.dimension_key == payload.dimension_key,
+        )
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Dimension not yet scored")
+    row.approved = payload.approved
+    db.commit()
+    return {"status": "ok", "approved": row.approved}
+
+
+@router.post("/submissions/{submission_id}/llm-review/apply")
+def apply_llm_review(submission_id: int, db: Session = Depends(get_db)) -> dict:
+    """Write the stored LLM-suggested scores into the rubric as `approved=False`.
+
+    Idempotent: existing manually-approved scores are left alone (we never
+    overwrite a grader's decision); rows that don't exist yet get created with
+    the LLM's score and `approved=False`; previously-LLM-applied rows that the
+    grader hasn't approved get refreshed if the LLM has since re-suggested.
+    """
+    submission = db.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if not submission.project_llm_review_json:
+        raise HTTPException(status_code=400, detail="No stored LLM review for this submission")
+
+    review = json.loads(submission.project_llm_review_json)
+    dims = review.get("dimensions", {})
+    if not isinstance(dims, dict) or not dims:
+        raise HTTPException(status_code=400, detail="Stored LLM review is empty")
+
+    curve = parse_curve_mapping(get_active_curve(db, submission.course_id))
+    component = "project_report"
+    written = 0
+    skipped_approved = 0
+
+    for dim_key, payload in dims.items():
+        if not isinstance(payload, dict):
+            continue
+        score = payload.get("score")
+        if not isinstance(score, (int, float)):
+            continue
+        score = max(0.0, min(5.0, float(score)))
+
+        existing = db.scalar(
+            select(RubricDimensionScore).where(
+                RubricDimensionScore.submission_id == submission_id,
+                RubricDimensionScore.component == component,
+                RubricDimensionScore.dimension_key == dim_key,
+            )
+        )
+        if existing is not None and existing.approved:
+            # Don't clobber a grader's decision.
+            skipped_approved += 1
+            continue
+
+        points = curve.get(dim_key, {"points": [0, 1, 2, 3, 4, 5]})["points"]
+        adjusted = apply_curve(score, points)
+        if existing is None:
+            db.add(
+                RubricDimensionScore(
+                    submission_id=submission_id,
+                    component=component,
+                    dimension_key=dim_key,
+                    raw_score=score,
+                    adjusted_score=adjusted,
+                    approved=False,
+                )
+            )
+        else:
+            existing.raw_score = score
+            existing.adjusted_score = adjusted
+            existing.approved = False
+        written += 1
+
+    db.commit()
+    return {"status": "ok", "written": written, "skipped_approved": skipped_approved}
+
+
+_LLM_CODE_DIMS: set[str] = {"processing_description", "models_quality"}
+_LLM_REPORT_DIMS = {
+    "research_question_hypothesis",
+    "data_description",
+    "data_processing",
+    "models_comparison",
+    "results_analysis",
+    "consistency_with_code",
+}
+_LLM_DIMS_BY_COMPONENT = {
+    "project_code": _LLM_CODE_DIMS,
+    "hw2_code": _LLM_CODE_DIMS,
+    "project_report": _LLM_REPORT_DIMS,
+}
+
+
+@router.post("/submissions/{submission_id}/rubric/{component}/{dimension_key}/rescore-llm")
+def rescore_one_llm_dim(
+    submission_id: int,
+    component: str,
+    dimension_key: str,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Re-run the LLM scorer for ONE rubric dimension and overwrite that single
+    score (approved=False so the grader reviews). Other dims are untouched even
+    though the underlying LLM call may score them too — we discard the rest."""
+    submission = db.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    valid = _LLM_DIMS_BY_COMPONENT.get(component)
+    if not valid or dimension_key not in valid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{component}/{dimension_key} is not an LLM-scored dimension",
+        )
+
+    nb_path = _find_pinned_executed_notebook(db, submission)
+    if nb_path is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No executed notebook for this submission — run it first",
+        )
+    try:
+        nb_text = notebook_text_from_ipynb(nb_path)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Failed to read notebook: {exc}") from exc
+
+    if component in {"project_code", "hw2_code"}:
+        try:
+            result = review_code_dimensions(nb_text)
+        except LLMCodeReviewError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("code-review LLM failed for sub %s", submission_id)
+            raise HTTPException(status_code=502, detail=f"LLM call failed: {exc}") from exc
+        scored = result.scores.get(dimension_key)
+        json_field = "code_review_json"
+    else:
+        report_artifact = db.scalar(
+            select(Artifact)
+            .where(
+                Artifact.submission_id == submission_id,
+                Artifact.kind == "project_report_pdf",
+            )
+            .order_by(Artifact.id.desc())
+        )
+        if report_artifact is None:
+            report_artifact = db.scalar(
+                select(Artifact)
+                .where(
+                    Artifact.submission_id == submission_id,
+                    Artifact.kind == "submission_file",
+                    Artifact.filename.ilike("%.pdf"),
+                )
+                .order_by(Artifact.id.desc())
+            )
+        if report_artifact is None:
+            raise HTTPException(status_code=400, detail="No report PDF on this submission")
+        try:
+            pdf_text = extract_text_from_pdf(report_artifact.path)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(status_code=500, detail=f"Failed to read PDF: {exc}") from exc
+        if not pdf_text or not pdf_text.strip():
+            raise HTTPException(status_code=400, detail="Report PDF text extraction returned empty")
+        try:
+            result = review_project_report(pdf_text, nb_text)
+        except LLMReviewError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("report-review LLM failed for sub %s", submission_id)
+            raise HTTPException(status_code=502, detail=f"LLM call failed: {exc}") from exc
+        scored = result.dimensions.get(dimension_key)
+        json_field = "project_llm_review_json"
+
+    if not isinstance(scored, dict) or "score" not in scored:
+        raise HTTPException(status_code=502, detail=f"LLM did not return a score for {dimension_key}")
+    score = max(0.0, min(5.0, float(scored["score"])))
+    rationale = str(scored.get("rationale", ""))
+
+    curve = parse_curve_mapping(get_active_curve(db, submission.course_id))
+    points = curve.get(dimension_key, {"points": [0, 1, 2, 3, 4, 5]})["points"]
+    adjusted = apply_curve(score, points)
+
+    row = db.scalar(
+        select(RubricDimensionScore).where(
+            RubricDimensionScore.submission_id == submission_id,
+            RubricDimensionScore.component == component,
+            RubricDimensionScore.dimension_key == dimension_key,
+        )
+    )
+    if row is None:
+        db.add(
+            RubricDimensionScore(
+                submission_id=submission_id,
+                component=component,
+                dimension_key=dimension_key,
+                raw_score=score,
+                adjusted_score=adjusted,
+                approved=False,
+            )
+        )
+    else:
+        row.raw_score = score
+        row.adjusted_score = adjusted
+        row.approved = False
+
+    existing_str = getattr(submission, json_field) or ""
+    try:
+        blob = json.loads(existing_str) if existing_str else {}
+    except json.JSONDecodeError:
+        blob = {}
+    if not isinstance(blob, dict):
+        blob = {}
+    if json_field == "code_review_json":
+        blob.setdefault("component", component)
+        dims = blob.setdefault("dimensions", {})
+        if not isinstance(dims, dict):
+            dims = {}
+            blob["dimensions"] = dims
+        dims[dimension_key] = {"score": score, "rationale": rationale, "source": "claude"}
+    else:
+        dims = blob.setdefault("dimensions", {})
+        if not isinstance(dims, dict):
+            dims = {}
+            blob["dimensions"] = dims
+        dims[dimension_key] = {"score": score, "rationale": rationale}
+    setattr(submission, json_field, json.dumps(blob, ensure_ascii=False))
+
+    db.commit()
+    return {
+        "status": "ok",
+        "component": component,
+        "dimension_key": dimension_key,
+        "score": score,
+        "adjusted_score": adjusted,
+        "rationale": rationale,
+        "source": "claude",
+    }
 
 
 @router.patch("/submissions/{submission_id}/notes")
@@ -366,6 +649,104 @@ def update_notes(submission_id: int, payload: NotesUpdate, db: Session = Depends
     submission.feedback_student = payload.feedback_student
     db.commit()
     return {"status": "ok"}
+
+
+def _find_pinned_executed_notebook(db: Session, submission: Submission) -> str | None:
+    """Resolve the executed notebook artifact path for the pinned/most-recent run."""
+    pinned = None
+    if submission.pinned_run_id:
+        pinned = db.get(NotebookRun, submission.pinned_run_id)
+    if pinned is None:
+        pinned = db.scalar(
+            select(NotebookRun)
+            .where(NotebookRun.submission_id == submission.id)
+            .order_by(NotebookRun.id.desc())
+        )
+    if pinned is None or pinned.executed_notebook_artifact_id is None:
+        return None
+    art = db.get(Artifact, pinned.executed_notebook_artifact_id)
+    return art.path if art else None
+
+
+@router.post("/submissions/{submission_id}/llm-review")
+def run_llm_review(submission_id: int, db: Session = Depends(get_db)) -> dict:
+    """Ask Claude Sonnet 4.6 to suggest project_report rubric scores + a Hebrew
+    feedback paragraph. Persists the result as JSON on the submission so the
+    grader can revisit it without re-running.
+    """
+    submission = db.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    assignment = db.get(Assignment, submission.assignment_id)
+    if not assignment or assignment.assignment_type != "PROJECT":
+        raise HTTPException(
+            status_code=400, detail="LLM review only supports PROJECT submissions"
+        )
+
+    # Report PDF — required.
+    report_artifact = db.scalar(
+        select(Artifact)
+        .where(
+            Artifact.submission_id == submission_id,
+            Artifact.kind == "project_report_pdf",
+        )
+        .order_by(Artifact.id.desc())
+    )
+    if report_artifact is None:
+        # Fall back to any submission_file PDF.
+        report_artifact = db.scalar(
+            select(Artifact)
+            .where(
+                Artifact.submission_id == submission_id,
+                Artifact.kind == "submission_file",
+                Artifact.filename.ilike("%.pdf"),
+            )
+            .order_by(Artifact.id.desc())
+        )
+    if report_artifact is None:
+        raise HTTPException(status_code=400, detail="No report PDF on this submission")
+
+    try:
+        pdf_text = extract_text_from_pdf(report_artifact.path)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail=f"Failed to read report PDF: {exc}"
+        ) from exc
+
+    if not pdf_text or not pdf_text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Report PDF text extraction returned empty — cannot run LLM review",
+        )
+
+    # Executed notebook — optional but strongly recommended for the
+    # consistency_with_code dimension.
+    notebook_text = ""
+    nb_path = _find_pinned_executed_notebook(db, submission)
+    if nb_path:
+        try:
+            notebook_text = notebook_text_from_ipynb(nb_path)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to read executed notebook for sub %s", submission_id)
+
+    try:
+        result = review_project_report(pdf_text, notebook_text)
+    except LLMReviewError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("LLM review failed for sub %s", submission_id)
+        raise HTTPException(status_code=502, detail=f"LLM call failed: {exc}") from exc
+
+    payload = {
+        "model": result.model,
+        "dimensions": result.dimensions,
+        "feedback_he": result.feedback_he,
+        "usage": result.usage,
+    }
+    submission.project_llm_review_json = json.dumps(payload, ensure_ascii=False)
+    db.commit()
+    return payload
 
 
 @router.patch("/submissions/{submission_id}/manual-grade")

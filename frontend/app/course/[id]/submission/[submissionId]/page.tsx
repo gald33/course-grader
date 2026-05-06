@@ -156,7 +156,7 @@ type ArtifactTab = 'notebook' | 'pdf' | 'files';
 const RUBRIC_COMPONENTS_BY_TYPE: Record<string, string[]> = {
   HW1: [],
   HW2: ['hw2_code'],
-  PROJECT: ['project_code', 'project_report', 'initial_talk', 'final_talk']
+  PROJECT: ['project_code', 'project_report', 'presentation', 'final_talk']
 };
 
 const DIMENSIONS: Record<string, string[]> = {
@@ -196,7 +196,7 @@ const DIMENSIONS: Record<string, string[]> = {
     'results_analysis',
     'consistency_with_code'
   ],
-  initial_talk: ['clarity', 'complexity', 'qa_answers', 'elegance', 'subjective_impression'],
+  presentation: ['clarity', 'complexity', 'qa_answers', 'elegance', 'subjective_impression'],
   final_talk: ['clarity', 'complexity', 'qa_answers', 'elegance', 'subjective_impression']
 };
 
@@ -997,6 +997,8 @@ function ReviewSplit(props: SharedProps) {
           active={props.activeArtifact}
           setActive={props.setActiveArtifact}
           height={780}
+          refresh={props.refresh}
+          setToast={props.setToast}
         />
         <DataFilesPanel detail={props.detail} />
         <div className="mt-3.5">
@@ -1037,6 +1039,8 @@ function ReviewTabs(props: SharedProps) {
         active={props.activeArtifact}
         setActive={props.setActiveArtifact}
         height={620}
+        refresh={props.refresh}
+        setToast={props.setToast}
       />
       <div className="mt-4 grid gap-4" style={{ gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)' }}>
         <RubricPanel {...props} />
@@ -1077,6 +1081,8 @@ function ReviewFocus(props: SharedProps & { filledCount: number; totalDims: numb
           active={props.activeArtifact}
           setActive={props.setActiveArtifact}
           height={'calc(100vh - 130px)'}
+          refresh={props.refresh}
+          setToast={props.setToast}
         />
       </div>
       <aside
@@ -1169,13 +1175,17 @@ function ArtifactPanel({
   htmlDoc,
   active,
   setActive,
-  height
+  height,
+  refresh,
+  setToast
 }: {
   detail: SubmissionDetail;
   htmlDoc: string;
   active: ArtifactTab;
   setActive: React.Dispatch<React.SetStateAction<ArtifactTab>>;
   height: number | string;
+  refresh: () => Promise<void>;
+  setToast: (m: string) => void;
 }) {
   // Only "primary" submission artifacts go in the main viewer/strip — data
   // files (CSVs etc.) live in their own list below.
@@ -1198,6 +1208,64 @@ function ArtifactPanel({
 
   // Most recent Colab URL — link out to the live Colab regardless of run state.
   const latestColabUrl = detail.snapshots.find((s) => s.url)?.url ?? null;
+  // Snapshots are returned id-DESC, so the last entry is the oldest paste —
+  // i.e., the originally submitted URL. Only meaningful once an overwrite exists.
+  const originalColabUrl =
+    detail.snapshots.length > 1
+      ? detail.snapshots[detail.snapshots.length - 1]?.url ?? null
+      : null;
+
+  const [urlEditOpen, setUrlEditOpen] = useState(false);
+  const [urlDraft, setUrlDraft] = useState('');
+  const [urlSaving, setUrlSaving] = useState(false);
+  const [urlRemoving, setUrlRemoving] = useState(false);
+
+  const openUrlEdit = () => {
+    setUrlDraft(latestColabUrl ?? '');
+    setUrlEditOpen(true);
+  };
+  const cancelUrlEdit = () => {
+    setUrlEditOpen(false);
+    setUrlDraft('');
+  };
+  const submitUrlEdit = async () => {
+    const next = urlDraft.trim();
+    if (!next) return;
+    setUrlSaving(true);
+    try {
+      await apiPost(`/api/submissions/${detail.submission.id}/snapshot`, { url: next });
+      setUrlEditOpen(false);
+      setUrlDraft('');
+      setToast(latestColabUrl ? 'URL updated — fetching snapshot' : 'Snapshot queued');
+      await refresh();
+    } catch (e) {
+      setToast(`Couldn't update URL: ${(e as Error).message || 'unknown error'}`);
+    } finally {
+      setUrlSaving(false);
+    }
+  };
+  const removeUrl = async () => {
+    const runCount = detail.runs.length;
+    const message = runCount > 0
+      ? `Remove the Colab URL? This also discards ${runCount} run${runCount === 1 ? '' : 's'} and the snapshot history.`
+      : 'Remove the Colab URL? The snapshot history will be discarded.';
+    if (!window.confirm(message)) return;
+    setUrlRemoving(true);
+    try {
+      const res = await fetch(`${apiBase()}/api/submissions/${detail.submission.id}/snapshots`, { method: 'DELETE' });
+      if (!res.ok) {
+        const text = await res.text();
+        setToast(`Couldn't remove URL: ${text || res.statusText}`);
+        return;
+      }
+      setUrlEditOpen(false);
+      setUrlDraft('');
+      setToast('Colab URL removed');
+      await refresh();
+    } finally {
+      setUrlRemoving(false);
+    }
+  };
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card shadow-soft">
@@ -1225,18 +1293,71 @@ function ArtifactPanel({
             );
           })}
         </div>
-        {latestColabUrl ? (
+        <div className="mr-3 flex items-center gap-1.5">
+          {latestColabUrl ? (
+            <a
+              href={latestColabUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[12px] text-ink-2 transition hover:border-forest-soft hover:text-forest"
+              title="Open the live Colab notebook"
+            >
+              <span aria-hidden>⎘</span> Open in Colab
+            </a>
+          ) : null}
+          <button
+            type="button"
+            onClick={openUrlEdit}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[12px] text-ink-2 transition hover:border-forest-soft hover:text-forest"
+            title={latestColabUrl ? 'Replace the Colab URL (original is kept as backup)' : 'Add a Colab URL'}
+          >
+            {latestColabUrl ? 'Change URL' : 'Add Colab URL'}
+          </button>
+          {latestColabUrl ? (
+            <button
+              type="button"
+              onClick={() => void removeUrl()}
+              disabled={urlRemoving}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[12px] text-ink-3 transition hover:border-terracotta hover:text-terracotta disabled:opacity-60"
+              title="Remove the Colab URL and its snapshot history"
+            >
+              {urlRemoving ? 'Removing…' : 'Remove URL'}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      {urlEditOpen ? (
+        <div className="grid items-center gap-2 border-b border-border bg-paper-2/40 px-3 py-2"
+          style={{ gridTemplateColumns: '1fr auto auto' }}>
+          <Input
+            placeholder="Paste Colab URL"
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            autoFocus
+            disabled={urlSaving}
+          />
+          <Button size="sm" onClick={() => void submitUrlEdit()} disabled={urlSaving || !urlDraft.trim()}>
+            {urlSaving ? 'Saving…' : 'Save'}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={cancelUrlEdit} disabled={urlSaving}>
+            Cancel
+          </Button>
+        </div>
+      ) : null}
+      {originalColabUrl ? (
+        <div className="flex items-center gap-1.5 border-b border-border bg-paper-2/40 px-3 py-1.5 text-[12px] text-ink-3">
+          <span>Originally submitted:</span>
           <a
-            href={latestColabUrl}
+            href={originalColabUrl}
             target="_blank"
             rel="noreferrer"
-            className="mr-3 inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[12px] text-ink-2 transition hover:border-forest-soft hover:text-forest"
-            title="Open the live Colab notebook"
+            className="truncate text-ink-2 underline-offset-2 hover:text-forest hover:underline"
+            title={originalColabUrl}
           >
-            <span aria-hidden>⎘</span> Open in Colab
+            {originalColabUrl}
           </a>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {showKey === 'files' && primaryFiles.length > 1 ? (
         <div className="flex flex-wrap gap-1.5 border-b border-border bg-paper-2/40 px-3 py-2">
           {primaryFiles.map((a) => {
@@ -1774,7 +1895,7 @@ function RunsPanel({
               {runs.length} {runs.length === 1 ? 'run' : 'runs'} for this submission
               {!hasAnySnapshot ? (
                 <span className="ml-1.5 text-warn">
-                  · no Colab URL yet — paste one on the queue page
+                  · no Colab URL yet — paste one above
                 </span>
               ) : !hasFetched && !snapshotInFlight ? (
                 <span className="ml-1.5 text-warn">
@@ -1831,7 +1952,7 @@ function RunsPanel({
         <div className="px-2 py-1 text-[13px] text-ink-3">
           {hasAnySnapshot
             ? 'No runs yet. Click ▶ to execute the snapshot.'
-            : 'No Colab snapshot — paste a URL on the queue page first.'}
+            : 'No Colab snapshot — paste a URL above first.'}
         </div>
       ) : (
         <div className="grid gap-2">
@@ -2258,7 +2379,7 @@ const OVERRIDE_COMPONENTS = [
   'hw2',
   'project_code',
   'project_report',
-  'initial_talk',
+  'presentation',
   'final_talk',
   'attendance',
   'bonus'

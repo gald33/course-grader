@@ -120,7 +120,7 @@ def parse_presentations_xlsx(path: str) -> list[PresentationRow]:
     initial_sheet = wb.sheetnames[0]
     final_sheet = wb.sheetnames[1]
 
-    rows = _extract_sheet_rows(path, initial_sheet, "initial")
+    rows = _extract_sheet_rows(path, initial_sheet, "presentation")
     rows.extend(_extract_sheet_rows(path, final_sheet, "final"))
     return rows
 

@@ -1,6 +1,7 @@
-// Empty string = same origin (the hosted app proxies /api to the backend, see
-// next.config.mjs); unset = the local backend.
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
+// Hosted on Vercel: same origin (next.config.mjs proxies /api to the backend,
+// keeping cookies first-party). Locally: the backend on :8000 unless overridden.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ?? (process.env.NEXT_PUBLIC_VERCEL_ENV ? '' : 'http://localhost:8000');
 
 const TOKEN_KEY = 'cg-instructor-token';
 export const AUTH_REQUIRED_EVENT = 'cg:auth-required';

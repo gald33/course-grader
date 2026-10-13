@@ -1,4 +1,4 @@
-.PHONY: start up down logs status open restart backend-test backend-migrate backend-revision frontend-install deploy migrate-hosted worker-hosted
+.PHONY: start up down logs status open restart backend-test backend-migrate backend-revision frontend-install deploy migrate-hosted worker-hosted worker-hosted-logs worker-hosted-stop
 
 start:
 	./scripts/bootstrap-macos.sh
@@ -46,5 +46,15 @@ deploy:  ## deploy backend, then frontend, to production
 migrate-hosted:  ## apply migrations to the Supabase database (session pooler URL in .env)
 	set -a; . ./.env; set +a; cd backend && DATABASE_URL="$$SUPABASE_POOL_URL" alembic upgrade head
 
-worker-hosted:  ## run the notebook worker on this machine against the hosted database and storage
-	set -a; . ./.env; set +a; docker compose run --rm -e DATABASE_URL="$$SUPABASE_POOL_URL" -e STORAGE_BACKEND=supabase worker
+HOSTED_WORKER = course-grader-hosted-worker
+
+worker-hosted:  ## start the notebook worker in the background against the hosted database and storage
+	docker rm -f $(HOSTED_WORKER) >/dev/null 2>&1 || true
+	set -a; . ./.env; set +a; docker compose run -d --no-deps --name $(HOSTED_WORKER) \
+		-e DATABASE_URL="$$SUPABASE_POOL_URL" -e STORAGE_BACKEND=supabase worker
+
+worker-hosted-logs:
+	docker logs -f $(HOSTED_WORKER)
+
+worker-hosted-stop:
+	docker rm -f $(HOSTED_WORKER)

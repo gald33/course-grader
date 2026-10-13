@@ -1,15 +1,40 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.api import assignments, artifacts, courses, curves, exports, gradebook, imports, oauth, runs, submissions
+from app.api import (
+    assignments,
+    artifacts,
+    auth,
+    courses,
+    curves,
+    exports,
+    gradebook,
+    imports,
+    oauth,
+    peer_review,
+    runs,
+    student_review,
+    submissions,
+)
 from app.core.config import get_settings
 from app.services.paths import ensure_structure
 
 settings = get_settings()
 
 app = FastAPI(title="course-grader API", version="1.0.0")
+
+
+# Registered before CORS so CORS stays the outer layer and 401s still carry
+# CORS headers the browser can read.
+@app.middleware("http")
+async def instructor_auth(request: Request, call_next):
+    if auth.requires_instructor(request.url.path, request.method) and not auth.is_instructor_request(request):
+        return JSONResponse({"detail": "Instructor authentication required"}, status_code=401)
+    return await call_next(request)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,6 +60,9 @@ app.include_router(curves.router)
 app.include_router(oauth.router)
 app.include_router(artifacts.router)
 app.include_router(exports.router)
+app.include_router(auth.router)
+app.include_router(peer_review.router)
+app.include_router(student_review.router)
 
 
 @app.on_event("startup")

@@ -33,6 +33,7 @@
 - Presentation XLSX import (initial/final sheets, group blocks, Hebrew criteria mapping, bonus import)
 - Report/code consistency heuristic summary
 - Gradebook per course + CSV export
+- Peer review of team presentations (see below): schedule & slot selection, individual anonymous student reviews from a mobile Hebrew page, versioned rubrics, AI grader, moderation, per-round normalised scores, XLSX export
 - Student PDF report export in Hebrew to:
   - `./data/exports/<course_code>_<year>_<semester>/student_reports`
 
@@ -132,6 +133,56 @@ ProjectBase = 0.50*ProjectCode + 0.20*ProjectReport + 0.10*InitialTalk + 0.20*Fi
 - Bonus: per-student points added to project after rubric + curve adjustments
 - Notebook-based components (`HW2`, `ProjectCode`) multiplied by penalty (`run_ratio ** 1.5`)
 
+## Peer review
+
+Teams present once per review round; every student individually reviews the other teams presenting in the round.
+Default structure (created by **Peer review → Create default schedule**): 13 sessions, four progress rounds
+(sessions 2–3, 4–5, 6–7, 8–9), sessions 10–11 free for postponed presentations, and the final round (12–13),
+four teams per session. All of it is editable.
+
+Instructor workflow (course page → **Peer review**):
+
+1. **Teams & links** — create teams, assign students, generate personal review links (`/r/<token>`) and share them privately.
+2. **Schedule & windows** — open date selection (teams volunteer for a session until the deadline), random-assign the rest,
+   move / postpone / swap presentations (a presentation keeps its round and reviews when moved), open reviewing (freezes the
+   rubric and snapshots team membership), open each session for reviews, close the round, release results.
+3. **Rubrics** — criteria, descriptions, weights, scale labels, text prompts (required or not) and instructions, separately for
+   progress and final rounds. A round pins the version current when its reviewing opened; later edits create a new version.
+4. **Reviews & participation** — per-student completion, exemptions (with reason), every review with reviewer identity, and
+   exclusion of inappropriate reviews (reason kept, original never deleted).
+5. **Scores & export** — scoring settings, AI grader, team and student scores, bonus, XLSX export.
+
+Students open their link on a phone: today's presentations first, a 1–5 form per team with the two text prompts, their own
+normalised shares updating live, drafts kept on the device until submitted, editing until the review window closes, slot
+selection, team materials, and — after release — their team's aggregate scores and anonymised feedback.
+
+**Anonymity.** Reviewer identity is stored for participation tracking and moderation and is shown only in the instructor
+Reviews tab. Student API responses and released feedback never include reviewer ids, names, or timestamps, and exports
+replace reviewers with random pseudonyms.
+
+**Scoring (one assignment grade per round).**
+
+```text
+total[r,p]   = Σ_c w_c · score_c / Σ_c w_c                  (review r of presentation p)
+n[r,p]       = total[r,p] / Σ_q total[r,q]                  (each reviewer's scores sum to 1 over the round)
+TeamScore[p] = share of all normalised score given to p     (Σ_p TeamScore = 1)
+Review[s]    = Σ_p TeamScore[p] · n[s,p]                    (× completion rate of required reviews, optional)
+Raw[s]       = Review[s] · TeamScore[team(s)], normalised so Σ_s Raw = 1
+Normalised   = rescaled to the round's target mean (80) and SD (10), clamped to 0–100
+Final        = Normalised + bonus (override component peer_round_<n>)
+```
+
+The AI grader is one more reviewer (one call per round with every team's materials, using the frozen rubric; needs
+`ANTHROPIC_API_KEY`). By default a missing review is treated as missing: a team's score averages the normalised scores it
+actually received, so a larger team (fewer eligible reviewers) or an absent reviewer doesn't lower it; switch the round to
+"literal share" to count missing reviews as zero instead. Presentations with no valid reviews are "not yet scored".
+Round scores are reported and exported on their own; they are not added to the gradebook formula automatically.
+
+**Letting students in.** The app is localhost-only by default. To reach students' phones, set `INSTRUCTOR_TOKEN` in `.env`
+(instructor API routes then require it; the instructor UI asks for it once and keeps a cookie), restart, and expose the
+frontend port, e.g. `cloudflared tunnel --url http://localhost:3000`. The frontend proxies `/api` to the backend, so only
+port 3000 needs to be reachable. Set the tunnel URL as **Link base URL** in Teams & links before copying links.
+
 ## Development commands
 
 ```bash
@@ -157,6 +208,10 @@ cd backend
 pytest -q
 ```
 
+CI (GitHub Actions, `.github/workflows/ci.yml`) runs the backend tests, applies the migrations to a fresh
+database, and type-checks the frontend on every pull request and on pushes to `main`. It skips the
+student-notebook ML stack, which the app and tests never import.
+
 ## API highlights
 
 - `POST /api/courses`
@@ -175,5 +230,6 @@ pytest -q
 
 ## Security and scope
 
-- No login/auth screen by design (localhost-only deployment).
+- No login/auth screen by design (localhost-only deployment). Set `INSTRUCTOR_TOKEN` before exposing the app to students;
+  student review links authenticate with their own per-student token.
 - This repository is intended for local/internal use.

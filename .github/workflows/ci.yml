@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11" # matches backend/Dockerfile
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies (without the student-notebook ML stack)
+        # The ML / deep-learning packages only run inside student notebooks;
+        # the app and its tests never import them, and they add gigabytes.
+        run: |
+          grep -vE '^(numpy|pandas|scipy|scikit-learn|matplotlib|seaborn|statsmodels|xgboost|lightgbm|plotly|joblib|tensorflow|torch|torchvision|transformers)==' \
+            requirements.txt > "$RUNNER_TEMP/requirements-ci.txt"
+          pip install -r "$RUNNER_TEMP/requirements-ci.txt"
+
+      - name: Apply migrations to a fresh database
+        env:
+          DATABASE_URL: sqlite:///${{ runner.temp }}/ci.sqlite3
+        run: alembic upgrade head
+
+      - name: Run tests
+        run: pytest -q
+
+  frontend:
+    name: Frontend type check
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20" # matches frontend/Dockerfile
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Type check
+        run: npx tsc --noEmit

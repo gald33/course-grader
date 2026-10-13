@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { apiBase } from '@/lib/api';
+import { apiBase, apiFetch } from '@/lib/api';
 
 type Artifact = {
   id: number;
@@ -177,7 +177,7 @@ function TextView({ artifact }: { artifact: Artifact }) {
   const [text, setText] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
-    fetch(`${apiBase()}/api/artifacts/${artifact.id}?inline=1`)
+    apiFetch(`/api/artifacts/${artifact.id}?inline=1`)
       .then((r) => r.text())
       .then((t) => {
         if (!cancelled) setText(t);
@@ -304,7 +304,7 @@ function DocxView({ artifact }: { artifact: Artifact }) {
     setError(null);
     (async () => {
       try {
-        const res = await fetch(`${apiBase()}/api/artifacts/${artifact.id}?inline=1`);
+        const res = await apiFetch(`/api/artifacts/${artifact.id}?inline=1`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const buf = await res.arrayBuffer();
         // Dynamic import so mammoth only ships when needed
@@ -370,7 +370,7 @@ function NotebookView({ artifact }: { artifact: Artifact }) {
     let cancelled = false;
     setCells(null);
     setError(null);
-    fetch(`${apiBase()}/api/artifacts/${artifact.id}?inline=1`)
+    apiFetch(`/api/artifacts/${artifact.id}?inline=1`)
       .then((r) => r.text())
       .then((txt) => {
         const parsed = JSON.parse(txt);

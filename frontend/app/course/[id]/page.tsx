@@ -7,10 +7,11 @@ import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { BilingualName, isHebrew } from '@/components/ui/bilingual-name';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
-import { apiBase, apiGet, apiPatch, apiPost } from '@/lib/api';
+import { apiBase, apiFetch, apiGet, apiPatch, apiPost } from '@/lib/api';
 
 type Course = {
   id: number;
@@ -108,11 +109,12 @@ type Assignment = {
   submission_count: number;
 };
 
-type StepKey = 'queue' | 'imports' | 'curve' | 'overrides' | 'gradebook' | 'settings';
+type StepKey = 'queue' | 'imports' | 'peer' | 'curve' | 'overrides' | 'gradebook' | 'settings';
 
 const STEPS: { key: StepKey; label: string; icon: string; title: string; sub: string }[] = [
   { key: 'queue', label: 'Grading queue', icon: '📥', title: 'Grading queue', sub: 'Submissions, snapshots, and runs.' },
   { key: 'imports', label: 'Imports', icon: '⤴', title: 'Imports', sub: 'Roster, assignment ZIPs, presentation sheets.' },
+  { key: 'peer', label: 'Peer review', icon: '⇄', title: 'Peer review', sub: 'Presentation schedule, student reviews, and round scores.' },
   { key: 'curve', label: 'Curve & calibration', icon: '⚙', title: 'Curve & calibration', sub: 'Adjust dimension curves and attendance threshold.' },
   { key: 'overrides', label: 'Overrides', icon: '✎', title: 'Overrides', sub: 'Per-student deltas with reasons.' },
   { key: 'gradebook', label: 'Gradebook', icon: '▦', title: 'Gradebook', sub: 'Final scores by component.' },
@@ -174,6 +176,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const counts: Record<StepKey, number | null> = {
     queue: submissions.length,
     imports: assignments.length,
+    peer: null,
     curve: activeCurve?.revision_number ?? 0,
     overrides: overrides.length,
     gradebook: gradebook.length,
@@ -231,6 +234,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           {step === 'imports' ? (
             <ImportsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
           ) : null}
+          {step === 'peer' ? <PeerReviewStep courseId={courseId} setToast={setToast} /> : null}
           {step === 'curve' ? (
             <CurveStep
               courseId={courseId}
@@ -854,7 +858,7 @@ function ImportsStep({
     const fd = new FormData();
     fd.append('file', file);
     if (extra) for (const [k, v] of Object.entries(extra)) fd.append(k, v);
-    const res = await fetch(`${apiBase()}${path}`, { method: 'POST', body: fd });
+    const res = await apiFetch(path, { method: 'POST', body: fd });
     if (!res.ok) {
       setToast(`Upload failed: ${await res.text()}`);
       return;
@@ -1270,7 +1274,7 @@ function OverridesStep({
     await refresh();
   };
   const remove = async (id: number) => {
-    const res = await fetch(`${apiBase()}/api/courses/${courseId}/overrides/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/courses/${courseId}/overrides/${id}`, { method: 'DELETE' });
     if (!res.ok) {
       setToast('Delete failed');
       return;

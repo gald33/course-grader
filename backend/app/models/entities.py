@@ -1,16 +1,20 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
+    Date,
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,6 +58,9 @@ class Enrollment(Base):
     attendance_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     attendance_exempt: Mapped[bool] = mapped_column(Boolean, default=False)
     bonus_points: Mapped[float] = mapped_column(Float, default=0.0)
+    # Capability token for the student-facing peer-review page (/r/<token>).
+    # Generated on demand by the instructor; the only student credential.
+    review_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
 
     course: Mapped[Course] = relationship(back_populates="enrollments")
     student: Mapped[Student] = relationship(back_populates="enrollments")
@@ -240,3 +247,224 @@ class CurveRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint("course_id", "revision_number", name="uq_curve_revision_num"),)
+
+
+# ---------------------------------------------------------------------------
+# Peer review
+#
+# Teams present once per review round; every student individually reviews the
+# other teams' presentations. Reviewer identity is stored (for participation
+# tracking and moderation) but never leaves the instructor API.
+# ---------------------------------------------------------------------------
+
+
+class ClassSession(Base):
+    __tablename__ = "class_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    held_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    title: Mapped[str] = mapped_column(String(255), default="")
+
+    __table_args__ = (UniqueConstraint("course_id", "number", name="uq_class_session_number"),)
+
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    project_title: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    memberships: Mapped[list[TeamMembership]] = relationship(back_populates="team", cascade="all, delete-orphan")
+
+    __table_args__ = (UniqueConstraint("course_id", "name", name="uq_team_course_name"),)
+
+
+class TeamMembership(Base):
+    """Membership history. Moving a student ends the old row instead of
+    rewriting it, so past rounds keep the team the student actually had."""
+
+    __tablename__ = "team_memberships"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    start_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    end_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    team: Mapped[Team] = relationship(back_populates="memberships")
+    student: Mapped[Student] = relationship()
+
+    __table_args__ = (
+        Index(
+            "uq_team_membership_active",
+            "course_id",
+            "student_id",
+            unique=True,
+            sqlite_where=text("end_at IS NULL"),
+            postgresql_where=text("end_at IS NULL"),
+        ),
+    )
+
+
+class PeerRubricVersion(Base):
+    """Immutable once frozen. A round pins the version that was current when
+    its reviews opened; later edits create a new version instead."""
+
+    __tablename__ = "peer_rubric_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))  # progress | final
+    version: Mapped[int] = mapped_column(Integer)
+    criteria_json: Mapped[str] = mapped_column(Text)  # [{key, label, description, weight}]
+    scale_json: Mapped[str] = mapped_column(Text)  # [{value, label}]
+    prompts_json: Mapped[str] = mapped_column(Text)  # [{key, label, required}]
+    instructions: Mapped[str] = mapped_column(Text, default="")
+    frozen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("course_id", "kind", "version", name="uq_peer_rubric_version"),)
+
+
+class ReviewRound(Base):
+    __tablename__ = "review_rounds"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(16))  # progress | final
+    title: Mapped[str] = mapped_column(String(255), default="")
+    # Regular presentation sessions with capacities: [{"number": 2, "capacity": 4}, ...]
+    sessions_json: Mapped[str] = mapped_column(Text, default="[]")
+    # draft → scheduling → reviewing → closed (release is tracked by released_at)
+    status: Mapped[str] = mapped_column(String(16), default="draft")
+    selection_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    review_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    rubric_version_id: Mapped[int | None] = mapped_column(ForeignKey("peer_rubric_versions.id"), nullable=True)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Scoring configuration (per round; one assignment grade per round)
+    target_mean: Mapped[float] = mapped_column(Float, default=80.0)
+    target_std: Mapped[float] = mapped_column(Float, default=10.0)
+    missing_review_policy: Mapped[str] = mapped_column(String(16), default="missing")  # missing | zero
+    participation_factor: Mapped[bool] = mapped_column(Boolean, default=True)
+    llm_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    rubric_version: Mapped[PeerRubricVersion | None] = relationship()
+    presentations: Mapped[list[Presentation]] = relationship(back_populates="round", cascade="all, delete-orphan")
+
+    __table_args__ = (UniqueConstraint("course_id", "number", name="uq_review_round_number"),)
+
+
+class Presentation(Base):
+    """One team's presentation in one round. Moving it (postpone, swap,
+    override) only changes session_number — the round and every review stay."""
+
+    __tablename__ = "presentations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    round_id: Mapped[int] = mapped_column(ForeignKey("review_rounds.id", ondelete="CASCADE"), index=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+    session_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    original_session_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    assignment_source: Mapped[str] = mapped_column(String(16), default="")  # volunteer | random | instructor
+    status: Mapped[str] = mapped_column(String(16), default="scheduled")  # scheduled | postponed
+    review_open: Mapped[bool] = mapped_column(Boolean, default=False)
+    demo_url: Mapped[str] = mapped_column(Text, default="")
+    materials_text: Mapped[str] = mapped_column(Text, default="")
+    slides_artifact_id: Mapped[int | None] = mapped_column(ForeignKey("artifacts.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    round: Mapped[ReviewRound] = relationship(back_populates="presentations")
+    team: Mapped[Team] = relationship()
+
+    __table_args__ = (UniqueConstraint("round_id", "team_id", name="uq_presentation_round_team"),)
+
+
+class PresentationMove(Base):
+    __tablename__ = "presentation_moves"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    presentation_id: Mapped[int] = mapped_column(ForeignKey("presentations.id", ondelete="CASCADE"), index=True)
+    from_session: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    to_session: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    kind: Mapped[str] = mapped_column(String(16))  # volunteer | random | override | postpone | swap
+    actor: Mapped[str] = mapped_column(String(16), default="instructor")  # instructor | student
+    reason: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class ReviewRoundRoster(Base):
+    """Snapshot of each student's team when the round opened for reviewing.
+    Eligibility and the team score a student receives come from here, so later
+    team changes don't rewrite past rounds."""
+
+    __tablename__ = "review_round_roster"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    round_id: Mapped[int] = mapped_column(ForeignKey("review_rounds.id", ondelete="CASCADE"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+
+    __table_args__ = (UniqueConstraint("round_id", "student_id", name="uq_round_roster_student"),)
+
+
+class ReviewObligation(Base):
+    __tablename__ = "review_obligations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    round_id: Mapped[int] = mapped_column(ForeignKey("review_rounds.id", ondelete="CASCADE"), index=True)
+    presentation_id: Mapped[int] = mapped_column(ForeignKey("presentations.id", ondelete="CASCADE"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    exempt: Mapped[bool] = mapped_column(Boolean, default=False)
+    exempt_reason: Mapped[str] = mapped_column(Text, default="")
+
+    __table_args__ = (UniqueConstraint("presentation_id", "student_id", name="uq_obligation_presentation_student"),)
+
+
+class PeerReview(Base):
+    __tablename__ = "peer_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    round_id: Mapped[int] = mapped_column(ForeignKey("review_rounds.id", ondelete="CASCADE"), index=True)
+    presentation_id: Mapped[int] = mapped_column(ForeignKey("presentations.id", ondelete="CASCADE"), index=True)
+    rubric_version_id: Mapped[int] = mapped_column(ForeignKey("peer_rubric_versions.id"))
+    reviewer_kind: Mapped[str] = mapped_column(String(16), default="student")  # student | llm
+    reviewer_student_id: Mapped[int | None] = mapped_column(
+        ForeignKey("students.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    reviewer_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id", ondelete="SET NULL"), nullable=True)
+    scores_json: Mapped[str] = mapped_column(Text, default="{}")
+    responses_json: Mapped[str] = mapped_column(Text, default="{}")
+    llm_model: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    llm_rationale_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Moderation: excluded reviews stay stored but are left out of aggregation.
+    excluded: Mapped[bool] = mapped_column(Boolean, default=False)
+    exclusion_reason: Mapped[str] = mapped_column(Text, default="")
+    excluded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        # One review per student per presentation. NULLs are distinct, so the
+        # LLM row (no student) is covered by the partial index below instead.
+        UniqueConstraint("presentation_id", "reviewer_student_id", name="uq_peer_review_student"),
+        Index(
+            "uq_peer_review_llm",
+            "presentation_id",
+            unique=True,
+            sqlite_where=text("reviewer_kind = 'llm'"),
+            postgresql_where=text("reviewer_kind = 'llm'"),
+        ),
+        CheckConstraint(
+            "(reviewer_kind = 'student' AND reviewer_student_id IS NOT NULL)"
+            " OR (reviewer_kind = 'llm' AND reviewer_student_id IS NULL)",
+            name="ck_peer_review_reviewer",
+        ),
+    )

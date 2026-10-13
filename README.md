@@ -182,6 +182,22 @@ Round scores are reported and exported on their own; they are not added to the g
 frontend port, e.g. `cloudflared tunnel --url http://localhost:3000`. The frontend proxies `/api` to the backend, so only
 port 3000 needs to be reachable. Set the tunnel URL as **Link base URL** in Teams & links before copying links.
 
+## Hosted app
+
+- Instructors: https://course-grader-pi.vercel.app (unlock with the instructor token, `HOSTED_INSTRUCTOR_TOKEN` in `.env`)
+- Students: https://course-grader-pi.vercel.app/login
+- API: https://course-grader-api.vercel.app (Vercel team "AI class", region `fra1`)
+
+Frontend and API are two Vercel projects deployed from `frontend/` and `backend/`; the frontend proxies
+`/api/*` to the API, so the browser only talks to one origin. Data lives in Supabase (`eu-central-1`).
+
+- `make deploy` deploys both (Vercel CLI logged in with `vercel login --global-config ~/.vercel-yvc`).
+- `make migrate-hosted` applies new migrations to Supabase. Run it before deploying code that needs them.
+- `make worker-hosted` runs the notebook worker on this machine against the hosted database and storage;
+  notebook runs, snapshot fetches, and report exports queued in the hosted app wait until it runs.
+- API settings (database URL via the transaction pooler, storage, keys, instructor token, session secret)
+  are Vercel environment variables of the `course-grader-api` project.
+
 ## Supabase (database, files, job queue)
 
 The app runs on SQLite and local files by default. To use Supabase instead (needed for hosting):

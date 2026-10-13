@@ -42,3 +42,6 @@ roster_attendance.xlsx
 .env
 .env.local
 .env.*.local
+
+# Vercel CLI project links
+.vercel

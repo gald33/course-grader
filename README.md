@@ -208,6 +208,10 @@ cd backend
 pytest -q
 ```
 
+CI (GitHub Actions, `.github/workflows/ci.yml`) runs the backend tests, applies the migrations to a fresh
+database, and type-checks the frontend on every pull request and on pushes to `main`. It skips the
+student-notebook ML stack, which the app and tests never import.
+
 ## API highlights
 
 - `POST /api/courses`

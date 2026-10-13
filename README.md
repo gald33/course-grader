@@ -3,7 +3,7 @@
 `course-grader` is a localhost-only, multi-course grading system for an applied AI course.
 
 - Backend: FastAPI + SQLAlchemy + Alembic
-- Worker: Celery + Redis
+- Worker: database-backed job queue (`python -m app.tasks.worker`)
 - Frontend: Next.js + TypeScript + shadcn-style UI components
 - Persistence: SQLite (`./data/db.sqlite3`)
 - Artifacts/exports/secrets: `./data`
@@ -72,7 +72,6 @@ Services:
 
 - Frontend: [http://localhost:3000](http://localhost:3000)
 - Backend API: [http://localhost:8000](http://localhost:8000)
-- Redis: `localhost:6379`
 
 The backend container runs Alembic migrations automatically on startup.
 
@@ -182,6 +181,41 @@ Round scores are reported and exported on their own; they are not added to the g
 (instructor API routes then require it; the instructor UI asks for it once and keeps a cookie), restart, and expose the
 frontend port, e.g. `cloudflared tunnel --url http://localhost:3000`. The frontend proxies `/api` to the backend, so only
 port 3000 needs to be reachable. Set the tunnel URL as **Link base URL** in Teams & links before copying links.
+
+## Supabase (database, files, job queue)
+
+The app runs on SQLite and local files by default. To use Supabase instead (needed for hosting):
+
+- **Database**: set `DATABASE_URL` to the Session pooler URI and run `alembic upgrade head`. The schema is
+  identical on SQLite and Postgres; migration `0010` keeps every table out of Supabase's public REST API
+  (row-level security on, API roles revoked), since the app connects as the database owner.
+- **Files**: `STORAGE_BACKEND=supabase` with `SUPABASE_PROJECT_URL` and `SUPABASE_SECRET_KEY`. New uploads and
+  run outputs go to a private bucket; downloads redirect to short-lived signed URLs. Files stored before the
+  switch keep working from local disk.
+- **Background jobs**: a `jobs` table in the same database replaces Celery/Redis. The API enqueues; the worker
+  (`python -m app.tasks.worker`, or the `worker` compose service) can run on any machine with the same
+  `DATABASE_URL`, e.g. the instructor's Mac while the API is hosted.
+- Run the API in the same region as the database (Supabase `eu-central-1` -> Vercel `fra1`): pages issue many
+  small queries, so cross-region latency multiplies.
+
+Tests run against Postgres too: `TEST_DATABASE_URL=postgresql://... pytest -q`.
+
+## Student accounts
+
+Students sign in at `/login` with their email; after signing in they land on their review page. Emails come
+from the roster import (Yedion exports work: only ID, name, and the external email are read).
+
+The instructor creates the accounts in **Peer review → Teams & links → Student accounts**. No email is sent:
+the first password is the student's national ID number, and the student must choose their own password at
+first login. A forgotten password is reset to the ID number from the same panel. Until a student changes it,
+anyone who knows their email and ID number can sign in as them; the panel shows who hasn't yet.
+
+Supabase Auth stores the passwords. In the Supabase dashboard, keep **Authentication → Sign In / Providers →
+Email** enabled with a minimum password length of at most 9 and no extra character requirements (ID numbers
+are 9 digits).
+
+Email invites (`/accounts/invite`, landing on `/auth/callback`) also exist, but need an SMTP server in
+Supabase: its built-in sender only reaches your own Supabase team.
 
 ## Development commands
 

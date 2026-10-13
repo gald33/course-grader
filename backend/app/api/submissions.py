@@ -37,9 +37,10 @@ from app.schemas.api import (
 from app.services.consistency import notebook_text_from_ipynb
 from app.services.llm_code_review import LLMCodeReviewError, review_code_dimensions
 from app.services.llm_review import LLMReviewError, review_project_report
+from app.services import storage
 from app.services.pdf_service import extract_text_from_pdf
 from app.services.scoring import apply_curve, get_active_curve, parse_curve_mapping
-from app.tasks.dispatch import safe_delay
+from app.tasks.queue import enqueue
 from app.tasks.jobs import fetch_colab_snapshot
 
 router = APIRouter(prefix="/api", tags=["submissions"])
@@ -327,12 +328,8 @@ def create_snapshot(submission_id: int, payload: SnapshotCreate, db: Session = D
     db.commit()
     db.refresh(snapshot)
 
-    enqueued_task_id = safe_delay(fetch_colab_snapshot, snapshot.id)
-    if enqueued_task_id is None:
-        snapshot.status = "FAILED"
-        snapshot.error_message = "Queue unavailable. Check Redis/worker."
-        db.commit()
-        db.refresh(snapshot)
+    enqueue(db, fetch_colab_snapshot, snapshot.id)
+    db.refresh(snapshot)
     return snapshot
 
 
@@ -559,7 +556,7 @@ def rescore_one_llm_dim(
         if report_artifact is None:
             raise HTTPException(status_code=400, detail="No report PDF on this submission")
         try:
-            pdf_text = extract_text_from_pdf(report_artifact.path)
+            pdf_text = extract_text_from_pdf(storage.local_path(report_artifact.path))
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(status_code=500, detail=f"Failed to read PDF: {exc}") from exc
         if not pdf_text or not pdf_text.strip():
@@ -665,7 +662,7 @@ def _find_pinned_executed_notebook(db: Session, submission: Submission) -> str |
     if pinned is None or pinned.executed_notebook_artifact_id is None:
         return None
     art = db.get(Artifact, pinned.executed_notebook_artifact_id)
-    return art.path if art else None
+    return str(storage.local_path(art.path)) if art else None
 
 
 @router.post("/submissions/{submission_id}/llm-review")
@@ -708,7 +705,7 @@ def run_llm_review(submission_id: int, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=400, detail="No report PDF on this submission")
 
     try:
-        pdf_text = extract_text_from_pdf(report_artifact.path)
+        pdf_text = extract_text_from_pdf(storage.local_path(report_artifact.path))
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=500, detail=f"Failed to read report PDF: {exc}"

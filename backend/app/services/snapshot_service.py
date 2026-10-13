@@ -12,8 +12,8 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
 from app.models.entities import Artifact, ColabSnapshot
+from app.services import storage
 from app.services.oauth_google import load_credentials
-from app.services.paths import artifact_path
 
 
 @dataclass
@@ -77,10 +77,8 @@ def persist_snapshot_file(snapshot: ColabSnapshot, content: bytes) -> tuple[str,
     digest = hashlib.sha256(content).hexdigest()
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     file_name = f"snapshot_{snapshot.submission_id}_{timestamp}_{digest[:10]}.ipynb"
-    target = artifact_path("snapshots", str(snapshot.submission_id), file_name)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(content)
-    return str(target), digest
+    location = storage.save(f"snapshots/{snapshot.submission_id}/{file_name}", content, "application/x-ipynb+json")
+    return location, digest
 
 
 def fetch_snapshot(snapshot: ColabSnapshot) -> SnapshotFetchResult:

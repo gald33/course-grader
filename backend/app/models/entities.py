@@ -14,7 +14,9 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     text,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -44,6 +46,13 @@ class Student(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     national_id: Mapped[str] = mapped_column(String(32), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255))
+    # Student account (Supabase Auth): the email is the username. Stored
+    # lowercase; invited/activated track the invite-to-set-password flow.
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True, unique=True, index=True)
+    invited_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    account_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Supabase Auth user id, set when the instructor creates the account.
+    auth_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="student", cascade="all, delete-orphan")
     memberships: Mapped[list[SubmissionMember]] = relationship(back_populates="student", cascade="all, delete-orphan")
@@ -97,9 +106,9 @@ class Submission(Base):
     feedback_student: Mapped[str] = mapped_column(Text, default="")
     consistency_summary: Mapped[str] = mapped_column(Text, default="")
     consistency_flags_json: Mapped[str] = mapped_column(Text, default="[]")
-    missing_report_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
-    missing_data_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
-    missing_code_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    missing_report_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    missing_data_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    missing_code_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     manual_grade: Mapped[float | None] = mapped_column(Float, nullable=True)
     project_llm_review_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     code_review_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -201,7 +210,7 @@ class RubricDimensionScore(Base):
     # True once the grader has touched/approved this score. LLM auto-applied
     # scores start as False; manual dot clicks and explicit ✓ taps both flip
     # this to True.
-    approved: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
+    approved: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
 
     __table_args__ = (UniqueConstraint("submission_id", "component", "dimension_key", name="uq_rubric_component_dim"),)
 
@@ -468,3 +477,24 @@ class PeerReview(Base):
             name="ck_peer_review_reviewer",
         ),
     )
+
+
+class Job(Base):
+    """Background job queue (replaces Celery + Redis). The API inserts rows;
+    `python -m app.tasks.worker` claims them with an atomic status update."""
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128))
+    args_json: Mapped[str] = mapped_column(Text, default="[]")
+    status: Mapped[str] = mapped_column(String(16), default="queued")  # queued | running | succeeded | failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    result_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[str] = mapped_column(Text, default="")
+    worker: Mapped[str] = mapped_column(String(128), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (Index("ix_jobs_status_id", "status", "id"),)

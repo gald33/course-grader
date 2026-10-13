@@ -10,10 +10,23 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     database_url: str = "sqlite:///./data/db.sqlite3"
-    redis_url: str = "redis://localhost:6379/0"
-    celery_broker_url: str = "redis://localhost:6379/0"
-    celery_result_backend: str = "redis://localhost:6379/1"
+    # No connection pooling in the app (use with Supabase's transaction
+    # pooler from serverless hosts, where the pooler does the pooling).
+    database_null_pool: bool = False
+    # Background job worker (python -m app.tasks.worker)
+    worker_poll_seconds: float = 2.0
+    job_stale_minutes: int = 60
     data_dir: str = "./data"
+    # Where new artifact files go: "local" (DATA_DIR) or "supabase" (Storage).
+    storage_backend: str = "local"
+    supabase_project_url: str | None = None
+    supabase_secret_key: str | None = None
+    supabase_storage_bucket: str = "course-grader"
+    # Public address of the frontend; account emails link back to it.
+    public_app_url: str = "http://localhost:3000"
+    # Signs student login cookies. Defaults to a key derived from
+    # SUPABASE_SECRET_KEY, so it's stable across serverless instances.
+    session_secret: str | None = None
     frontend_origin: str = "http://localhost:3000"
     google_client_secret_path: str = "./data/secrets/google_client.json"
     google_token_path: str = "./data/secrets/google_token.json"
@@ -39,3 +52,11 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
+
+
+def sqlalchemy_database_url(url: str) -> str:
+    """Route plain Postgres URLs (as Supabase gives them) to the psycopg 3 driver."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix) :]
+    return url

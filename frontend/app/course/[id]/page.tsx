@@ -265,7 +265,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             />
           ) : null}
           {step === 'settings' ? (
-            <SettingsStep course={course} setToast={setToast} />
+            <SettingsStep course={course} setToast={setToast} onSaved={loadAll} />
           ) : null}
         </div>
       </div>
@@ -1792,7 +1792,26 @@ function DistributionPanel({
 
 /* =============== Settings Step =============== */
 
-function SettingsStep({ course, setToast }: { course: Course; setToast: (m: string) => void }) {
+function SettingsStep({
+  course,
+  setToast,
+  onSaved
+}: {
+  course: Course;
+  setToast: (m: string) => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [form, setForm] = useState({ name: course.name, code: course.code, year: String(course.year), semester: course.semester });
+  const save = async () => {
+    try {
+      await apiPatch(`/api/courses/${course.id}`, { ...form, year: Number(form.year) });
+      setToast('Course details saved');
+      await onSaved();
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      setToast(raw.includes('409') || raw.includes('already') ? 'Another course has this code, year and semester' : 'Save failed');
+    }
+  };
   return (
     <div className="grid gap-3.5 pt-6">
       <Card>
@@ -1803,23 +1822,23 @@ function SettingsStep({ course, setToast }: { course: Course; setToast: (m: stri
         <div className="grid gap-2.5" style={{ gridTemplateColumns: '2fr 1fr 100px 100px' }}>
           <div>
             <Label>Name</Label>
-            <Input defaultValue={course.name} />
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div>
             <Label>Code</Label>
-            <Input defaultValue={course.code} />
+            <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
           </div>
           <div>
             <Label>Year</Label>
-            <Input type="number" defaultValue={course.year} />
+            <Input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} />
           </div>
           <div>
             <Label>Sem</Label>
-            <Input defaultValue={course.semester} />
+            <Input value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} />
           </div>
         </div>
         <div className="mt-3 flex justify-end">
-          <Button size="sm" onClick={() => setToast('Course updates not yet wired to backend')}>
+          <Button size="sm" onClick={save}>
             Save changes
           </Button>
         </div>

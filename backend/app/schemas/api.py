@@ -24,6 +24,13 @@ class CourseRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class CourseUpdate(BaseModel):
+    code: str | None = Field(default=None, min_length=1, max_length=64)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    year: int | None = Field(default=None, ge=2000, le=2100)
+    semester: str | None = Field(default=None, min_length=1, max_length=64)
+
+
 class AttendanceThresholdUpdate(BaseModel):
     threshold: float = Field(ge=0, le=100)
 

@@ -19,7 +19,6 @@ import base64
 import json
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import anthropic
@@ -28,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.entities import Artifact, PeerReview, Presentation, ReviewRound, Team
+from app.services import storage
 from app.services.peer_review import PeerReviewError, utcnow
 
 logger = logging.getLogger(__name__)
@@ -200,9 +200,8 @@ def _load_materials(db: Session, presentations: list[Presentation]) -> list[Team
         pdf: bytes | None = None
         if p.slides_artifact_id:
             artifact = db.get(Artifact, p.slides_artifact_id)
-            path = Path(artifact.path) if artifact else None
-            if path and path.exists() and path.stat().st_size <= MAX_PDF_BYTES:
-                pdf = path.read_bytes()
+            if artifact and artifact.size_bytes <= MAX_PDF_BYTES and storage.exists(artifact.path):
+                pdf = storage.read_bytes(artifact.path)
         out.append(
             TeamMaterials(
                 presentation_id=p.id,

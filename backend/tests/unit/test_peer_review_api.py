@@ -7,14 +7,12 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
-from sqlalchemy import create_engine, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.api.deps import get_db
 from app.core.config import get_settings
-from app.db.base import Base
 from app.main import app
 from app.models.entities import (
     Enrollment,
@@ -39,10 +37,8 @@ TEXT = {"worked_well": "Clear demo", "improvement": "Add user testing"}
 
 
 @pytest.fixture
-def env(tmp_path, monkeypatch):
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-    SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+def env(tmp_path, monkeypatch, db_engine):
+    SessionLocal = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
 
     def _db():
         db = SessionLocal()

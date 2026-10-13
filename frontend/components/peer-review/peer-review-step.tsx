@@ -201,7 +201,12 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
       ) : null}
 
       {tab === 'schedule' ? <ScheduleTab base={base} overview={overview} round={round} run={run} /> : null}
-      {tab === 'teams' ? <TeamsTab base={base} run={run} setToast={setToast} /> : null}
+      {tab === 'teams' ? (
+        <>
+          <AccountsCard courseId={courseId} setToast={setToast} />
+          <TeamsTab base={base} run={run} setToast={setToast} />
+        </>
+      ) : null}
       {tab === 'rubrics' ? <RubricsTab base={base} setToast={setToast} /> : null}
       {tab === 'reviews' ? <ReviewsTab key={round.id} base={base} round={round} run={run} /> : null}
       {tab === 'scores' ? <ScoresTab key={round.id} base={base} courseId={courseId} round={round} run={run} setToast={setToast} /> : null}
@@ -736,6 +741,133 @@ function MaterialsForm({ base, p, run, done }: { base: string; p: PresentationRo
         Save
       </Button>
     </form>
+  );
+}
+
+/* =============== Student accounts =============== */
+
+type AccountRow = {
+  student_id: number;
+  name: string;
+  national_id: string;
+  email: string | null;
+  invited_at: string | null;
+  activated_at: string | null;
+};
+type AccountsData = { configured: boolean; login_url: string; students: AccountRow[] };
+
+function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: string) => void }) {
+  const [data, setData] = useState<AccountsData | null>(null);
+  const [busy, setBusy] = useState(false);
+  const base = `/api/courses/${courseId}/accounts`;
+  const load = useCallback(async () => setData(await apiGet<AccountsData>(base)), [base]);
+  useEffect(() => {
+    void load().catch((e) => setToast(errorMessage(e)));
+  }, [load, setToast]);
+
+  if (!data) return null;
+  const pending = data.students.filter((s) => s.email && !s.activated_at);
+  const neverInvited = pending.filter((s) => !s.invited_at);
+  const active = data.students.filter((s) => s.activated_at).length;
+  const noEmail = data.students.filter((s) => !s.email).length;
+
+  const invite = async (ids: number[] | null, count: number) => {
+    if (!window.confirm(`Email an invite to choose a password to ${count} student${count === 1 ? '' : 's'}?`)) return;
+    setBusy(true);
+    try {
+      const res = await apiPost<{ counts: Record<string, number>; results: { status: string; error?: string }[] }>(
+        `${base}/invite`,
+        { student_ids: ids }
+      );
+      const failed = res.results.filter((r) => r.status === 'error');
+      setToast(
+        failed.length
+          ? `${res.counts.invited ?? 0} sent, ${failed.length} failed: ${failed[0].error ?? ''}`
+          : `${res.counts.invited ?? 0} invite${res.counts.invited === 1 ? '' : 's'} sent`
+      );
+    } catch (e) {
+      setToast(errorMessage(e));
+    } finally {
+      setBusy(false);
+      await load();
+    }
+  };
+
+  const status = (s: AccountRow) =>
+    !s.email ? (
+      <span className="pill pill-warn">no email</span>
+    ) : s.activated_at ? (
+      <span className="pill pill-ok">active</span>
+    ) : s.invited_at ? (
+      <span className="pill pill-info">invited {new Date(s.invited_at).toLocaleDateString()}</span>
+    ) : (
+      <span className="pill">not invited</span>
+    );
+
+  return (
+    <Card className="mb-4 grid gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="font-display text-[20px]">Student accounts</h3>
+          <p className="max-w-2xl text-[13px] text-ink-3">
+            Students sign in with their email and a password they choose from an invite email. Emails come from the
+            roster import (the Yedion export works). {active} active · {pending.length - neverInvited.length} invited ·{' '}
+            {neverInvited.length} not invited{noEmail ? ` · ${noEmail} without email` : ''}.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={!data.configured || busy || !neverInvited.length} onClick={() => invite(neverInvited.map((s) => s.student_id), neverInvited.length)}>
+            Send invites ({neverInvited.length})
+          </Button>
+          <Button size="sm" variant="outline" disabled={!data.configured || busy || !pending.length} onClick={() => invite(null, pending.length)}>
+            Resend to all not yet active ({pending.length})
+          </Button>
+        </div>
+      </div>
+      {!data.configured ? (
+        <div className="hint hint-warm">
+          <span className="hint-icon">!</span>
+          <div>Accounts need SUPABASE_PROJECT_URL and SUPABASE_SECRET_KEY on the backend.</div>
+        </div>
+      ) : (
+        <div className="hint hint-soft">
+          <span className="hint-icon">i</span>
+          <div>
+            Invites are sent by Supabase Auth, so its SMTP settings must point at a real mail service (Supabase's
+            built-in sender only reaches your own Supabase team). Students sign in at{' '}
+            <button className="font-mono text-forest hover:underline" onClick={() => navigator.clipboard.writeText(data.login_url).then(() => setToast('Login link copied'))}>
+              {data.login_url}
+            </button>
+            .
+          </div>
+        </div>
+      )}
+      <details>
+        <summary className="cursor-pointer text-[13px] text-ink-2">Per-student status</summary>
+        <div className="mt-2 max-h-[360px] overflow-auto">
+          <table className="w-full border-collapse text-[13px]">
+            <tbody>
+              {data.students.map((s) => (
+                <tr key={s.student_id} className="border-b border-line-soft last:border-b-0">
+                  <td className="py-1.5 pr-3">
+                    <BilingualName name={s.name} />
+                  </td>
+                  <td className="py-1.5 pr-3 font-mono text-[12px] text-ink-3">{s.email ?? '—'}</td>
+                  <td className="py-1.5 pr-3">{status(s)}</td>
+                  <td className="py-1.5 text-right">
+                    {s.email && !s.activated_at && data.configured ? (
+                      <button className="text-forest hover:underline" disabled={busy} onClick={() => invite([s.student_id], 1)}>
+                        {s.invited_at ? 'Resend' : 'Invite'}
+                      </button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </Card>
   );
 }
 

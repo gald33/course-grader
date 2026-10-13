@@ -1,0 +1,8 @@
+# Not needed by the hosted API.
+tests/
+data/
+colab_stub/
+.venv/
+**/__pycache__/
+requirements-worker.txt
+requirements-dev.txt

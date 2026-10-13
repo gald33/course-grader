@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import sessionmaker
 
-from app.db.base import Base
 from app.models.entities import Course, CurveRevision, Student
 from app.services import scoring
 
 
 @pytest.fixture
-def session_factory(tmp_path):
-    # File-backed so each session gets its own connection, like two requests.
-    engine = create_engine(f"sqlite:///{tmp_path / 'curves.sqlite3'}")
-    Base.metadata.create_all(engine)
-    yield sessionmaker(bind=engine, autoflush=False)
-    engine.dispose()
+def session_factory(db_engine):
+    # A real database (not in-memory), so each session gets its own
+    # connection, like two parallel requests.
+    return sessionmaker(bind=db_engine, autoflush=False)
 
 
 def _create_course(session_factory) -> int:

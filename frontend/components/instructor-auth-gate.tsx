@@ -8,11 +8,11 @@ import { Input } from '@/components/ui/input';
 import { AUTH_REQUIRED_EVENT, apiFetch, setInstructorToken } from '@/lib/api';
 
 /** Asks for the instructor token when the backend runs with INSTRUCTOR_TOKEN.
- * Without it (localhost-only setup) this never shows. Student pages (/r/…)
- * are skipped — they authenticate with their own link. */
+ * Without it (localhost-only setup) this never shows. Student pages (/r/…,
+ * /login, /auth/…) are skipped — students authenticate on their own. */
 export function InstructorAuthGate() {
   const pathname = usePathname();
-  const isStudentPage = pathname?.startsWith('/r/') ?? false;
+  const isStudentPage = ['/r/', '/login', '/auth/'].some((prefix) => pathname?.startsWith(prefix));
   const [needed, setNeeded] = useState(false);
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);

@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api import (
+    accounts,
     assignments,
     artifacts,
     auth,
@@ -16,6 +17,7 @@ from app.api import (
     oauth,
     peer_review,
     runs,
+    student_auth,
     student_review,
     submissions,
 )
@@ -63,6 +65,8 @@ app.include_router(exports.router)
 app.include_router(auth.router)
 app.include_router(peer_review.router)
 app.include_router(student_review.router)
+app.include_router(student_auth.router)
+app.include_router(accounts.router)
 
 
 @app.on_event("startup")

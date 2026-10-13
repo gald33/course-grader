@@ -23,12 +23,6 @@
       "name": "worker",
       "runtimeExecutable": "docker",
       "runtimeArgs": ["compose", "up", "worker"]
-    },
-    {
-      "name": "redis",
-      "runtimeExecutable": "docker",
-      "runtimeArgs": ["compose", "up", "redis"],
-      "port": 6379
     }
   ]
 }

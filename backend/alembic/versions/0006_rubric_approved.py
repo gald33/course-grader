@@ -21,7 +21,7 @@ def upgrade() -> None:
         # Default existing rows to approved=True — anything already in the table
         # was set manually before LLM auto-apply existed.
         batch.add_column(
-            sa.Column("approved", sa.Boolean(), nullable=False, server_default=sa.text("1"))
+            sa.Column("approved", sa.Boolean(), nullable=False, server_default=sa.true())
         )
 
 

@@ -47,7 +47,7 @@ from app.schemas.api import (
 )
 from app.services import peer_review as svc
 from app.services.llm_peer_review import run_llm_round_review
-from app.services.paths import artifact_path
+from app.services import storage
 from app.services.peer_export import export_round_xlsx
 from app.services.peer_scoring import compute_round_scores, review_scores, weighted_total
 
@@ -471,13 +471,10 @@ async def store_slides(db: Session, p: Presentation, file: UploadFile) -> Artifa
     if len(data) > 20 * 1024 * 1024:
         raise HTTPException(status_code=413, detail={"code": "too_large", "message": "PDF is larger than 20 MB"})
     filename = f"presentation_{p.id}_slides.pdf"
-    path = artifact_path(f"peer/rounds/{p.round_id}", filename)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
     artifact = Artifact(
         kind="presentation_slides",
         filename=file.filename or filename,
-        path=str(path),
+        path=storage.save(f"peer/rounds/{p.round_id}/{filename}", data, "application/pdf"),
         mime_type=mimetypes.types_map.get(".pdf", "application/pdf"),
         size_bytes=len(data),
     )

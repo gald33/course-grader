@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column("course_id", sa.Integer(), sa.ForeignKey("courses.id", ondelete="CASCADE"), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("project_title", sa.String(length=255), nullable=False, server_default=""),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.UniqueConstraint("course_id", "name", name="uq_team_course_name"),
     )
     op.create_index("ix_teams_course_id", "teams", ["course_id"])
@@ -50,7 +50,7 @@ def upgrade() -> None:
         sa.Column("course_id", sa.Integer(), sa.ForeignKey("courses.id", ondelete="CASCADE"), nullable=False),
         sa.Column("team_id", sa.Integer(), sa.ForeignKey("teams.id", ondelete="CASCADE"), nullable=False),
         sa.Column("student_id", sa.Integer(), sa.ForeignKey("students.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("start_at", sa.DateTime(), nullable=True),
+        sa.Column("start_at", sa.DateTime(), nullable=False),
         sa.Column("end_at", sa.DateTime(), nullable=True),
     )
     op.create_index("ix_team_memberships_course_id", "team_memberships", ["course_id"])
@@ -76,7 +76,7 @@ def upgrade() -> None:
         sa.Column("prompts_json", sa.Text(), nullable=False),
         sa.Column("instructions", sa.Text(), nullable=False, server_default=""),
         sa.Column("frozen_at", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.UniqueConstraint("course_id", "kind", "version", name="uq_peer_rubric_version"),
     )
     op.create_index("ix_peer_rubric_versions_course_id", "peer_rubric_versions", ["course_id"])
@@ -97,9 +97,9 @@ def upgrade() -> None:
         sa.Column("target_mean", sa.Float(), nullable=False, server_default="80"),
         sa.Column("target_std", sa.Float(), nullable=False, server_default="10"),
         sa.Column("missing_review_policy", sa.String(length=16), nullable=False, server_default="missing"),
-        sa.Column("participation_factor", sa.Boolean(), nullable=False, server_default="1"),
-        sa.Column("llm_enabled", sa.Boolean(), nullable=False, server_default="1"),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("participation_factor", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("llm_enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.UniqueConstraint("course_id", "number", name="uq_review_round_number"),
     )
     op.create_index("ix_review_rounds_course_id", "review_rounds", ["course_id"])
@@ -113,13 +113,13 @@ def upgrade() -> None:
         sa.Column("original_session_number", sa.Integer(), nullable=True),
         sa.Column("assignment_source", sa.String(length=16), nullable=False, server_default=""),
         sa.Column("status", sa.String(length=16), nullable=False, server_default="scheduled"),
-        sa.Column("review_open", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("review_open", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("demo_url", sa.Text(), nullable=False, server_default=""),
         sa.Column("materials_text", sa.Text(), nullable=False, server_default=""),
         sa.Column(
             "slides_artifact_id", sa.Integer(), sa.ForeignKey("artifacts.id", ondelete="SET NULL"), nullable=True
         ),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.UniqueConstraint("round_id", "team_id", name="uq_presentation_round_team"),
     )
     op.create_index("ix_presentations_round_id", "presentations", ["round_id"])
@@ -136,7 +136,7 @@ def upgrade() -> None:
         sa.Column("kind", sa.String(length=16), nullable=False),
         sa.Column("actor", sa.String(length=16), nullable=False, server_default="instructor"),
         sa.Column("reason", sa.Text(), nullable=False, server_default=""),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
     )
     op.create_index("ix_presentation_moves_presentation_id", "presentation_moves", ["presentation_id"])
 
@@ -159,7 +159,7 @@ def upgrade() -> None:
             "presentation_id", sa.Integer(), sa.ForeignKey("presentations.id", ondelete="CASCADE"), nullable=False
         ),
         sa.Column("student_id", sa.Integer(), sa.ForeignKey("students.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("exempt", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("exempt", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("exempt_reason", sa.Text(), nullable=False, server_default=""),
         sa.UniqueConstraint("presentation_id", "student_id", name="uq_obligation_presentation_student"),
     )
@@ -186,11 +186,11 @@ def upgrade() -> None:
         sa.Column("responses_json", sa.Text(), nullable=False, server_default="{}"),
         sa.Column("llm_model", sa.String(length=64), nullable=True),
         sa.Column("llm_rationale_json", sa.Text(), nullable=True),
-        sa.Column("excluded", sa.Boolean(), nullable=False, server_default="0"),
+        sa.Column("excluded", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("exclusion_reason", sa.Text(), nullable=False, server_default=""),
         sa.Column("excluded_at", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.UniqueConstraint("presentation_id", "reviewer_student_id", name="uq_peer_review_student"),
         sa.CheckConstraint(
             "(reviewer_kind = 'student' AND reviewer_student_id IS NOT NULL)"

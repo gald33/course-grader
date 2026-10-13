@@ -14,7 +14,7 @@ from app.schemas.api import PresentationImportResult
 from app.services.presentation_import import aggregate_presentation_rows, parse_presentations_xlsx
 from app.services.roster_import import parse_roster_xlsx
 from app.services.zip_ingest import ingest_submission_zip
-from app.tasks.dispatch import safe_delay
+from app.tasks.queue import enqueue
 from app.tasks.jobs import parse_originality_pdf
 
 router = APIRouter(prefix="/api/courses/{course_id}/imports", tags=["imports"])
@@ -37,6 +37,7 @@ async def import_roster(course_id: int, file: UploadFile = File(...), db: Sessio
         os.unlink(tmp_path)
 
     imported = 0
+    email_conflicts: list[str] = []
     for row in rows:
         student = db.scalar(select(Student).where(Student.national_id == row.national_id))
         if student is None:
@@ -46,6 +47,12 @@ async def import_roster(course_id: int, file: UploadFile = File(...), db: Sessio
         else:
             if row.name:
                 student.name = row.name
+        if row.email and row.email != student.email:
+            owner = db.scalar(select(Student).where(Student.email == row.email, Student.id != student.id))
+            if owner is None:
+                student.email = row.email
+            else:
+                email_conflicts.append(row.national_id)
 
         enrollment = db.scalar(
             select(Enrollment).where(Enrollment.course_id == course_id, Enrollment.student_id == student.id)
@@ -55,11 +62,12 @@ async def import_roster(course_id: int, file: UploadFile = File(...), db: Sessio
             db.add(enrollment)
             db.flush()
 
-        enrollment.attendance_percent = row.attendance_percent
+        if row.attendance_percent is not None:
+            enrollment.attendance_percent = row.attendance_percent
         imported += 1
 
     db.commit()
-    return {"imported": imported}
+    return {"imported": imported, "email_conflicts": email_conflicts}
 
 
 @router.post("/submissions-zip")
@@ -96,7 +104,7 @@ async def import_submissions_zip(
         select(Artifact).where(Artifact.kind == "originality_pdf", Artifact.submission_id.is_not(None)).order_by(Artifact.id.desc()).limit(500)
     ).all()
     for artifact in originality_artifacts:
-        safe_delay(parse_originality_pdf, artifact.id)
+        enqueue(db, parse_originality_pdf, artifact.id)
 
     return {
         "created_submissions": result.created_submissions,

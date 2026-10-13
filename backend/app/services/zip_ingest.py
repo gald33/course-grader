@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import mimetypes
-import shutil
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models.entities import Artifact, Assignment, Enrollment, Student, Submission, SubmissionMember
 from app.services.filename_parser import group_identifier_from_ids, parse_filename
-from app.services.paths import artifact_path
+from app.services import storage
 from app.utils.text import normalize_id, sanitize_filename
 
 
@@ -195,19 +194,17 @@ def ingest_submission_zip(
                 continue
 
             safe_name = sanitize_filename(filename)
-            target = artifact_path("uploads", str(course_id), str(assignment.id), str(submission.id), safe_name)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(member) as src, target.open("wb") as dst:
-                shutil.copyfileobj(src, dst)
-
             mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+            location = storage.save(
+                f"uploads/{course_id}/{assignment.id}/{submission.id}/{safe_name}", zf.read(member), mime_type
+            )
             kind = _classify_kind(db, submission.id, filename, assignment_type, parsed.is_originality_pdf)
 
             artifact = Artifact(
                 submission_id=submission.id,
                 kind=kind,
                 filename=filename,
-                path=str(target),
+                path=location,
                 mime_type=mime_type,
                 size_bytes=member.file_size,
                 metadata_json=json.dumps({"source_zip": Path(zip_path).name}),

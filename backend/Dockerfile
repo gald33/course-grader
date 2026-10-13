@@ -15,8 +15,8 @@ RUN apt-get update \
        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY requirements*.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements-worker.txt -r /app/requirements-dev.txt
 
 # Register the python3 Jupyter kernel so nbclient can execute notebooks
 RUN python -m ipykernel install --name=python3 --display-name="Python 3" --sys-prefix

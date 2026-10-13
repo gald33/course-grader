@@ -19,6 +19,14 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:17 # the major version Supabase runs
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v5
 
@@ -26,22 +34,29 @@ jobs:
         with:
           python-version: "3.11" # matches backend/Dockerfile
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: backend/requirements*.txt
 
-      - name: Install dependencies (without the student-notebook ML stack)
-        # The ML / deep-learning packages only run inside student notebooks;
-        # the app and its tests never import them, and they add gigabytes.
-        run: |
-          grep -vE '^(numpy|pandas|scipy|scikit-learn|matplotlib|seaborn|statsmodels|xgboost|lightgbm|plotly|joblib|tensorflow|torch|torchvision|transformers)==' \
-            requirements.txt > "$RUNNER_TEMP/requirements-ci.txt"
-          pip install -r "$RUNNER_TEMP/requirements-ci.txt"
+      - name: Install dependencies
+        # API runtime + test tools; the notebook ML stack (requirements-worker.txt)
+        # isn't needed by the app's tests.
+        run: pip install -r requirements-dev.txt
 
-      - name: Apply migrations to a fresh database
+      - name: Apply migrations to a fresh SQLite database
         env:
           DATABASE_URL: sqlite:///${{ runner.temp }}/ci.sqlite3
         run: alembic upgrade head
 
-      - name: Run tests
+      - name: Apply migrations to Postgres
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: alembic upgrade head
+
+      - name: Run tests (SQLite)
+        run: pytest -q
+
+      - name: Run tests (Postgres)
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
         run: pytest -q
 
   frontend:

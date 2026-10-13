@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+// Empty string = same origin (the hosted app proxies /api to the backend, see
+// next.config.mjs); unset = the local backend.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:8000';
 
 const TOKEN_KEY = 'cg-instructor-token';
 export const AUTH_REQUIRED_EVENT = 'cg:auth-required';

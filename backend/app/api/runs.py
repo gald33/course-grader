@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.models.entities import ColabSnapshot, NotebookRun, Submission
 from app.schemas.api import RunCreate, RunRead
-from app.tasks.dispatch import safe_delay
+from app.tasks.queue import enqueue
 from app.tasks.jobs import fetch_and_run_latest, run_notebook
 
 router = APIRouter(prefix="/api", tags=["runs"])
@@ -46,7 +46,7 @@ def create_run(submission_id: int, payload: RunCreate, db: Session = Depends(get
         db.add(run)
         db.commit()
         db.refresh(run)
-        safe_delay(run_notebook, run.id)
+        enqueue(db, run_notebook, run.id)
         return run
 
     latest_snapshot = db.scalar(select(ColabSnapshot).where(ColabSnapshot.submission_id == submission_id).order_by(ColabSnapshot.id.desc()))
@@ -63,7 +63,7 @@ def create_run(submission_id: int, payload: RunCreate, db: Session = Depends(get
     db.commit()
     db.refresh(run)
 
-    safe_delay(fetch_and_run_latest, submission_id, new_snapshot.id)
+    enqueue(db, fetch_and_run_latest, submission_id, new_snapshot.id)
     return run
 
 

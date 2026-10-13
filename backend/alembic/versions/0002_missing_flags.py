@@ -18,8 +18,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     with op.batch_alter_table("submissions") as batch:
-        batch.add_column(sa.Column("missing_report_flag", sa.Boolean(), nullable=False, server_default=sa.text("0")))
-        batch.add_column(sa.Column("missing_data_flag", sa.Boolean(), nullable=False, server_default=sa.text("0")))
+        batch.add_column(sa.Column("missing_report_flag", sa.Boolean(), nullable=False, server_default=sa.false()))
+        batch.add_column(sa.Column("missing_data_flag", sa.Boolean(), nullable=False, server_default=sa.false()))
 
 
 def downgrade() -> None:

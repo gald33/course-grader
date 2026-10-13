@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import logging
 import json
 import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 
-from celery.utils.log import get_task_logger
 from sqlalchemy import select
 
 from app.core.config import get_settings
@@ -20,12 +20,12 @@ from app.services.exporter import export_student_reports_hebrew
 from app.services.llm_code_review import LLMCodeReviewError, review_code_dimensions
 from app.services.notebook_runner import execute_notebook, serialize_notebook
 from app.services.pdf_service import extract_originality_score, extract_text_from_pdf
-from app.services.paths import artifact_path
+from app.services import storage
 from app.services.scoring import apply_curve, get_active_curve, parse_curve_mapping
 from app.services.snapshot_service import build_snapshot_artifact, fetch_snapshot_content, persist_snapshot_file
-from app.tasks.celery_app import celery_app
+from app.tasks.queue import job
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -96,11 +96,9 @@ def _stage_data_files(db, submission_id: int, target_dir: Path) -> None:
 
     for art in artifacts:
         try:
-            src = Path(art.path)
-            if not src.exists():
+            if Path(art.path).suffix.lower() not in _DATA_EXTS or not storage.exists(art.path):
                 continue
-            if src.suffix.lower() not in _DATA_EXTS:
-                continue
+            src = storage.local_path(art.path)
             clean_name = _strip_id_prefix(art.filename)
 
             dst = target_dir / clean_name
@@ -125,7 +123,7 @@ def _stage_data_files(db, submission_id: int, target_dir: Path) -> None:
             logger.exception("Failed to stage data file %s", art.filename)
 
 
-@celery_app.task(name="app.tasks.jobs.parse_originality_pdf")
+@job("app.tasks.jobs.parse_originality_pdf")
 def parse_originality_pdf(artifact_id: int) -> dict:
     with SessionLocal() as db:
         artifact = db.get(Artifact, artifact_id)
@@ -133,7 +131,7 @@ def parse_originality_pdf(artifact_id: int) -> dict:
             return {"status": "missing_artifact"}
 
         try:
-            text = extract_text_from_pdf(artifact.path)
+            text = extract_text_from_pdf(storage.local_path(artifact.path))
             score = extract_originality_score(text)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Failed to parse originality PDF")
@@ -151,7 +149,7 @@ def parse_originality_pdf(artifact_id: int) -> dict:
         return {"status": "ok", "score": score}
 
 
-@celery_app.task(name="app.tasks.jobs.fetch_colab_snapshot")
+@job("app.tasks.jobs.fetch_colab_snapshot")
 def fetch_colab_snapshot(snapshot_id: int) -> dict:
     with SessionLocal() as db:
         snapshot = db.get(ColabSnapshot, snapshot_id)
@@ -189,15 +187,13 @@ def fetch_colab_snapshot(snapshot_id: int) -> dict:
 
 
 def _create_artifact(db, submission_id: int, kind: str, file_name: str, content: bytes, mime_type: str) -> Artifact:
-    target = artifact_path("runs", str(submission_id), file_name)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(content)
+    location = storage.save(f"runs/{submission_id}/{file_name}", content, mime_type)
 
     artifact = Artifact(
         submission_id=submission_id,
         kind=kind,
         filename=file_name,
-        path=str(target),
+        path=location,
         mime_type=mime_type,
         size_bytes=len(content),
         metadata_json=json.dumps({}),
@@ -207,7 +203,7 @@ def _create_artifact(db, submission_id: int, kind: str, file_name: str, content:
     return artifact
 
 
-@celery_app.task(name="app.tasks.jobs.run_notebook")
+@job("app.tasks.jobs.run_notebook")
 def run_notebook(run_id: int) -> dict:
     with SessionLocal() as db:
         run = db.get(NotebookRun, run_id)
@@ -232,21 +228,25 @@ def run_notebook(run_id: int) -> dict:
         run.started_at = datetime.utcnow()
         db.commit()
 
+        # A local copy when the snapshot lives in Supabase Storage; its folder
+        # is also the notebook's working directory for staged data files.
+        snapshot_path = storage.local_path(snapshot_artifact.path)
+
         # Stage data artifacts (csv/xlsx/json/zip/etc.) alongside the notebook
         # so cells like `pd.read_csv("data.csv")` resolve. Filenames stored on
         # disk look like "ID_213+ID_324_data.csv" — strip the ID_ prefix back to
         # the original "data.csv" the students wrote in their code.
-        _stage_data_files(db, run.submission_id, Path(snapshot_artifact.path).parent)
+        _stage_data_files(db, run.submission_id, snapshot_path.parent)
 
         # Resolve missing imports in the worker before nbclient spawns a kernel.
         # Anything that was already importable (numpy, tensorflow, ...) is a
         # no-op; anything new is pip-installed into the worker's site-packages.
-        install_report = auto_install_missing(Path(snapshot_artifact.path))
+        install_report = auto_install_missing(snapshot_path)
         logger.info("auto-install pre-pass: %s discovered, %s installed", len(install_report.discovered), len(install_report.attempts))
 
         try:
             result = execute_notebook(
-                snapshot_artifact.path,
+                snapshot_path,
                 total_timeout_seconds=settings.notebook_total_timeout_seconds,
                 penalty_power=settings.notebook_penalty_power,
             )
@@ -290,6 +290,7 @@ def run_notebook(run_id: int) -> dict:
             logs_bytes,
             "text/plain",
         )
+        executed_path = str(storage.local_path(executed_artifact.path))
 
         run.ok_cells = result.ok_cells
         run.failed_cells = result.failed_cells
@@ -317,7 +318,7 @@ def run_notebook(run_id: int) -> dict:
                 explanations: dict[str, dict[str, object]] = {}
                 raw_scores: dict[str, float] = {}
 
-                ec_score, ec_rationale = english_comments_score_from_notebook(executed_artifact.path)
+                ec_score, ec_rationale = english_comments_score_from_notebook(executed_path)
                 raw_scores["english_comments_compliance"] = ec_score
                 explanations["english_comments_compliance"] = {
                     "score": ec_score,
@@ -326,8 +327,8 @@ def run_notebook(run_id: int) -> dict:
                 }
 
                 for dim_key, scored in all_deterministic_scores(
-                    notebook_path=executed_artifact.path,
-                    staged_data_dir=Path(snapshot_artifact.path).parent,
+                    notebook_path=executed_path,
+                    staged_data_dir=snapshot_path.parent,
                 ).items():
                     raw_scores[dim_key] = scored.score
                     explanations[dim_key] = {
@@ -340,7 +341,7 @@ def run_notebook(run_id: int) -> dict:
                 # models_quality). Best-effort — if the API call fails the run
                 # still succeeds; existing rows for those dims are left alone.
                 try:
-                    nb_text = notebook_text_from_ipynb(executed_artifact.path)
+                    nb_text = notebook_text_from_ipynb(executed_path)
                     llm_result = review_code_dimensions(nb_text)
                     for dim_key, payload in llm_result.scores.items():
                         if isinstance(payload, dict) and "score" in payload:
@@ -394,8 +395,8 @@ def run_notebook(run_id: int) -> dict:
             )
             if report_artifact:
                 try:
-                    report_text = extract_text_from_pdf(report_artifact.path)
-                    nb_text = notebook_text_from_ipynb(executed_artifact.path)
+                    report_text = extract_text_from_pdf(storage.local_path(report_artifact.path))
+                    nb_text = notebook_text_from_ipynb(executed_path)
                     consistency = compare_report_and_notebook(report_text, nb_text)
                     submission.consistency_summary = consistency.summary
                     submission.consistency_flags_json = flags_to_json(consistency.flags)
@@ -413,7 +414,7 @@ def run_notebook(run_id: int) -> dict:
         }
 
 
-@celery_app.task(name="app.tasks.jobs.fetch_and_run_latest")
+@job("app.tasks.jobs.fetch_and_run_latest")
 def fetch_and_run_latest(submission_id: int, snapshot_id: int) -> dict:
     fetch_result = fetch_colab_snapshot(snapshot_id)
     if fetch_result.get("status") not in {"PUBLIC_FETCHED", "PRIVATE_FETCHED"}:
@@ -434,7 +435,7 @@ def fetch_and_run_latest(submission_id: int, snapshot_id: int) -> dict:
     return {"status": "ok", "fetch": fetch_result, "run": run_result}
 
 
-@celery_app.task(name="app.tasks.jobs.export_student_reports")
+@job("app.tasks.jobs.export_student_reports")
 def export_student_reports(course_id: int) -> dict:
     with SessionLocal() as db:
         result = export_student_reports_hebrew(db, course_id)

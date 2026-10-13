@@ -1,9 +1,4 @@
 services:
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
   backend:
     build:
       context: ./backend
@@ -15,10 +10,8 @@ services:
       APP_ENV: docker
       API_HOST: 0.0.0.0
       API_PORT: 8000
-      DATABASE_URL: sqlite:////data/db.sqlite3
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      # Local SQLite unless .env sets DATABASE_URL (e.g. the Supabase session pooler).
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/db.sqlite3}
       DATA_DIR: /data
       FRONTEND_ORIGIN: http://localhost:3000
       GOOGLE_CLIENT_SECRET_PATH: /data/secrets/google_client.json
@@ -30,22 +23,20 @@ services:
       - ./backend:/app
     ports:
       - "8000:8000"
-    depends_on:
-      - redis
 
   worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=INFO --concurrency=1
+    # Polls the jobs table; runs on the instructor's machine even when the
+    # API is hosted, as long as both use the same DATABASE_URL.
+    command: python -m app.tasks.worker
     env_file:
       - .env
     environment:
       APP_ENV: docker
-      DATABASE_URL: sqlite:////data/db.sqlite3
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      # Local SQLite unless .env sets DATABASE_URL (e.g. the Supabase session pooler).
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/db.sqlite3}
       DATA_DIR: /data
       GOOGLE_CLIENT_SECRET_PATH: /data/secrets/google_client.json
       GOOGLE_TOKEN_PATH: /data/secrets/google_token.json
@@ -55,7 +46,6 @@ services:
       - ./data:/data
       - ./backend:/app
     depends_on:
-      - redis
       - backend
 
   frontend:

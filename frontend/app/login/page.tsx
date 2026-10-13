@@ -4,13 +4,20 @@ import { FormEvent, useEffect, useState } from 'react';
 
 import { AuthCard, Field, SubmitButton, studentAuthCall, type Destinations } from '@/components/student-auth';
 
-/* Student sign-in: email (as given to the college) + password chosen from
- * the invite email. Hebrew, RTL, phone-first. */
+/* Student sign-in: email (as given to the college) + password. The first
+ * password is the national ID number and must be replaced at first login.
+ * Hebrew, RTL, phone-first. */
+
+type LoginResult = Destinations | { must_change_password: true };
+
+const inputClass = 'h-11 w-full rounded-md border border-border bg-white px-3 text-left';
 
 export default function StudentLoginPage() {
-  const [mode, setMode] = useState<'login' | 'forgot' | 'sent'>('login');
+  const [mode, setMode] = useState<'login' | 'change' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [choices, setChoices] = useState<Destinations['courses'] | null>(null);
@@ -28,22 +35,40 @@ export default function StudentLoginPage() {
       .catch(() => undefined);
   }, []);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError(null);
     try {
-      if (mode === 'forgot') {
-        await studentAuthCall('/api/student-auth/forgot', { email });
-        setMode('sent');
-      } else {
-        go(await studentAuthCall<Destinations>('/api/student-auth/login', { email, password }));
-      }
+      await fn();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setBusy(false);
     }
+  };
+
+  const login = (e: FormEvent) => {
+    e.preventDefault();
+    void run(async () => {
+      const result = await studentAuthCall<LoginResult>('/api/student-auth/login', { email, password });
+      if ('must_change_password' in result) setMode('change');
+      else go(result);
+    });
+  };
+
+  const change = (e: FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) return setError('הסיסמה צריכה לכלול לפחות 8 תווים.');
+    if (newPassword !== confirm) return setError('הסיסמאות אינן תואמות.');
+    void run(async () => {
+      go(
+        await studentAuthCall<Destinations>('/api/student-auth/change-password', {
+          email,
+          current_password: password,
+          new_password: newPassword
+        })
+      );
+    });
   };
 
   if (choices) {
@@ -64,11 +89,17 @@ export default function StudentLoginPage() {
     );
   }
 
-  if (mode === 'sent') {
+  const errorBox = error ? (
+    <p role="alert" className="rounded-md bg-bad-soft px-3 py-2 text-[14px] text-bad">
+      {error}
+    </p>
+  ) : null;
+
+  if (mode === 'forgot') {
     return (
-      <AuthCard title="בדקו את תיבת הדואר">
+      <AuthCard title="שכחתי סיסמה">
         <p className="text-[15px] leading-relaxed text-ink-2">
-          אם הכתובת רשומה בקורס, נשלח אליה קישור לבחירת סיסמה חדשה. הקישור בתוקף לזמן מוגבל.
+          פנו למרצה ובקשו לאפס את הסיסמה. אחרי האיפוס נכנסים שוב עם מספר תעודת הזהות ובוחרים סיסמה חדשה.
         </p>
         <button className="mt-4 text-[14px] text-forest underline" onClick={() => setMode('login')}>
           חזרה לכניסה
@@ -77,50 +108,51 @@ export default function StudentLoginPage() {
     );
   }
 
-  return (
-    <AuthCard title={mode === 'forgot' ? 'איפוס סיסמה' : 'כניסה לסטודנטים'}>
-      <form onSubmit={submit} className="grid gap-3">
-        <Field label="דוא״ל">
-          <input
-            dir="ltr"
-            type="email"
-            autoComplete="username"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="h-11 w-full rounded-md border border-border bg-white px-3 text-left"
-          />
-        </Field>
-        {mode === 'login' ? (
-          <Field label="סיסמה">
-            <input
-              dir="ltr"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="h-11 w-full rounded-md border border-border bg-white px-3 text-left"
-            />
+  if (mode === 'change') {
+    return (
+      <AuthCard title="בחירת סיסמה חדשה">
+        <p className="mb-4 text-[14px] leading-relaxed text-ink-2">
+          זו הכניסה הראשונה שלך. בחרו סיסמה אישית (לא מספר תעודת הזהות); מעכשיו נכנסים איתה.
+        </p>
+        <form onSubmit={change} className="grid gap-3">
+          <Field label="סיסמה חדשה (לפחות 8 תווים)">
+            <input dir="ltr" type="password" autoComplete="new-password" required value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)} className={inputClass} />
           </Field>
-        ) : (
-          <p className="text-[14px] text-ink-3">נשלח אליך קישור לבחירת סיסמה חדשה.</p>
-        )}
-        {error ? (
-          <p role="alert" className="rounded-md bg-bad-soft px-3 py-2 text-[14px] text-bad">
-            {error}
-          </p>
-        ) : null}
-        <SubmitButton busy={busy}>{mode === 'forgot' ? 'שליחת קישור' : 'כניסה'}</SubmitButton>
+          <Field label="אימות סיסמה">
+            <input dir="ltr" type="password" autoComplete="new-password" required value={confirm}
+              onChange={(e) => setConfirm(e.target.value)} className={inputClass} />
+          </Field>
+          {errorBox}
+          <SubmitButton busy={busy}>שמירה וכניסה</SubmitButton>
+        </form>
+      </AuthCard>
+    );
+  }
+
+  return (
+    <AuthCard title="כניסה לסטודנטים">
+      <form onSubmit={login} className="grid gap-3">
+        <Field label="דוא״ל">
+          <input dir="ltr" type="email" autoComplete="username" required value={email}
+            onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+        </Field>
+        <Field label="סיסמה">
+          <input dir="ltr" type="password" autoComplete="current-password" required value={password}
+            onChange={(e) => setPassword(e.target.value)} className={inputClass} />
+        </Field>
+        <p className="text-[13px] text-ink-3">בכניסה הראשונה הסיסמה היא מספר תעודת הזהות שלך (9 ספרות).</p>
+        {errorBox}
+        <SubmitButton busy={busy}>כניסה</SubmitButton>
       </form>
       <button
         className="mt-4 text-[14px] text-forest underline"
         onClick={() => {
           setError(null);
-          setMode(mode === 'forgot' ? 'login' : 'forgot');
+          setMode('forgot');
         }}
       >
-        {mode === 'forgot' ? 'חזרה לכניסה' : 'שכחתי סיסמה'}
+        שכחתי סיסמה
       </button>
     </AuthCard>
   );

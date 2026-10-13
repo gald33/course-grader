@@ -751,6 +751,7 @@ type AccountRow = {
   name: string;
   national_id: string;
   email: string | null;
+  has_account: boolean;
   invited_at: string | null;
   activated_at: string | null;
 };
@@ -766,25 +767,15 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
   }, [load, setToast]);
 
   if (!data) return null;
-  const pending = data.students.filter((s) => s.email && !s.activated_at);
-  const neverInvited = pending.filter((s) => !s.invited_at);
+  const withoutAccount = data.students.filter((s) => s.email && !s.has_account);
+  const waiting = data.students.filter((s) => s.has_account && !s.activated_at).length;
   const active = data.students.filter((s) => s.activated_at).length;
   const noEmail = data.students.filter((s) => !s.email).length;
 
-  const invite = async (ids: number[] | null, count: number) => {
-    if (!window.confirm(`Email an invite to choose a password to ${count} student${count === 1 ? '' : 's'}?`)) return;
+  const act = async (fn: () => Promise<string>) => {
     setBusy(true);
     try {
-      const res = await apiPost<{ counts: Record<string, number>; results: { status: string; error?: string }[] }>(
-        `${base}/invite`,
-        { student_ids: ids }
-      );
-      const failed = res.results.filter((r) => r.status === 'error');
-      setToast(
-        failed.length
-          ? `${res.counts.invited ?? 0} sent, ${failed.length} failed: ${failed[0].error ?? ''}`
-          : `${res.counts.invited ?? 0} invite${res.counts.invited === 1 ? '' : 's'} sent`
-      );
+      setToast(await fn());
     } catch (e) {
       setToast(errorMessage(e));
     } finally {
@@ -793,15 +784,35 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
     }
   };
 
+  const create = (ids: number[]) =>
+    act(async () => {
+      const res = await apiPost<{ counts: Record<string, number>; results: { status: string; error?: string }[] }>(
+        `${base}/create`,
+        { student_ids: ids }
+      );
+      const failed = res.results.filter((r) => r.status === 'error');
+      return failed.length
+        ? `${res.counts.created ?? 0} created, ${failed.length} failed: ${failed[0].error ?? ''}`
+        : `${res.counts.created ?? 0} account${res.counts.created === 1 ? '' : 's'} created`;
+    });
+
+  const reset = (s: AccountRow) => {
+    if (!window.confirm(`Reset ${s.name}'s password to their ID number? They'll choose a new one at next login.`)) return;
+    void act(async () => {
+      await apiPost(`${base}/${s.student_id}/reset-password`);
+      return 'Password reset to the ID number';
+    });
+  };
+
   const status = (s: AccountRow) =>
     !s.email ? (
       <span className="pill pill-warn">no email</span>
     ) : s.activated_at ? (
       <span className="pill pill-ok">active</span>
-    ) : s.invited_at ? (
-      <span className="pill pill-info">invited {new Date(s.invited_at).toLocaleDateString()}</span>
+    ) : s.has_account ? (
+      <span className="pill pill-info">waiting for first login</span>
     ) : (
-      <span className="pill">not invited</span>
+      <span className="pill">no account</span>
     );
 
   return (
@@ -810,19 +821,18 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
         <div>
           <h3 className="font-display text-[20px]">Student accounts</h3>
           <p className="max-w-2xl text-[13px] text-ink-3">
-            Students sign in with their email and a password they choose from an invite email. Emails come from the
-            roster import (the Yedion export works). {active} active · {pending.length - neverInvited.length} invited ·{' '}
-            {neverInvited.length} not invited{noEmail ? ` · ${noEmail} without email` : ''}.
+            Students sign in with their email. The first password is their ID number, and they must choose their own at
+            first login. Emails come from the roster import (the Yedion export works). {active} active · {waiting} waiting
+            for first login · {withoutAccount.length} without an account{noEmail ? ` · ${noEmail} without email` : ''}.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={!data.configured || busy || !neverInvited.length} onClick={() => invite(neverInvited.map((s) => s.student_id), neverInvited.length)}>
-            Send invites ({neverInvited.length})
-          </Button>
-          <Button size="sm" variant="outline" disabled={!data.configured || busy || !pending.length} onClick={() => invite(null, pending.length)}>
-            Resend to all not yet active ({pending.length})
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          disabled={!data.configured || busy || !withoutAccount.length}
+          onClick={() => create(withoutAccount.map((s) => s.student_id))}
+        >
+          Create accounts ({withoutAccount.length})
+        </Button>
       </div>
       {!data.configured ? (
         <div className="hint hint-warm">
@@ -833,12 +843,14 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
         <div className="hint hint-soft">
           <span className="hint-icon">i</span>
           <div>
-            Invites are sent by Supabase Auth, so its SMTP settings must point at a real mail service (Supabase's
-            built-in sender only reaches your own Supabase team). Students sign in at{' '}
-            <button className="font-mono text-forest hover:underline" onClick={() => navigator.clipboard.writeText(data.login_url).then(() => setToast('Login link copied'))}>
+            No email is sent: tell students to sign in at{' '}
+            <button
+              className="font-mono text-forest hover:underline"
+              onClick={() => navigator.clipboard.writeText(data.login_url).then(() => setToast('Login link copied'))}
+            >
               {data.login_url}
-            </button>
-            .
+            </button>{' '}
+            with their email and ID number. Until a student changes it, anyone who knows both can sign in as them.
           </div>
         </div>
       )}
@@ -855,11 +867,15 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
                   <td className="py-1.5 pr-3 font-mono text-[12px] text-ink-3">{s.email ?? '—'}</td>
                   <td className="py-1.5 pr-3">{status(s)}</td>
                   <td className="py-1.5 text-right">
-                    {s.email && !s.activated_at && data.configured ? (
-                      <button className="text-forest hover:underline" disabled={busy} onClick={() => invite([s.student_id], 1)}>
-                        {s.invited_at ? 'Resend' : 'Invite'}
+                    {!data.configured || !s.email ? null : s.has_account ? (
+                      <button className="text-forest hover:underline" disabled={busy} onClick={() => reset(s)}>
+                        Reset password
                       </button>
-                    ) : null}
+                    ) : (
+                      <button className="text-forest hover:underline" disabled={busy} onClick={() => create([s.student_id])}>
+                        Create
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

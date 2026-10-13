@@ -32,6 +32,12 @@ class ForgotIn(BaseModel):
     email: str = Field(max_length=320)
 
 
+class ChangePasswordIn(BaseModel):
+    email: str = Field(max_length=320)
+    current_password: str = Field(max_length=200)
+    new_password: str = Field(max_length=200)
+
+
 def _fail(status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=status, detail={"code": code, "message": message})
 
@@ -81,7 +87,39 @@ def login(payload: LoginIn, request: Request, response: Response, db: Session = 
     if student is None:
         raise _fail(403, "not_enrolled", "This account is not on any course roster")
     if student.account_activated_at is None:
-        student.account_activated_at = utcnow()
+        # First login with the initial password (the national ID): no session
+        # until the student picks their own password.
+        return {"must_change_password": True}
+    _start_session(response, request, student)
+    return _destinations(db, student)
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordIn, request: Request, response: Response, db: Session = Depends(get_db)
+) -> dict:
+    """Replace the current password (required at first login)."""
+    _require_configured()
+    student = _student_by_email(db, payload.email)
+    if len(payload.new_password) < MIN_PASSWORD_LENGTH:
+        raise _fail(422, "weak_password", f"Password must be at least {MIN_PASSWORD_LENGTH} characters")
+    if payload.new_password == payload.current_password or (
+        student is not None and payload.new_password == student.national_id
+    ):
+        raise _fail(422, "same_password", "Choose a password different from your ID number")
+    try:
+        user = supabase_auth.sign_in(payload.email.strip().lower(), payload.current_password)
+    except supabase_auth.AuthError:
+        raise _fail(401, "invalid_credentials", "Wrong email or password")
+    student = student or _student_by_email(db, user.email)
+    if student is None:
+        raise _fail(403, "not_enrolled", "This account is not on any course roster")
+    try:
+        supabase_auth.admin_set_password(user.id, payload.new_password)
+    except supabase_auth.AuthError as exc:
+        raise _fail(422, "weak_password", exc.message)
+    student.auth_user_id = student.auth_user_id or user.id
+    student.account_activated_at = utcnow()
     _start_session(response, request, student)
     return _destinations(db, student)
 

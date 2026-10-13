@@ -45,6 +45,18 @@ class FakeSupabaseAuth:
             self.users.setdefault(body["email"], {"id": f"u-{len(self.users)}", "password": None, "confirmed": False})
             self.invites.append((body["email"], request.url.params["redirect_to"]))
             return httpx.Response(200, json={"id": self.users[body["email"]]["id"]})
+        if path == "/admin/users" and request.method == "POST":
+            if body["email"] in self.users:
+                return httpx.Response(422, json={"error_code": "email_exists", "msg": "already registered"})
+            self.users[body["email"]] = {"id": f"u-{len(self.users)}", "password": body["password"], "confirmed": True}
+            return httpx.Response(200, json={"id": self.users[body["email"]]["id"], "email": body["email"]})
+        if path == "/admin/users" and request.method == "GET":
+            return httpx.Response(200, json={"users": [{"id": u["id"], "email": e} for e, u in self.users.items()]})
+        if path.startswith("/admin/users/") and request.method == "PUT":
+            uid = path.rsplit("/", 1)[1]
+            email = next(e for e, u in self.users.items() if u["id"] == uid)
+            self.users[email]["password"] = body["password"]
+            return httpx.Response(200, json={"id": uid, "email": email})
         if path == "/recover":
             self.resets.append(body["email"])
             return httpx.Response(200, json={})
@@ -204,3 +216,58 @@ def test_student_auth_is_public_but_accounts_need_the_instructor(env, monkeypatc
     monkeypatch.setattr(env.settings, "instructor_token", "teacher-token")
     assert env.client.get(f"/api/courses/{env.course_id}/accounts").status_code == 401
     assert env.client.post("/api/student-auth/forgot", json={"email": "a@b.c"}).status_code == 200
+
+
+def _login(env, email, password):
+    return env.client.post("/api/student-auth/login", json={"email": email, "password": password})
+
+
+def test_created_accounts_use_the_id_number_until_changed(env, tmp_path):
+    _import(env, tmp_path, ROWS)
+    c, fake = env.client, env.fake
+    res = c.post(f"/api/courses/{env.course_id}/accounts/create", json={})
+    assert res.json()["counts"] == {"created": 2, "no_email": 1}
+    assert fake.users["noa.cohen@gmail.com"]["password"] == "111111118"
+    assert fake.invites == []  # no email involved
+    again = c.post(f"/api/courses/{env.course_id}/accounts/create", json={})
+    assert again.json()["counts"] == {"exists": 2, "no_email": 1}
+
+    # First login with the ID number: no session until the password changes.
+    first = _login(env, "noa.cohen@gmail.com", "111111118")
+    assert first.status_code == 200 and first.json() == {"must_change_password": True}
+    assert student_session.COOKIE_NAME not in first.cookies
+    assert c.get("/api/student-auth/me").status_code == 401
+
+    change = lambda current, new: c.post(  # noqa: E731
+        "/api/student-auth/change-password",
+        json={"email": "noa.cohen@gmail.com", "current_password": current, "new_password": new},
+    )
+    assert change("111111118", "111111118").json()["detail"]["code"] == "same_password"
+    assert change("111111118", "short").json()["detail"]["code"] == "weak_password"
+    assert change("wrong-current", "a brand new pw").json()["detail"]["code"] == "invalid_credentials"
+    done = change("111111118", "a brand new pw")
+    assert done.status_code == 200 and done.json()["redirect"].startswith("/r/")
+    assert c.get("/api/student-auth/me").json()["name"] == "נועה כהן"
+
+    c.cookies.clear()
+    assert _login(env, "noa.cohen@gmail.com", "111111118").status_code == 401  # ID no longer works
+    assert _login(env, "noa.cohen@gmail.com", "a brand new pw").json()["redirect"].startswith("/r/")
+
+    # Forgotten password: the instructor resets it to the ID number.
+    with env.Session() as db:
+        noa = db.scalar(select(Student).where(Student.email == "noa.cohen@gmail.com"))
+    assert c.post(f"/api/courses/{env.course_id}/accounts/{noa.id}/reset-password").json() == {"status": "ok"}
+    assert _login(env, "noa.cohen@gmail.com", "111111118").json() == {"must_change_password": True}
+    accounts = {a["email"]: a for a in c.get(f"/api/courses/{env.course_id}/accounts").json()["students"]}
+    assert accounts["noa.cohen@gmail.com"]["has_account"] and accounts["noa.cohen@gmail.com"]["activated_at"] is None
+
+
+def test_creating_an_account_that_already_exists_links_it(env, tmp_path):
+    _import(env, tmp_path, ROWS)
+    env.fake.users["itay@example.com"] = {"id": "u-existing", "password": "their own pw", "confirmed": True}
+    res = env.client.post(f"/api/courses/{env.course_id}/accounts/create", json={"student_ids": None})
+    assert res.json()["counts"] == {"created": 1, "exists": 1, "no_email": 1}
+    assert env.fake.users["itay@example.com"]["password"] == "their own pw"  # untouched
+    with env.Session() as db:
+        itay = db.scalar(select(Student).where(Student.email == "itay@example.com"))
+        assert itay.auth_user_id == "u-existing"

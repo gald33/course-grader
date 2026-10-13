@@ -51,6 +51,8 @@ class Student(Base):
     email: Mapped[str | None] = mapped_column(String(320), nullable=True, unique=True, index=True)
     invited_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     account_activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Supabase Auth user id, set when the instructor creates the account.
+    auth_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="student", cascade="all, delete-orphan")
     memberships: Mapped[list[SubmissionMember]] = relationship(back_populates="student", cascade="all, delete-orphan")

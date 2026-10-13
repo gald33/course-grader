@@ -1,10 +1,13 @@
-"""Student accounts on Supabase Auth (email = username, invite to set a password).
+"""Student accounts on Supabase Auth (email = username).
 
 The backend talks to Supabase Auth with the project secret key; the browser
-never needs Supabase keys. Supabase sends the invite and password-reset emails
-(through the SMTP server configured in the Supabase dashboard); their links
-come back to PUBLIC_APP_URL/auth/callback with an access token in the URL
-fragment, which the set-password page hands to `set_password`.
+never needs Supabase keys. Two ways to give students access:
+
+- Instructor-created accounts (no email needed): the initial password is the
+  student's national ID and must be changed at first login.
+- Invites by email (needs an SMTP server configured in Supabase): the link
+  comes back to PUBLIC_APP_URL/auth/callback with an access token in the URL
+  fragment, which the set-password page hands to `set_password`.
 """
 
 from __future__ import annotations
@@ -110,3 +113,44 @@ def set_password(access_token: str, password: str) -> AuthUser:
     if res.is_error:
         raise _error(res)
     return _user(res.json())
+
+
+# --- Instructor-created accounts (no email needed) --------------------------
+
+
+def create_user(email: str, password: str, name: str) -> AuthUser:
+    """Create a confirmed account with an initial password. Raises AuthError
+    with code "email_exists" if the email already has an account."""
+    with _client() as client:
+        res = client.post(
+            "/admin/users",
+            json={"email": email, "password": password, "email_confirm": True, "user_metadata": {"name": name}},
+        )
+    if res.is_error:
+        raise _error(res)
+    return _user(res.json())
+
+
+def admin_set_password(user_id: str, password: str) -> None:
+    with _client() as client:
+        res = client.put(f"/admin/users/{user_id}", json={"password": password})
+    if res.is_error:
+        raise _error(res)
+
+
+def find_user_id(email: str) -> str | None:
+    """Look up an existing account by email (a course has tens of users)."""
+    email = email.lower()
+    with _client() as client:
+        page = 1
+        while True:
+            res = client.get("/admin/users", params={"page": page, "per_page": 1000})
+            if res.is_error:
+                raise _error(res)
+            users = res.json().get("users", [])
+            for user in users:
+                if str(user.get("email", "")).lower() == email:
+                    return str(user["id"])
+            if len(users) < 1000:
+                return None
+            page += 1

@@ -202,21 +202,20 @@ Tests run against Postgres too: `TEST_DATABASE_URL=postgresql://... pytest -q`.
 
 ## Student accounts
 
-Students sign in at `/login` with their email and a password they choose from an invite email; after signing in
-they land on their review page. Emails come from the roster import (Yedion exports work: only ID, name, and the
-external email are read). The instructor sends invites from **Peer review → Teams & links → Student accounts**.
+Students sign in at `/login` with their email; after signing in they land on their review page. Emails come
+from the roster import (Yedion exports work: only ID, name, and the external email are read).
 
-Supabase Auth stores the passwords and sends the emails. One-time setup in the Supabase dashboard:
+The instructor creates the accounts in **Peer review → Teams & links → Student accounts**. No email is sent:
+the first password is the student's national ID number, and the student must choose their own password at
+first login. A forgotten password is reset to the ID number from the same panel. Until a student changes it,
+anyone who knows their email and ID number can sign in as them; the panel shows who hasn't yet.
 
-1. **Authentication → URL Configuration**: Site URL = the app's public URL; add `<app URL>/auth/callback` (and
-   `http://localhost:3000/auth/callback` for local testing) to Redirect URLs. Set `PUBLIC_APP_URL` on the backend
-   to the same app URL.
-2. **Authentication → Emails → SMTP Settings**: a real mail service (e.g. Resend). Supabase's built-in sender only
-   delivers to your own Supabase team members, 2 emails an hour.
-3. **Authentication → Emails → Templates**: write the *Invite user* and *Reset password* emails in Hebrew; keep
-   the `{{ .ConfirmationURL }}` link.
-4. **Authentication → Rate Limits**: allow at least as many emails per hour as there are students.
+Supabase Auth stores the passwords. In the Supabase dashboard, keep **Authentication → Sign In / Providers →
+Email** enabled with a minimum password length of at most 9 and no extra character requirements (ID numbers
+are 9 digits).
 
+Email invites (`/accounts/invite`, landing on `/auth/callback`) also exist, but need an SMTP server in
+Supabase: its built-in sender only reaches your own Supabase team.
 
 ## Development commands
 

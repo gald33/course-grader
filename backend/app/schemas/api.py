@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -286,3 +286,126 @@ class AttendanceExemptUpdate(BaseModel):
 
 class BonusUpdate(BaseModel):
     bonus_points: float
+
+
+# ---------------------------------------------------------------------------
+# Peer review
+# ---------------------------------------------------------------------------
+
+
+class SessionUpdate(BaseModel):
+    held_on: date | None = None
+    title: str | None = None
+
+
+class TeamCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    project_title: str = Field(default="", max_length=255)
+
+
+class TeamUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    project_title: str | None = Field(default=None, max_length=255)
+
+
+class StudentTeamUpdate(BaseModel):
+    team_id: int | None = None
+
+
+class RubricCriterionIn(BaseModel):
+    key: str = ""
+    label: str
+    description: str = ""
+    weight: float = 1.0
+
+
+class RubricScalePointIn(BaseModel):
+    value: int
+    label: str = ""
+
+
+class RubricPromptIn(BaseModel):
+    key: str = ""
+    label: str
+    required: bool = False
+
+
+class RubricSave(BaseModel):
+    criteria: list[RubricCriterionIn]
+    scale: list[RubricScalePointIn]
+    prompts: list[RubricPromptIn] = Field(default_factory=list)
+    instructions: str = ""
+
+
+class RoundSessionIn(BaseModel):
+    number: int = Field(ge=1, le=99)
+    capacity: int = Field(ge=0, le=50)
+
+
+class RoundUpdate(BaseModel):
+    title: str | None = None
+    sessions: list[RoundSessionIn] | None = None
+    selection_deadline: datetime | None = None
+    clear_selection_deadline: bool = False
+    review_deadline: datetime | None = None
+    clear_review_deadline: bool = False
+    target_mean: float | None = Field(default=None, ge=0, le=100)
+    target_std: float | None = Field(default=None, ge=0, le=50)
+    missing_review_policy: str | None = Field(default=None, pattern="^(missing|zero)$")
+    participation_factor: bool | None = None
+    llm_enabled: bool | None = None
+
+
+class SessionReviewToggle(BaseModel):
+    open: bool
+
+
+class PresentationUpdate(BaseModel):
+    move: bool = False
+    session_number: int | None = None
+    postpone: bool = False
+    reason: str = ""
+    demo_url: str | None = Field(default=None, max_length=2000)
+    materials_text: str | None = Field(default=None, max_length=20000)
+    review_open: bool | None = None
+
+
+class SwapRequest(BaseModel):
+    a_id: int
+    b_id: int
+    reason: str = ""
+
+
+class ReviewExclusion(BaseModel):
+    excluded: bool
+    reason: str = ""
+
+
+class ExemptionUpdate(BaseModel):
+    student_id: int
+    presentation_ids: list[int] | None = None
+    session_number: int | None = None
+    exempt: bool
+    reason: str = ""
+
+
+class StudentReviewIn(BaseModel):
+    scores: dict[str, int | float]
+    responses: dict[str, str] = Field(default_factory=dict)
+
+
+class StudentSessionChoice(BaseModel):
+    session_number: int
+
+
+class StudentMaterialsIn(BaseModel):
+    demo_url: str | None = Field(default=None, max_length=2000)
+    materials_text: str | None = Field(default=None, max_length=20000)
+
+
+class StudentTeamIn(BaseModel):
+    project_title: str = Field(max_length=255)
+
+
+class InstructorSessionIn(BaseModel):
+    token: str

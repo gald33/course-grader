@@ -65,6 +65,8 @@ services:
     command: npm run dev
     environment:
       NEXT_PUBLIC_API_BASE: http://localhost:8000
+      # Server-side proxy target for /api/* (used by the student review page).
+      BACKEND_INTERNAL_URL: http://backend:8000
       # Force polling — Next.js's native fs watcher is unreliable inside
       # Docker on macOS (the bind-mounted volume doesn't deliver inotify events).
       WATCHPACK_POLLING: "true"

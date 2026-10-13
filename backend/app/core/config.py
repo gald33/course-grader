@@ -25,6 +25,16 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
     llm_review_model: str = "claude-sonnet-4-6"
 
+    # LLM grader for peer-review rounds (scores each team's materials once)
+    llm_peer_review_model: str = "claude-opus-5-5"
+    llm_peer_review_effort: str = "high"
+
+    # When set, every /api route except health, OAuth callback, and the
+    # student review routes (/api/r/<token>) requires this token, sent as the
+    # X-Instructor-Token header or the cg_instructor cookie. Leave unset for a
+    # localhost-only deployment.
+    instructor_token: str | None = None
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { ProgressRing } from '@/components/ui/progress-ring';
 import { Textarea } from '@/components/ui/textarea';
 import { TweakRadio, TweaksPanel } from '@/components/ui/tweaks-panel';
-import { apiBase, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
+import { apiBase, apiFetch, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
 
 type RubricRow = {
   component: string;
@@ -342,7 +342,7 @@ export default function SubmissionReviewPage({
 
     if (data.executed_html_artifact_id) {
       try {
-        const res = await fetch(`${apiBase()}/api/artifacts/${data.executed_html_artifact_id}/raw`);
+        const res = await apiFetch(`/api/artifacts/${data.executed_html_artifact_id}/raw`);
         const rawHtml = await res.text();
         setHtmlDoc(DOMPurify.sanitize(rawHtml));
       } catch {
@@ -1252,7 +1252,7 @@ function ArtifactPanel({
     if (!window.confirm(message)) return;
     setUrlRemoving(true);
     try {
-      const res = await fetch(`${apiBase()}/api/submissions/${detail.submission.id}/snapshots`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/submissions/${detail.submission.id}/snapshots`, { method: 'DELETE' });
       if (!res.ok) {
         const text = await res.text();
         setToast(`Couldn't remove URL: ${text || res.statusText}`);

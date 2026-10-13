@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 
+import { InstructorAuthGate } from '@/components/instructor-auth-gate';
+
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -18,7 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=JetBrains+Mono:wght@400;500&family=Frank+Ruhl+Libre:wght@400;500;700&display=swap"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <InstructorAuthGate />
+      </body>
     </html>
   );
 }

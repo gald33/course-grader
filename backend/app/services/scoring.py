@@ -5,6 +5,7 @@ import math
 from dataclasses import dataclass
 
 from sqlalchemy import and_, desc, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -125,15 +126,29 @@ def apply_curve(raw_score: float, points: list[float]) -> float:
     return pts[left] + fraction * (pts[right] - pts[left])
 
 
-def get_active_curve(db: Session, course_id: int) -> CurveRevision:
-    active = db.scalar(
+def _active_curve(db: Session, course_id: int) -> CurveRevision | None:
+    return db.scalar(
         select(CurveRevision)
         .where(and_(CurveRevision.course_id == course_id, CurveRevision.is_active.is_(True)))
         .order_by(desc(CurveRevision.revision_number))
     )
+
+
+def get_active_curve(db: Session, course_id: int) -> CurveRevision:
+    """Return the course's active curve revision, creating the default identity
+    curves on first use.
+
+    First use can race: the course page loads several endpoints in parallel and
+    each may find no revision and insert revision 1. The loser hits
+    uq_curve_revision_num and returns the winner's revision instead of failing."""
+    active = _active_curve(db, course_id)
     if active:
         return active
 
+    # Creating the revision has always committed the caller's pending changes
+    # (the notebook-run worker arrives here with run results unsaved). Commit
+    # them on their own first, so losing the race rolls back only our insert.
+    db.commit()
     curve = CurveRevision(
         course_id=course_id,
         revision_number=1,
@@ -142,7 +157,14 @@ def get_active_curve(db: Session, course_id: int) -> CurveRevision:
         is_active=True,
     )
     db.add(curve)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        active = _active_curve(db, course_id)
+        if active is None:
+            raise
+        return active
     db.refresh(curve)
     return curve
 

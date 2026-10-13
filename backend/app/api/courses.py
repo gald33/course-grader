@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -12,6 +13,7 @@ from app.schemas.api import (
     BonusUpdate,
     CourseCreate,
     CourseRead,
+    CourseUpdate,
 )
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
@@ -42,6 +44,24 @@ def get_course(course_id: int, db: Session = Depends(get_db)) -> Course:
     course = db.get(Course, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    return course
+
+
+@router.patch("/{course_id}", response_model=CourseRead)
+def update_course(course_id: int, payload: CourseUpdate, db: Session = Depends(get_db)) -> Course:
+    course = db.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    for field in ("code", "name", "year", "semester"):
+        value = getattr(payload, field)
+        if value is not None:
+            setattr(course, field, value.strip() if isinstance(value, str) else value)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Another course already has this code, year and semester")
+    db.refresh(course)
     return course
 
 

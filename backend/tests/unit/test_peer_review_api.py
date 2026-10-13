@@ -475,3 +475,12 @@ def test_llm_parse_rejects_out_of_scale_scores():
     }
     with pytest.raises(Exception):
         llm_peer_review.parse_result(json.dumps({"p1": {"scores": {"x": 9}, "responses": {}, "rationales": {}}}), rubric, [1])
+
+
+def test_course_details_can_be_edited(env):
+    c = env.client
+    a = _ok(c.post("/api/courses", json={"code": "X1", "name": "One", "year": 2026, "semester": "A"}))["id"]
+    _ok(c.post("/api/courses", json={"code": "X2", "name": "Two", "year": 2026, "semester": "A"}))
+    updated = _ok(c.patch(f"/api/courses/{a}", json={"name": "בינה מלאכותית", "year": 2027}))
+    assert (updated["name"], updated["code"], updated["year"]) == ("בינה מלאכותית", "X1", 2027)
+    assert c.patch(f"/api/courses/{a}", json={"code": "X2", "year": 2026}).status_code == 409

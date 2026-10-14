@@ -634,3 +634,36 @@ def test_site_link_is_checked_when_saved_and_shown_to_reviewers(env, course, mon
     overview = _ok(c.get(f"{base}/overview"))
     rnd = next(r for r in overview["rounds"] if r["id"] == course.round_id)
     assert rnd["link_required"] and {p["link_status"] for p in rnd["presentations"]} == {"ok", ""}
+
+
+def test_final_score_is_any_number_from_0_to_100(env, course):
+    _schedule_and_open(env, course)
+    remarks = {k: 3 for k in GOOD if k != "final_score"}
+    for bad in (101, -1):
+        res = _review(env, course, "a1", "B", scores={"final_score": bad, **remarks})
+        assert res.status_code == 422, bad
+    # Remarks keep the 1–5 scale.
+    assert _review(env, course, "a1", "B", scores={"final_score": 70, "testing": 7}).status_code == 422
+    _ok(_review(env, course, "a1", "B", scores={"final_score": 87.5}))
+    _ok(_review(env, course, "c1", "B", scores={"final_score": 0}))
+    _ok(_review(env, course, "c1", "A", scores={"final_score": 60}))
+    reviews = {r["reviewer_name"]: r for r in _ok(env.client.get(f"{_base(course)}/rounds/{course.round_id}/reviews"))}
+    assert reviews["Alice Avraham"]["scores"]["final_score"] == 87.5
+    # c1 gave B 0 and A 60: all of c1's mass goes to A.
+    teams = {t["team_name"]: t for t in _ok(env.client.get(f"{_base(course)}/rounds/{course.round_id}/scores"))["teams"]}
+    assert teams["Team A"]["share"] > teams["Team B"]["share"]
+
+
+def test_llm_number_scores_within_range():
+    rubric = {
+        "criteria": [{"key": "final_score", "weight": 1, "max": 100}, {"key": "x", "weight": 1, "counts": False}],
+        "scale": [{"value": 1}, {"value": 2}],
+        "prompts": [],
+    }
+    ok = {"p1": {"scores": {"final_score": 72.5, "x": 2}, "responses": {}, "rationales": {}}}
+    assert llm_peer_review.parse_result(json.dumps(ok), rubric, [1])[1]["scores"]["final_score"] == 72.5
+    ok["p1"]["scores"]["final_score"] = 140
+    with pytest.raises(Exception):
+        llm_peer_review.parse_result(json.dumps(ok), rubric, [1])
+    schema = llm_peer_review.output_schema(rubric["criteria"], [1, 2], [], [1])
+    assert "final_score" in json.dumps(schema) and '"type": "number"' in json.dumps(schema)

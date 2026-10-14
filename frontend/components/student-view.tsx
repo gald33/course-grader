@@ -9,7 +9,7 @@ import { FormEvent, createContext, useCallback, useContext, useEffect, useMemo, 
 // True in the instructor preview: everything renders, nothing can be saved.
 const PreviewCtx = createContext(false);
 
-type Criterion = { key: string; label: string; description: string; weight: number; counts?: boolean };
+type Criterion = { key: string; label: string; description: string; weight: number; counts?: boolean; max?: number | null };
 const counts = (c: Criterion) => c.counts !== false;
 type ScalePoint = { value: number; label: string };
 type Prompt = { key: string; label: string; required: boolean };
@@ -681,6 +681,35 @@ function LinkStatusNote({ status, detail }: { status: LinkStatus; detail: string
   return <span className={`text-[13px] ${tone}`}>{text}</span>;
 }
 
+function NumberScore({
+  value,
+  max,
+  onChange
+}: {
+  value: number | undefined;
+  max: number;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <div className="mt-2 flex items-center gap-3">
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        max={max}
+        step="any"
+        dir="ltr"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+        placeholder={`0–${max}`}
+        aria-label={`ציון מ-0 עד ${max}`}
+        className="h-12 w-28 rounded-md border border-border bg-white px-3 text-center text-[20px] font-semibold"
+      />
+      <span className="text-[14px] text-ink-3">מתוך {max}</span>
+    </div>
+  );
+}
+
 function ReviewForm({
   token,
   p,
@@ -715,6 +744,14 @@ function ReviewForm({
     const missing = rubric.criteria.filter((c) => counts(c) && base.scores[c.key] == null);
     if (missing.length) {
       setError(ERRORS.missing_score);
+      return;
+    }
+    const outOfRange = rubric.criteria.find((c) => {
+      const v = base.scores[c.key];
+      return c.max != null && v != null && (v < 0 || v > c.max);
+    });
+    if (outOfRange) {
+      setError(`הציון ב״${outOfRange.label}״ צריך להיות בין 0 ל-${outOfRange.max}.`);
       return;
     }
     const missingText = rubric.prompts.filter((pr) => pr.required && !(base.responses[pr.key] ?? '').trim());
@@ -759,6 +796,19 @@ function ReviewForm({
               {counts(c) ? <span className="text-terracotta"> *</span> : <span className="text-[12px] font-normal text-ink-3"> (רשות)</span>}
             </legend>
             {c.description ? <p className="mt-0.5 text-[13px] text-ink-3">{c.description}</p> : null}
+            {c.max != null ? (
+              <NumberScore
+                value={value}
+                max={c.max}
+                onChange={(v) => {
+                  const scores = { ...base.scores };
+                  if (v == null) delete scores[c.key];
+                  else scores[c.key] = v;
+                  update({ ...base, scores });
+                }}
+              />
+            ) : (
+            <>
             <div className="mt-2 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${rubric.scale.length}, minmax(0, 1fr))` }}>
               {rubric.scale.map((s) => (
                 <button
@@ -780,6 +830,8 @@ function ReviewForm({
               <span className="font-semibold text-ink-2">{label ?? ''}</span>
               <span>{rubric.scale[rubric.scale.length - 1]?.label}</span>
             </div>
+            </>
+            )}
           </fieldset>
           </div>
         );
@@ -854,7 +906,10 @@ function ResultsCard({ round }: { round: RoundView }) {
                   <span className="tnum font-semibold">{v.toFixed(2)}</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-paper-2">
-                  <div className="h-full rounded-full bg-forest" style={{ width: `${(v / scaleMax) * 100}%` }} />
+                  <div
+                    className="h-full rounded-full bg-forest"
+                    style={{ width: `${Math.min(100, (v / (c.max ?? scaleMax)) * 100)}%` }}
+                  />
                 </div>
               </div>
             );

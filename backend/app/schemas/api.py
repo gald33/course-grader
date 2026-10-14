@@ -325,6 +325,7 @@ class RubricCriterionIn(BaseModel):
     description: str = ""
     weight: float = 1.0
     counts: bool = True
+    max: float | None = None  # number score 0..max instead of the scale
 
 
 class RubricScalePointIn(BaseModel):

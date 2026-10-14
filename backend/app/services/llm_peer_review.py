@@ -44,7 +44,8 @@ only from each team's written materials and slides. A demo link is listed for
 context but you cannot open it, so do not give credit for things you cannot see
 and do not penalise a team just because a claim cannot be verified from the link.
 
-Score each criterion with an integer from the rubric scale. Your scores are
+Score each criterion with an integer from the rubric scale, except criteria
+marked "number 0–N", which take any number from 0 to N. Your scores are
 compared across teams in this round, so use the scale deliberately and keep the
 same standard for every team. In a progress round, judge the stage that was
 reached rather than expecting a finished product.
@@ -78,7 +79,10 @@ def output_schema(criteria: list[dict], scale_values: list[int], prompts: list[d
             "scores": {
                 "type": "object",
                 "additionalProperties": False,
-                "properties": {k: {"type": "integer", "enum": scale_values} for k in crit_keys},
+                "properties": {
+                    c["key"]: {"type": "number"} if c.get("max") is not None else {"type": "integer", "enum": scale_values}
+                    for c in criteria
+                },
                 "required": crit_keys,
             },
             "rationales": {
@@ -109,7 +113,8 @@ def build_request(rnd_kind: str, rubric: dict, teams: list[TeamMaterials]) -> di
     """Pure request builder (model/effort are added by the caller)."""
     rubric_lines = ["Rubric criteria (weight in parentheses):"]
     for c in rubric["criteria"]:
-        rubric_lines.append(f"- {c['key']} ({c['weight']:g}): {c['label']} — {c.get('description', '')}")
+        kind = f", number 0–{float(c['max']):g}" if c.get("max") is not None else ""
+        rubric_lines.append(f"- {c['key']} ({c['weight']:g}{kind}): {c['label']} — {c.get('description', '')}")
     rubric_lines.append(
         "Scale: " + ", ".join(f"{s['value']} = {s['label']}" for s in rubric["scale"])
     )
@@ -178,9 +183,14 @@ def parse_result(text: str, rubric: dict, presentation_ids: list[int]) -> dict[i
         if not isinstance(entry, dict):
             raise PeerReviewError("llm_error", f"LLM output is missing team {_key(pid)}", 502)
         scores = entry.get("scores") or {}
-        clean: dict[str, int] = {}
+        clean: dict[str, float] = {}
         for c in rubric["criteria"]:
             v = scores.get(c["key"])
+            if c.get("max") is not None:
+                if isinstance(v, bool) or not isinstance(v, (int, float)) or not 0 <= v <= float(c["max"]):
+                    raise PeerReviewError("llm_error", f"LLM score for {c['key']} of {_key(pid)} is invalid", 502)
+                clean[c["key"]] = v
+                continue
             if not isinstance(v, int) or v not in allowed:
                 raise PeerReviewError("llm_error", f"LLM score for {c['key']} of {_key(pid)} is invalid", 502)
             clean[c["key"]] = v

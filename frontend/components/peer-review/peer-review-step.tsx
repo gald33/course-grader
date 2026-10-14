@@ -1242,7 +1242,7 @@ type RubricData = {
   id: number;
   kind: 'progress' | 'final';
   version: number;
-  criteria: { key: string; label: string; description: string; weight: number; counts?: boolean }[];
+  criteria: { key: string; label: string; description: string; weight: number; counts?: boolean; max?: number | null }[];
   scale: { value: number; label: string }[];
   prompts: { key: string; label: string; required: boolean }[];
   instructions: string;
@@ -1334,7 +1334,7 @@ function RubricEditor({
         </div>
         <div className="grid gap-2">
           {draft.criteria.map((c, i) => (
-            <div key={i} className="grid items-center gap-2 md:grid-cols-[1.2fr_2fr_90px_auto_auto]" dir="auto">
+            <div key={i} className="grid items-center gap-2 md:grid-cols-[1.2fr_2fr_90px_auto_auto_auto]" dir="auto">
               <Input
                 value={c.label}
                 dir="auto"
@@ -1367,6 +1367,19 @@ function RubricEditor({
                   }
                 />
                 counts
+              </label>
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-[13px]" title="A number from 0 to 100 instead of the scale">
+                <input
+                  type="checkbox"
+                  checked={c.max != null}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      criteria: draft.criteria.map((x, j) => (j === i ? { ...x, max: e.target.checked ? 100 : null } : x))
+                    })
+                  }
+                />
+                0–100
               </label>
               <Button
                 size="sm"

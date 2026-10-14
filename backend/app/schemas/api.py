@@ -416,3 +416,10 @@ class StudentTeamIn(BaseModel):
 
 class InstructorSessionIn(BaseModel):
     token: str
+
+
+class UploadedFileIn(BaseModel):
+    """A file the browser uploaded straight to Storage (signed upload URL)."""
+
+    key: str = Field(min_length=1, max_length=512)
+    filename: str = Field(default="", max_length=255)

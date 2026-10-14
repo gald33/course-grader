@@ -44,6 +44,7 @@ from app.schemas.api import (
     SwapRequest,
     TeamCreate,
     TeamUpdate,
+    UploadedFileIn,
 )
 from app.services import peer_review as svc
 from app.services.llm_peer_review import run_llm_round_review
@@ -464,17 +465,22 @@ async def upload_slides(
     return {"status": "ok", "artifact_id": artifact.id}
 
 
-async def store_slides(db: Session, p: Presentation, file: UploadFile) -> Artifact:
-    data = await file.read()
+MAX_SLIDES_BYTES = 20 * 1024 * 1024
+
+
+def slides_key(p: Presentation) -> str:
+    return f"peer/rounds/{p.round_id}/presentation_{p.id}_slides.pdf"
+
+
+def _record_slides(db: Session, p: Presentation, data: bytes, filename: str, location: str | None = None) -> Artifact:
     if not data.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail={"code": "not_pdf", "message": "Slides must be a PDF"})
-    if len(data) > 20 * 1024 * 1024:
+    if len(data) > MAX_SLIDES_BYTES:
         raise HTTPException(status_code=413, detail={"code": "too_large", "message": "PDF is larger than 20 MB"})
-    filename = f"presentation_{p.id}_slides.pdf"
     artifact = Artifact(
         kind="presentation_slides",
-        filename=file.filename or filename,
-        path=storage.save(f"peer/rounds/{p.round_id}/{filename}", data, "application/pdf"),
+        filename=filename or f"presentation_{p.id}_slides.pdf",
+        path=location or storage.save(slides_key(p), data, "application/pdf"),
         mime_type=mimetypes.types_map.get(".pdf", "application/pdf"),
         size_bytes=len(data),
     )
@@ -483,6 +489,45 @@ async def store_slides(db: Session, p: Presentation, file: UploadFile) -> Artifa
     p.slides_artifact_id = artifact.id
     db.commit()
     return artifact
+
+
+async def store_slides(db: Session, p: Presentation, file: UploadFile) -> Artifact:
+    """Upload through the API (local storage, or small files)."""
+    return _record_slides(db, p, await file.read(), file.filename or "")
+
+
+def slides_upload_target(p: Presentation) -> dict:
+    """Where the browser should send a slides PDF: straight to Storage with a
+    signed URL when hosted (request bodies are capped), else to the API."""
+    if not storage.direct_uploads_enabled():
+        return {"direct": False}
+    key = slides_key(p)
+    return {"direct": True, "url": storage.signed_upload_url(key), "key": key}
+
+
+def record_uploaded_slides(db: Session, p: Presentation, payload: UploadedFileIn) -> Artifact:
+    """Register slides the browser uploaded directly to Storage."""
+    if payload.key != slides_key(p):
+        raise HTTPException(status_code=400, detail={"code": "bad_key", "message": "Unexpected upload key"})
+    location = storage.location_for(payload.key)
+    try:
+        data = storage.read_bytes(location)
+    except storage.StorageError:
+        raise HTTPException(status_code=400, detail={"code": "upload_missing", "message": "Upload not found"})
+    return _record_slides(db, p, data, payload.filename, location=location)
+
+
+@router.post("/presentations/{presentation_id}/slides/upload-url")
+def instructor_slides_upload_url(course_id: int, presentation_id: int, db: Session = Depends(get_db)) -> dict:
+    return slides_upload_target(_presentation(db, course_id, presentation_id))
+
+
+@router.post("/presentations/{presentation_id}/slides/complete")
+def instructor_slides_complete(
+    course_id: int, presentation_id: int, payload: UploadedFileIn, db: Session = Depends(get_db)
+) -> dict:
+    artifact = record_uploaded_slides(db, _presentation(db, course_id, presentation_id), payload)
+    return {"status": "ok", "artifact_id": artifact.id}
 
 
 @router.post("/rounds/{round_id}/swap")

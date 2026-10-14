@@ -7,7 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { apiBase, apiDelete, apiFetch, apiGet, apiPatch, apiPost, apiPut, errorMessage } from '@/lib/api';
+import {
+  apiBase,
+  apiDelete,
+  apiFetch,
+  apiGet,
+  apiPatch,
+  apiPost,
+  apiPut,
+  errorMessage,
+  putToStorage,
+  type UploadTarget
+} from '@/lib/api';
 
 /* =============== Types =============== */
 
@@ -713,9 +724,15 @@ function MaterialsForm({ base, p, run, done }: { base: string; p: PresentationRo
   };
   const upload = async (file: File | undefined) => {
     if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
     await run(async () => {
+      const target = await apiPost<UploadTarget>(`${base}/presentations/${p.id}/slides/upload-url`);
+      if (target.direct) {
+        const key = await putToStorage(target, file);
+        await apiPost(`${base}/presentations/${p.id}/slides/complete`, { key, filename: file.name });
+        return;
+      }
+      const fd = new FormData();
+      fd.append('file', file);
       const res = await apiFetch(`${base}/presentations/${p.id}/slides`, { method: 'POST', body: fd });
       if (!res.ok) throw new Error(await res.text());
     }, 'Slides uploaded');

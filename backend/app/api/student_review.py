@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.api.peer_review import iso, raise_domain, store_slides
+from app.api.peer_review import iso, raise_domain, record_uploaded_slides, slides_upload_target, store_slides
 from app.models.entities import (
     ClassSession,
     Course,
@@ -30,7 +30,7 @@ from app.models.entities import (
     Student,
     Team,
 )
-from app.schemas.api import StudentMaterialsIn, StudentReviewIn, StudentSessionChoice, StudentTeamIn
+from app.schemas.api import StudentMaterialsIn, StudentReviewIn, StudentSessionChoice, StudentTeamIn, UploadedFileIn
 from app.services import peer_review as svc
 from app.services.peer_scoring import ScoredReview, compute_round_scores, review_scores, reviewer_shares
 
@@ -307,6 +307,23 @@ async def upload_slides(
     p = _own_presentation(db, enrollment, presentation_id)
     _require_own_team(db, enrollment, p)
     await store_slides(db, p, file)
+    return _payload(db, enrollment)
+
+
+@router.post("/presentations/{presentation_id}/slides/upload-url")
+def slides_upload_url(token: str, presentation_id: int, db: Session = Depends(get_db)) -> dict:
+    enrollment = _enrollment(db, token)
+    p = _own_presentation(db, enrollment, presentation_id)
+    _require_own_team(db, enrollment, p)
+    return slides_upload_target(p)
+
+
+@router.post("/presentations/{presentation_id}/slides/complete")
+def slides_complete(token: str, presentation_id: int, payload: UploadedFileIn, db: Session = Depends(get_db)) -> dict:
+    enrollment = _enrollment(db, token)
+    p = _own_presentation(db, enrollment, presentation_id)
+    _require_own_team(db, enrollment, p)
+    record_uploaded_slides(db, p, payload)
     return _payload(db, enrollment)
 
 

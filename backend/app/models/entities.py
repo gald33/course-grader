@@ -363,6 +363,9 @@ class ReviewRound(Base):
     missing_review_policy: Mapped[str] = mapped_column(String(16), default="missing")  # missing | zero
     participation_factor: Mapped[bool] = mapped_column(Boolean, default=True)
     llm_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Practice rounds never count toward a grade; while reviewing, every
+    # presentation in them accepts reviews (no per-session opening).
+    counts_toward_grade: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     rubric_version: Mapped[PeerRubricVersion | None] = relationship()

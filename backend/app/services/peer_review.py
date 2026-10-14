@@ -81,30 +81,43 @@ DEFAULT_ROUNDS: list[dict] = [
 DEFAULT_SESSION_CAPACITY = 4
 
 # Student-facing text is Hebrew, like the rest of the student-facing output.
+# Only criteria with counts=True enter the grade (here: the final score); the
+# others are optional remarks shown to the team as feedback.
 _DEFAULT_CRITERIA = [
+    {
+        "key": "final_score",
+        "label": "ציון סופי",
+        "description": "הציון שלך להצגה. רק הציון הזה נספר; שאר השדות הם הערות לצוות.",
+        "weight": 1.0,
+        "counts": True,
+    },
     {
         "key": "problem_clarity",
         "label": "בהירות הבעיה והמשתמש/ת המיועד/ת",
         "description": "עד כמה ברור איזו בעיה הפרויקט פותר ועבור מי.",
         "weight": 1.0,
+        "counts": False,
     },
     {
         "key": "usefulness",
         "label": "תועלת עבור המשתמש/ת",
         "description": "עד כמה הפתרון שימושי בפועל עבור המשתמש/ת שהוגדר/ה.",
         "weight": 1.0,
+        "counts": False,
     },
     {
         "key": "functionality",
         "label": "פונקציונליות שהודגמה בשלב הנוכחי",
         "description": "מה עובד בפועל בהדגמה, ביחס לשלב שבו הצוות נמצא.",
         "weight": 1.0,
+        "counts": False,
     },
     {
         "key": "testing",
         "label": "עדות לבדיקה והערכה מושכלת",
         "description": "האם הצוות בדק את הפתרון (עם משתמשים, נתונים או מדדים) והסיק מסקנות.",
         "weight": 1.0,
+        "counts": False,
     },
 ]
 _DEFAULT_SCALE = [
@@ -115,8 +128,8 @@ _DEFAULT_SCALE = [
     {"value": 5, "label": "מצוין"},
 ]
 _DEFAULT_PROMPTS = [
-    {"key": "worked_well", "label": "מה עבד טוב?", "required": True},
-    {"key": "improvement", "label": "הצעה אחת קונקרטית לשיפור", "required": True},
+    {"key": "worked_well", "label": "מה עבד טוב?", "required": False},
+    {"key": "improvement", "label": "הצעה אחת קונקרטית לשיפור", "required": False},
 ]
 DEFAULT_INSTRUCTIONS = {
     "progress": (
@@ -248,8 +261,16 @@ def validate_rubric(criteria: list[dict], scale: list[dict], prompts: list[dict]
         if weight <= 0:
             raise PeerReviewError("invalid_rubric", f"Criterion '{label}' needs a positive weight")
         clean_criteria.append(
-            {"key": key, "label": label, "description": str(c.get("description", "")).strip(), "weight": weight}
+            {
+                "key": key,
+                "label": label,
+                "description": str(c.get("description", "")).strip(),
+                "weight": weight,
+                "counts": bool(c.get("counts", True)),
+            }
         )
+    if not any(c["counts"] for c in clean_criteria):
+        raise PeerReviewError("invalid_rubric", "At least one criterion must count toward the score")
 
     clean_scale = []
     for s in scale:
@@ -339,6 +360,7 @@ def set_student_team(db: Session, course_id: int, student_id: int, team_id: int 
             raise PeerReviewError("not_found", "Team not found", 404)
         db.add(TeamMembership(course_id=course_id, team_id=team_id, student_id=student_id))
     db.commit()
+    refresh_practice_rounds(db, course_id)
 
 
 def active_members(db: Session, team_id: int) -> list[int]:
@@ -495,9 +517,26 @@ def freeze_rubric(db: Session, rnd: ReviewRound) -> PeerRubricVersion:
 def snapshot_round(db: Session, rnd: ReviewRound) -> dict:
     """Snapshot each enrolled student's team and create their review
     obligations (every presentation in the round except their own team's).
-    Idempotent: existing roster rows and obligations are never changed."""
+    Idempotent: a student's snapshotted team never changes once set, and
+    existing obligations are kept. A student who had no team when the round
+    opened gets the team they have now (and stops owing a review of it)."""
     sync_round_presentations(db, rnd)
     roster = {r.student_id: r for r in db.scalars(select(ReviewRoundRoster).where(ReviewRoundRoster.round_id == rnd.id))}
+    for row in roster.values():
+        if row.team_id is None:
+            row.team_id = active_team_id(db, rnd.course_id, row.student_id)
+            if row.team_id is not None:
+                own = select(Presentation.id).where(Presentation.round_id == rnd.id, Presentation.team_id == row.team_id)
+                reviewed = select(PeerReview.presentation_id).where(PeerReview.reviewer_student_id == row.student_id)
+                for ob in db.scalars(
+                    select(ReviewObligation).where(
+                        ReviewObligation.round_id == rnd.id,
+                        ReviewObligation.student_id == row.student_id,
+                        ReviewObligation.presentation_id.in_(own),
+                        ReviewObligation.presentation_id.not_in(reviewed),
+                    )
+                ):
+                    db.delete(ob)
     added_students = 0
     for enrollment in db.scalars(select(Enrollment).where(Enrollment.course_id == rnd.course_id)):
         if enrollment.student_id in roster:
@@ -578,8 +617,13 @@ def unrelease_round(db: Session, rnd: ReviewRound) -> None:
     db.commit()
 
 
+def presentation_open(rnd: ReviewRound, presentation: Presentation) -> bool:
+    """Practice rounds open every presentation while reviewing."""
+    return rnd.status == "reviewing" and (presentation.review_open or not rnd.counts_toward_grade)
+
+
 def reviews_accepted(rnd: ReviewRound, presentation: Presentation) -> bool:
-    if rnd.status != "reviewing" or not presentation.review_open:
+    if not presentation_open(rnd, presentation):
         return False
     return rnd.review_deadline is None or utcnow() < rnd.review_deadline
 
@@ -601,6 +645,8 @@ def validate_review(rubric: PeerRubricVersion, scores: dict, responses: dict) ->
     clean_scores: dict[str, int] = {}
     for c in criteria:
         value = scores.get(c["key"])
+        if value is None and not c.get("counts", True):
+            continue  # optional remark
         if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != value:
             raise PeerReviewError("missing_score", f"Score required for '{c['label']}'", 422)
         if int(value) not in allowed:
@@ -624,7 +670,7 @@ def submit_student_review(
 ) -> PeerReview:
     """Create or edit the student's one review of a presentation."""
     rnd = presentation.round
-    if rnd.status != "reviewing" or not presentation.review_open:
+    if not presentation_open(rnd, presentation):
         raise PeerReviewError("window_closed", "Reviewing is not open for this presentation", 409)
     if rnd.review_deadline is not None and utcnow() >= rnd.review_deadline:
         raise PeerReviewError("deadline_passed", "The review deadline has passed", 409)
@@ -735,3 +781,45 @@ def ensure_review_tokens(db: Session, course_id: int) -> int:
             created += 1
     db.commit()
     return created
+
+
+# ---------------------------------------------------------------------------
+# Practice rounds
+# ---------------------------------------------------------------------------
+
+
+def create_practice_round(db: Session, course: Course, title: str, open_now: bool) -> ReviewRound:
+    """A round that never counts toward a grade, numbered 0, -1, … so it sorts
+    before the graded rounds. With open_now, students can review right away;
+    teams created later join it automatically."""
+    numbers = set(db.scalars(select(ReviewRound.number).where(ReviewRound.course_id == course.id)))
+    number = 0
+    while number in numbers:
+        number -= 1
+    rnd = ReviewRound(
+        course_id=course.id,
+        number=number,
+        kind="progress",
+        title=title.strip() or "Practice round",
+        sessions_json="[]",
+        counts_toward_grade=False,
+        llm_enabled=False,
+    )
+    db.add(rnd)
+    db.commit()
+    db.refresh(rnd)
+    if open_now:
+        open_reviewing(db, rnd)
+    return rnd
+
+
+def refresh_practice_rounds(db: Session, course_id: int) -> None:
+    """Keep open practice rounds in step with team changes."""
+    for rnd in db.scalars(
+        select(ReviewRound).where(
+            ReviewRound.course_id == course_id,
+            ReviewRound.counts_toward_grade.is_(False),
+            ReviewRound.status == "reviewing",
+        )
+    ):
+        snapshot_round(db, rnd)

@@ -133,6 +133,7 @@ def export_round_xlsx(db: Session, rnd: ReviewRound, scores: dict) -> Path:
         ws.append(row)
 
     folder = f"{course.code}_{course.year}_{course.semester}" if course else f"course_{rnd.course_id}"
-    out = export_path(folder, f"peer_review_round_{rnd.number}.xlsx")
+    suffix = "" if rnd.counts_toward_grade else "_practice_not_graded"
+    out = export_path(folder, f"peer_review_round_{rnd.number}{suffix}.xlsx")
     wb.save(out)
     return out

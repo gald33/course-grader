@@ -32,7 +32,7 @@ STUDENTS = {
     "c1": ("300000001", "Carmel Cohen"),
     "c2": ("300000002", "Chen Carmi"),
 }
-GOOD = {"problem_clarity": 4, "usefulness": 4, "functionality": 3, "testing": 3}
+GOOD = {"final_score": 4, "problem_clarity": 4, "usefulness": 4, "functionality": 3, "testing": 3}
 TEXT = {"worked_well": "Clear demo", "improvement": "Add user testing"}
 
 
@@ -192,10 +192,10 @@ def test_own_team_window_and_validation_rules(env, course):
     # Out-of-scale score / missing criterion / missing required text
     res = _review(env, course, "a1", "B", scores={**GOOD, "testing": 7})
     assert res.json()["detail"]["code"] == "invalid_score"
+    # Only the final score is required; criteria and comments are optional remarks.
     res = _review(env, course, "a1", "B", scores={"problem_clarity": 4})
     assert res.json()["detail"]["code"] == "missing_score"
-    res = _review(env, course, "a1", "B", responses={"worked_well": "x", "improvement": "  "})
-    assert res.json()["detail"]["code"] == "missing_response"
+    _ok(_review(env, course, "a1", "B", scores={"final_score": 3}, responses={}))
     _ok(_review(env, course, "a1", "B"))
 
 
@@ -484,3 +484,87 @@ def test_course_details_can_be_edited(env):
     updated = _ok(c.patch(f"/api/courses/{a}", json={"name": "בינה מלאכותית", "year": 2027}))
     assert (updated["name"], updated["code"], updated["year"]) == ("בינה מלאכותית", "X1", 2027)
     assert c.patch(f"/api/courses/{a}", json={"code": "X2", "year": 2026}).status_code == 409
+
+
+def test_practice_round_opened_before_teams_exist(env):
+    c = env.client
+    cid = _ok(c.post("/api/courses", json={"code": "PR", "name": "Practice", "year": 2026, "semester": "A"}))["id"]
+    base = f"/api/courses/{cid}/peer"
+    with env.Session() as db:
+        ids = {}
+        for key, (nid, name) in list(STUDENTS.items())[:4]:  # a1, a2, b1, b2
+            s = Student(national_id=nid, name=name)
+            db.add(s)
+            db.flush()
+            db.add(Enrollment(course_id=cid, student_id=s.id))
+            ids[key] = s.id
+        db.commit()
+    _ok(c.post(f"{base}/setup"))
+    made = _ok(c.post(f"{base}/rounds/practice", json={"title": "Demo round", "open_now": True}))
+    assert made["number"] == 0
+    rounds = {r["number"]: r for r in _ok(c.get(f"{base}/overview"))["rounds"]}
+    assert rounds[0]["status"] == "reviewing" and rounds[0]["counts_toward_grade"] is False
+    assert rounds[0]["rubric_version"] is not None and rounds[1]["counts_toward_grade"] is True
+
+    # Teams come later; the open practice round picks them up automatically.
+    _ok(c.post("/api/courses/%d/peer/links/generate" % cid))
+    tokens = {row["student_id"]: row["token"] for row in _ok(c.get(f"{base}/links"))}
+    ta = _ok(c.post(f"{base}/teams", json={"name": "Team A"}))["id"]
+    tb = _ok(c.post(f"{base}/teams", json={"name": "Team B"}))["id"]
+    for key, team in (("a1", ta), ("a2", ta), ("b1", tb), ("b2", tb)):
+        _ok(c.put(f"{base}/students/{ids[key]}/team", json={"team_id": team}))
+
+    home = _ok(c.get(f"/api/r/{tokens[ids['a1']]}"))
+    practice = next(r for r in home["rounds"] if r["number"] == 0)
+    assert practice["practice"] is True
+    items = {p["team_name"]: p for p in practice["reviewing"]["presentations"]}
+    assert items["Team A"]["own_team"] and not items["Team A"]["accepting"]
+    assert items["Team B"]["accepting"]  # open without any per-session switch
+    assert practice["reviewing"]["progress"]["expected"] == 1  # only the other team
+
+    rubric = practice["reviewing"]["rubric"]
+    scores = {cr["key"]: 4 for cr in rubric["criteria"]}
+    _ok(c.put(f"/api/r/{tokens[ids['a1']]}/reviews/{items['Team B']['id']}", json={"scores": scores, "responses": TEXT}))
+    own = c.put(f"/api/r/{tokens[ids['a1']]}/reviews/{items['Team A']['id']}", json={"scores": scores, "responses": TEXT})
+    assert own.json()["detail"]["code"] == "own_team"
+
+    scored = _ok(c.get(f"{base}/rounds/{made['round_id']}/scores"))
+    assert scored["counts_toward_grade"] is False
+    graded = next(r for r in _ok(c.get(f"{base}/overview"))["rounds"] if r["number"] == 1)
+    assert graded["status"] == "draft" and graded["obligations"]["expected"] == 0
+
+
+
+def test_only_the_final_score_counts(env, course):
+    """Remarks (the other criteria) never move the grade."""
+    _schedule_and_open(env, course)
+    base = _base(course)
+    remarks_high = {"final_score": 3, "problem_clarity": 5, "usefulness": 5, "functionality": 5, "testing": 5}
+    remarks_low = {"final_score": 3, "problem_clarity": 1, "usefulness": 1, "functionality": 1, "testing": 1}
+    _ok(_review(env, course, "c1", "A", scores=remarks_high))
+    _ok(_review(env, course, "c2", "B", scores=remarks_low))
+    _ok(_review(env, course, "c1", "B", scores={"final_score": 3}))
+    _ok(_review(env, course, "c2", "A", scores={"final_score": 3}))
+    scores = _ok(env.client.get(f"{base}/rounds/{course.round_id}/scores"))
+    teams = {t["team_name"]: t for t in scores["teams"]}
+    assert teams["Team A"]["share"] == pytest.approx(teams["Team B"]["share"])
+    assert teams["Team A"]["mean_total"] == pytest.approx(3.0)
+    assert teams["Team A"]["criterion_means"]["problem_clarity"] == pytest.approx(5.0)  # still shown as feedback
+
+    rubrics = _ok(env.client.get(f"{base}/rubrics"))
+    bad = rubrics["final"]
+    for c in bad["criteria"]:
+        c["counts"] = False
+    res = env.client.put(f"{base}/rubrics/final", json={k: bad[k] for k in ("criteria", "scale", "prompts", "instructions")})
+    assert res.status_code == 400 and res.json()["detail"]["code"] == "invalid_rubric"
+
+
+
+def test_instructor_can_preview_a_students_page(env, course, monkeypatch):
+    _schedule_and_open(env, course)
+    sid = course.students["a1"]
+    preview = _ok(env.client.get(f"/api/courses/{course.id}/peer/student-view/{sid}"))
+    assert preview == _ok(env.client.get(f"/api/r/{course.tokens['a1']}"))  # exactly what the student sees
+    assert env.client.get(f"/api/courses/{course.id}/peer/student-view/999999").status_code == 404
+    monkeypatch.setattr(env.settings, "instructor_token", "teacher")
+    assert env.client.get(f"/api/courses/{course.id}/peer/student-view/{sid}").status_code == 401

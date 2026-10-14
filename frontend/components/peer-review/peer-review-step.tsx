@@ -57,6 +57,7 @@ type RoundRow = {
   missing_review_policy: 'missing' | 'zero';
   participation_factor: boolean;
   llm_enabled: boolean;
+  counts_toward_grade: boolean;
   obligations: { expected: number; completed: number };
   presentations: PresentationRow[];
 };
@@ -101,7 +102,7 @@ function pct(v: number | null | undefined): string {
   return v == null ? '—' : `${(v * 100).toFixed(1)}%`;
 }
 function roundName(r: RoundRow): string {
-  return `${r.number}. ${r.title}`;
+  return r.counts_toward_grade ? `${r.number}. ${r.title}` : r.title;
 }
 
 function Th({ children, className = '' }: { children?: React.ReactNode; className?: string }) {
@@ -192,6 +193,12 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
             {t.label}
           </button>
         ))}
+        <a
+          href={`/course/${courseId}/student-view`}
+          className="ml-auto rounded-full border border-terracotta-soft bg-terracotta-tint px-3.5 py-1.5 text-[13px] text-ink hover:border-terracotta"
+        >
+          👁 View as student
+        </a>
       </div>
 
       {tab !== 'teams' && tab !== 'rubrics' ? (
@@ -205,6 +212,7 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
               }`}
             >
               <span className="font-semibold">{roundName(r)}</span>
+              {!r.counts_toward_grade ? <span className="pill pill-terra">practice</span> : null}
               <span className={STATUS_PILL[r.status]}>{r.released_at ? 'released' : r.status}</span>
             </button>
           ))}
@@ -215,7 +223,7 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
       {tab === 'teams' ? (
         <>
           <AccountsCard courseId={courseId} setToast={setToast} />
-          <TeamsTab base={base} run={run} setToast={setToast} />
+          <TeamsTab base={base} courseId={courseId} run={run} setToast={setToast} />
         </>
       ) : null}
       {tab === 'rubrics' ? <RubricsTab base={base} setToast={setToast} /> : null}
@@ -247,7 +255,9 @@ function ScheduleTab({ base, overview, round, run }: { base: string; overview: O
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="label-eyebrow mb-1">
-              Round {round.number} · {round.kind === 'final' ? 'final presentations' : 'progress review'}
+              {round.counts_toward_grade
+                ? `Round ${round.number} · ${round.kind === 'final' ? 'final presentations' : 'progress review'}`
+                : 'Practice round · not part of any grade'}
             </div>
             <h2 className="font-display text-[24px] leading-tight">{round.title}</h2>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-ink-3">
@@ -322,7 +332,13 @@ function ScheduleTab({ base, overview, round, run }: { base: string; overview: O
           </div>
         </div>
 
-        {round.status === 'reviewing' ? (
+        {round.status === 'reviewing' && !round.counts_toward_grade ? (
+          <div className="rounded-md bg-terracotta-tint px-3 py-2.5 text-[13px]">
+            Practice round: every presentation accepts reviews while it's open, and teams you create or change join it
+            automatically. Its scores are shown for practice only and never count toward a grade.
+          </div>
+        ) : null}
+        {round.status === 'reviewing' && round.counts_toward_grade ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-forest-tint px-3 py-2.5 text-[13px]">
             <span className="font-semibold text-forest">Reviews per session:</span>
             {sessionsShown.map((n) => {
@@ -352,6 +368,19 @@ function ScheduleTab({ base, overview, round, run }: { base: string; overview: O
       </Card>
 
       <PresentationsTable base={base} round={round} sessionsShown={sessionsShown} heldOn={heldOn} run={run} />
+
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            window.confirm('Create a practice round and open it for reviews now? It never counts toward a grade.') &&
+            run(() => apiPost(`${base}/rounds/practice`, { title: 'Practice round (not graded)', open_now: true }), 'Practice round opened')
+          }
+        >
+          + Add practice round
+        </Button>
+      </div>
 
       <details className="rounded-lg border border-border bg-card p-4 shadow-soft">
         <summary className="cursor-pointer text-[14px] font-semibold">Session dates (1–13)</summary>
@@ -912,7 +941,17 @@ type TeamsData = {
 };
 type LinkRow = { enrollment_id: number; student_id: number; name: string; national_id: string; team_name: string | null; token: string | null };
 
-function TeamsTab({ base, run, setToast }: { base: string; run: Run; setToast: (m: string) => void }) {
+function TeamsTab({
+  base,
+  courseId,
+  run,
+  setToast
+}: {
+  base: string;
+  courseId: number;
+  run: Run;
+  setToast: (m: string) => void;
+}) {
   const [data, setData] = useState<TeamsData | null>(null);
   const [links, setLinks] = useState<LinkRow[]>([]);
   const [name, setName] = useState('');
@@ -1115,6 +1154,13 @@ function TeamsTab({ base, run, setToast }: { base: string; run: Run; setToast: (
                         <button className="mr-3 text-forest hover:underline" onClick={() => copy(linkFor(l.token!), 'Link copied')}>
                           Copy
                         </button>
+                        <a
+                          className="mr-3 text-forest hover:underline"
+                          href={`/course/${courseId}/student-view?student=${l.student_id}`}
+                          title="See this student's page, read-only"
+                        >
+                          Preview
+                        </a>
                         <a className="mr-3 text-forest hover:underline" href={`/r/${l.token}`} target="_blank" rel="noreferrer">
                           Open
                         </a>
@@ -1146,7 +1192,7 @@ type RubricData = {
   id: number;
   kind: 'progress' | 'final';
   version: number;
-  criteria: { key: string; label: string; description: string; weight: number }[];
+  criteria: { key: string; label: string; description: string; weight: number; counts?: boolean }[];
   scale: { value: number; label: string }[];
   prompts: { key: string; label: string; required: boolean }[];
   instructions: string;
@@ -1196,7 +1242,6 @@ function RubricEditor({
   setToast: (m: string) => void;
 }) {
   const [draft, setDraft] = useState(rubric);
-  const totalWeight = draft.criteria.reduce((a, c) => a + (Number(c.weight) || 0), 0);
 
   const save = async () => {
     try {
@@ -1233,10 +1278,13 @@ function RubricEditor({
       </div>
 
       <div>
-        <div className="label-eyebrow mb-2">Criteria · weights are normalised by their sum ({totalWeight.toFixed(2)})</div>
+        <div className="label-eyebrow mb-2">
+          Criteria · only those marked “counts” make up the score (weights normalised by their sum); the rest are
+          optional remarks shown to the team
+        </div>
         <div className="grid gap-2">
           {draft.criteria.map((c, i) => (
-            <div key={i} className="grid gap-2 md:grid-cols-[1.2fr_2fr_90px_auto]" dir="auto">
+            <div key={i} className="grid items-center gap-2 md:grid-cols-[1.2fr_2fr_90px_auto_auto]" dir="auto">
               <Input
                 value={c.label}
                 dir="auto"
@@ -1260,6 +1308,16 @@ function RubricEditor({
                   setDraft({ ...draft, criteria: draft.criteria.map((x, j) => (j === i ? { ...x, weight: Number(e.target.value) } : x)) })
                 }
               />
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-[13px]">
+                <input
+                  type="checkbox"
+                  checked={c.counts !== false}
+                  onChange={(e) =>
+                    setDraft({ ...draft, criteria: draft.criteria.map((x, j) => (j === i ? { ...x, counts: e.target.checked } : x)) })
+                  }
+                />
+                counts
+              </label>
               <Button
                 size="sm"
                 variant="ghost"
@@ -1274,7 +1332,7 @@ function RubricEditor({
             size="sm"
             variant="soft"
             className="justify-self-start"
-            onClick={() => setDraft({ ...draft, criteria: [...draft.criteria, { key: '', label: '', description: '', weight: 1 }] })}
+            onClick={() => setDraft({ ...draft, criteria: [...draft.criteria, { key: '', label: '', description: '', weight: 1, counts: false }] })}
           >
             + Criterion
           </Button>
@@ -1705,6 +1763,15 @@ function ScoresTab({
 
   return (
     <div className="grid gap-4">
+      {!round.counts_toward_grade ? (
+        <div className="hint hint-warm">
+          <span className="hint-icon">!</span>
+          <div>
+            <strong className="text-ink">Practice round.</strong> These scores are for trying the process only and are
+            never part of any grade.
+          </div>
+        </div>
+      ) : null}
       <div className="hint">
         <span className="hint-icon">i</span>
         <div className="leading-relaxed">

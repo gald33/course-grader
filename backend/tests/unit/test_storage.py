@@ -41,6 +41,12 @@ class FakeSupabaseStorage:
             body = json.loads(request.content)
             self.buckets[body["id"]] = body["public"]
             return httpx.Response(200, json={"name": body["id"]})
+        if m := re.fullmatch(r"/object/upload/sign/([^/]+)/(.+)", path):
+            return httpx.Response(200, json={"url": f"/object/upload/sign/{m[1]}/{m[2]}?token=up"})
+        if (m := re.fullmatch(r"/object/([^/]+)", path)) and request.method == "DELETE":
+            for key in json.loads(request.content)["prefixes"]:
+                self.objects.pop((m[1], key), None)
+            return httpx.Response(200, json=[])
         if m := re.fullmatch(r"/object/sign/([^/]+)/(.+)", path):
             return httpx.Response(200, json={"signedURL": f"/object/sign/{m[1]}/{m[2]}?token=t0k"})
         if m := re.fullmatch(r"/object/info/authenticated/([^/]+)/(.+)", path):
@@ -182,3 +188,71 @@ def test_ai_grader_reads_slides_from_supabase(fake_storage, session_factory):
         presentation = SimpleNamespace(id=5, team_id=-1, demo_url="", materials_text="", slides_artifact_id=slides.id)
         [materials] = llm_peer_review._load_materials(db, [presentation])  # type: ignore[list-item]
         assert materials.slides_pdf == b"%PDF-1.7 deck"
+
+
+def _client_with(session_factory):
+    def _db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _db
+    return TestClient(app)
+
+
+def test_large_files_upload_straight_to_storage(fake_storage, session_factory, tmp_path):
+    """Hosted request bodies are capped, so the browser PUTs files to a signed
+    URL and the API registers them by key."""
+    try:
+        with _client_with(session_factory) as c:
+            cid = c.post("/api/courses", json={"code": "AI", "name": "AI", "year": 2026, "semester": "A"}).json()["id"]
+            with session_factory() as db:
+                from app.models.entities import Enrollment, Student
+
+                s = Student(national_id="111111118", name="Noa")
+                db.add(s)
+                db.flush()
+                db.add(Enrollment(course_id=cid, student_id=s.id))
+                db.commit()
+                sid = s.id
+            team = c.post(f"/api/courses/{cid}/peer/teams", json={"name": "T1"}).json()["id"]
+            c.put(f"/api/courses/{cid}/peer/students/{sid}/team", json={"team_id": team})
+            c.post(f"/api/courses/{cid}/peer/setup")
+            c.post(f"/api/courses/{cid}/peer/links/generate")
+            token = c.get(f"/api/courses/{cid}/peer/links").json()[0]["token"]
+            pres = c.get(f"/api/courses/{cid}/peer/overview").json()["rounds"][0]["presentations"][0]["id"]
+
+            # Slides: signed URL, browser upload (simulated), then register.
+            target = c.post(f"/api/r/{token}/presentations/{pres}/slides/upload-url").json()
+            assert target["direct"] and target["url"].endswith("?token=up")
+            assert target["key"].startswith("peer/rounds/") and target["key"].endswith(f"presentation_{pres}_slides.pdf")
+            fake_storage.objects[("course-grader", target["key"])] = (b"%PDF-1.7 big deck", "application/pdf")
+            done = c.post(f"/api/r/{token}/presentations/{pres}/slides/complete", json={"key": target["key"], "filename": "deck.pdf"})
+            assert done.status_code == 200
+            overview = c.get(f"/api/courses/{cid}/peer/overview").json()["rounds"][0]["presentations"]
+            assert next(p for p in overview if p["id"] == pres)["has_slides"]
+            bad = c.post(f"/api/r/{token}/presentations/{pres}/slides/complete", json={"key": "peer/rounds/9/other.pdf"})
+            assert bad.status_code == 400
+            fake_storage.objects[("course-grader", target["key"])] = (b"not a pdf", "application/pdf")
+            assert c.post(f"/api/r/{token}/presentations/{pres}/slides/complete", json={"key": target["key"]}).status_code == 400
+
+            # Imports: same idea, by storage_key; the upload is removed after import.
+            from openpyxl import Workbook
+
+            wb = Workbook()
+            wb.active.append(["תעודת זהות", "שם"])
+            wb.active.append(["222222226", "Itay"])
+            xlsx = tmp_path / "roster.xlsx"
+            wb.save(xlsx)
+            target = c.post(f"/api/courses/{cid}/imports/upload-url", json={"filename": "roster.xlsx"}).json()
+            assert target["key"].startswith(f"imports/{cid}/")
+            fake_storage.objects[("course-grader", target["key"])] = (xlsx.read_bytes(), "application/octet-stream")
+            res = c.post(f"/api/courses/{cid}/imports/roster", data={"storage_key": target["key"]})
+            assert res.status_code == 200 and res.json()["imported"] == 1
+            assert ("course-grader", target["key"]) not in fake_storage.objects
+            other = c.post(f"/api/courses/{cid}/imports/roster", data={"storage_key": "imports/999/x/roster.xlsx"})
+            assert other.status_code == 400
+    finally:
+        app.dependency_overrides.clear()

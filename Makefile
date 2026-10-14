@@ -39,9 +39,8 @@ frontend-install:
 #   vercel login --global-config ~/.vercel-yvc
 VERCEL ?= vercel --global-config $(HOME)/.vercel-yvc
 
-deploy:  ## deploy backend, then frontend, to production
-	cd backend && $(VERCEL) link --yes --project course-grader-api >/dev/null && $(VERCEL) deploy --prod --yes
-	cd frontend && $(VERCEL) link --yes --project course-grader >/dev/null && $(VERCEL) deploy --prod --yes
+deploy:  ## deploy backend, then frontend, to production (pushes to main also deploy automatically)
+	./scripts/vercel-deploy.sh
 
 migrate-hosted:  ## apply migrations to the Supabase database (session pooler URL in .env)
 	set -a; . ./.env; set +a; cd backend && DATABASE_URL="$$SUPABASE_POOL_URL" alembic upgrade head

@@ -147,3 +147,40 @@ def signed_url(location: str, download_name: str | None = None, expires_in: int 
     if download_name:
         url += ("&" if "?" in url else "?") + "download=" + quote(download_name)
     return url
+
+
+# --- Direct browser uploads --------------------------------------------------
+# Hosted functions cap request bodies (~4.5 MB on Vercel), so large files go
+# from the browser straight to Storage with a signed upload URL; the API then
+# records the object by its key.
+
+
+def direct_uploads_enabled() -> bool:
+    return get_settings().storage_backend == "supabase"
+
+
+def location_for(key: str) -> str:
+    return f"{REMOTE_PREFIX}{get_settings().supabase_storage_bucket}/{key.strip('/')}"
+
+
+def signed_upload_url(key: str) -> str:
+    """URL the browser PUTs the file to (valid ~2 hours, overwrites)."""
+    bucket = get_settings().supabase_storage_bucket
+    key = key.strip("/")
+    with _client() as client:
+        ensure_bucket(client, bucket)
+        res = client.post(f"/object/upload/sign/{_object_path(bucket, key)}", headers={"x-upsert": "true"})
+        _check(res, "upload signing")
+        relative = res.json().get("url") or ""
+    if not relative:
+        raise StorageError("Supabase storage returned no upload URL")
+    return str(client.base_url).rstrip("/") + "/" + relative.lstrip("/")
+
+
+def delete(location: str) -> None:
+    if not is_remote(location):
+        Path(location).unlink(missing_ok=True)
+        return
+    bucket, key = _split(location)
+    with _client() as client:
+        _check(client.request("DELETE", f"/object/{quote(bucket)}", json={"prefixes": [key]}), "delete")

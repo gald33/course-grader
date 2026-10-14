@@ -100,3 +100,19 @@ export function errorMessage(err: unknown): string {
   }
   return raw;
 }
+
+/** Upload target from the API: when hosted, files go straight to Storage with
+ * a signed URL (hosted request bodies are capped at ~4.5 MB); otherwise the
+ * caller posts the file to the API as before. */
+export type UploadTarget = { direct: boolean; url?: string; key?: string };
+
+/** PUT a file to a signed Storage URL; returns its key. */
+export async function putToStorage(target: UploadTarget, file: File): Promise<string> {
+  const res = await fetch(target.url!, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' }
+  });
+  if (!res.ok) throw new Error(`Upload to storage failed (${res.status})`);
+  return target.key!;
+}

@@ -862,12 +862,39 @@ function MaterialsCard({
   const upload = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
-    const fd = new FormData();
-    fd.append('file', file);
+    if (file.size > 20 * 1024 * 1024) {
+      setError(ERRORS.too_large);
+      return;
+    }
+    setStatus('מעלה…');
     try {
-      onUpdate(await call<Home>(`/api/r/${token}/presentations/${mp.id}/slides`, { method: 'POST', body: fd }));
+      const target = await call<{ direct: boolean; url?: string; key?: string }>(
+        `/api/r/${token}/presentations/${mp.id}/slides/upload-url`,
+        { method: 'POST' }
+      );
+      if (target.direct) {
+        // Straight to storage: hosted request bodies are capped (~4.5 MB).
+        const put = await fetch(target.url!, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': 'application/pdf', 'x-upsert': 'true' }
+        });
+        if (!put.ok) throw new ApiError('upload', 'ההעלאה נכשלה. נסו שוב.');
+        onUpdate(
+          await call<Home>(`/api/r/${token}/presentations/${mp.id}/slides/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: target.key, filename: file.name })
+          })
+        );
+      } else {
+        const fd = new FormData();
+        fd.append('file', file);
+        onUpdate(await call<Home>(`/api/r/${token}/presentations/${mp.id}/slides`, { method: 'POST', body: fd }));
+      }
       setStatus('המצגת הועלתה ✓');
     } catch (err) {
+      setStatus(null);
       setError(err instanceof Error ? err.message : String(err));
     }
   };

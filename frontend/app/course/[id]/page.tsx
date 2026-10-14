@@ -11,7 +11,7 @@ import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
-import { apiBase, apiFetch, apiGet, apiPatch, apiPost } from '@/lib/api';
+import { apiBase, apiFetch, apiGet, apiPatch, apiPost, putToStorage, type UploadTarget } from '@/lib/api';
 
 type Course = {
   id: number;
@@ -856,7 +856,14 @@ function ImportsStep({
     e.preventDefault();
     if (!file) return;
     const fd = new FormData();
-    fd.append('file', file);
+    try {
+      const target = await apiPost<UploadTarget>(`/api/courses/${courseId}/imports/upload-url`, { filename: file.name });
+      if (target.direct) fd.append('storage_key', await putToStorage(target, file));
+      else fd.append('file', file);
+    } catch (err) {
+      setToast(`Upload failed: ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
     if (extra) for (const [k, v] of Object.entries(extra)) fd.append(k, v);
     const res = await apiFetch(path, { method: 'POST', body: fd });
     if (!res.ok) {

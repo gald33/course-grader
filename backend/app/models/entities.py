@@ -67,6 +67,9 @@ class Enrollment(Base):
     attendance_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     attendance_exempt: Mapped[bool] = mapped_column(Boolean, default=False)
     bonus_points: Mapped[float] = mapped_column(Float, default=0.0)
+    # Test student (e.g. the instructor's own student account): uses the site
+    # normally but is left out of scores, normalisation, exports and grades.
+    is_test: Mapped[bool] = mapped_column(Boolean, default=False)
     # Capability token for the student-facing peer-review page (/r/<token>).
     # Generated on demand by the instructor; the only student credential.
     review_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)

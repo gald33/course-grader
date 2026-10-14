@@ -800,6 +800,7 @@ type AccountRow = {
   has_account: boolean;
   invited_at: string | null;
   activated_at: string | null;
+  is_test: boolean;
 };
 type AccountsData = { configured: boolean; login_url: string; students: AccountRow[] };
 
@@ -813,10 +814,12 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
   }, [load, setToast]);
 
   if (!data) return null;
-  const withoutAccount = data.students.filter((s) => s.email && !s.has_account);
-  const waiting = data.students.filter((s) => s.has_account && !s.activated_at).length;
-  const active = data.students.filter((s) => s.activated_at).length;
-  const noEmail = data.students.filter((s) => !s.email).length;
+  const real = data.students.filter((s) => !s.is_test);
+  const testStudent = data.students.find((s) => s.is_test);
+  const withoutAccount = real.filter((s) => s.email && !s.has_account);
+  const waiting = real.filter((s) => s.has_account && !s.activated_at).length;
+  const active = real.filter((s) => s.activated_at).length;
+  const noEmail = real.filter((s) => !s.email).length;
 
   const act = async (fn: () => Promise<string>) => {
     setBusy(true);
@@ -850,8 +853,21 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
     });
   };
 
+  const createTest = () => {
+    const email = window.prompt(
+      'Email for your test student account (it must not be a real student\'s). Tip: a +alias of your own address, e.g. you+student@…'
+    );
+    if (!email) return;
+    void act(async () => {
+      const res = await apiPost<{ email: string }>(`${base}/test-student`, { email });
+      return `Test student ${res.email} ready — first password is shown in the accounts card`;
+    });
+  };
+
   const status = (s: AccountRow) =>
-    !s.email ? (
+    s.is_test ? (
+      <span className="pill pill-info">test student</span>
+    ) : !s.email ? (
       <span className="pill pill-warn">no email</span>
     ) : s.activated_at ? (
       <span className="pill pill-ok">active</span>
@@ -900,6 +916,40 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
           </div>
         </div>
       )}
+      {data.configured ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line-soft px-3 py-2 text-[13px]">
+          {testStudent ? (
+            <div>
+              <b>Your test student:</b> sign in at the login link as{' '}
+              <span className="font-mono">{testStudent.email}</span>
+              {testStudent.activated_at ? (
+                ' with the password you chose.'
+              ) : (
+                <>
+                  {' '}
+                  with first password <span className="font-mono">{testStudent.national_id}</span> (you&apos;ll pick your
+                  own).
+                </>
+              )}{' '}
+              <span className="text-ink-3">It reviews like a student but never counts in scores, exports or grades.</span>
+            </div>
+          ) : (
+            <div className="text-ink-3">
+              Want to see the site as a student? Create a test student — it takes part like anyone else but never counts
+              in scores, exports or grades.
+            </div>
+          )}
+          {testStudent ? (
+            <button className="text-forest hover:underline" disabled={busy} onClick={() => reset(testStudent)}>
+              Reset its password
+            </button>
+          ) : (
+            <Button size="sm" variant="outline" disabled={busy} onClick={createTest}>
+              Create test student
+            </Button>
+          )}
+        </div>
+      ) : null}
       <details>
         <summary className="cursor-pointer text-[13px] text-ink-2">Per-student status</summary>
         <div className="mt-2 max-h-[360px] overflow-auto">

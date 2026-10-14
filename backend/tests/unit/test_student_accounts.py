@@ -271,3 +271,23 @@ def test_creating_an_account_that_already_exists_links_it(env, tmp_path):
     with env.Session() as db:
         itay = db.scalar(select(Student).where(Student.email == "itay@example.com"))
         assert itay.auth_user_id == "u-existing"
+
+
+def test_test_student_account_for_the_instructor(env, tmp_path):
+    _import(env, tmp_path, ROWS)
+    c = env.client
+    url = f"/api/courses/{env.course_id}/accounts/test-student"
+    res = c.post(url, json={"email": " Teacher+Student@Example.com "})
+    assert res.status_code == 200, res.text
+    made = res.json()
+    assert made["email"] == "teacher+student@example.com" and made["initial_password"].startswith("test-")
+    assert env.fake.users["teacher+student@example.com"]["password"] == made["initial_password"]
+    # Asking again returns the same student; a real student's email is refused.
+    assert c.post(url, json={"email": "teacher+student@example.com"}).json()["student_id"] == made["student_id"]
+    assert c.post(url, json={"email": "noa.cohen@gmail.com"}).status_code == 409
+
+    accounts = {a["email"]: a for a in c.get(f"/api/courses/{env.course_id}/accounts").json()["students"]}
+    assert accounts["teacher+student@example.com"]["is_test"] and not accounts["noa.cohen@gmail.com"]["is_test"]
+    # Same first-login rule as everyone: the initial password must be changed.
+    first = _login(env, "teacher+student@example.com", made["initial_password"])
+    assert first.json() == {"must_change_password": True}

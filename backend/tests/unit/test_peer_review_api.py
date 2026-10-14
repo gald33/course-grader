@@ -568,3 +568,32 @@ def test_instructor_can_preview_a_students_page(env, course, monkeypatch):
     assert env.client.get(f"/api/courses/{course.id}/peer/student-view/999999").status_code == 404
     monkeypatch.setattr(env.settings, "instructor_token", "teacher")
     assert env.client.get(f"/api/courses/{course.id}/peer/student-view/{sid}").status_code == 401
+
+
+def test_test_students_take_part_but_never_count(env, course):
+    with env.Session() as db:
+        s = Student(national_id="test-abcd1234", name="Test student")
+        db.add(s)
+        db.flush()
+        db.add(Enrollment(course_id=course.id, student_id=s.id, is_test=True, review_token="t" * 32))
+        db.commit()
+        test_id = s.id
+    course.tokens["test"] = "t" * 32
+    _schedule_and_open(env, course)
+    c, base = env.client, _base(course)
+    for who in ("c1", "b1"):
+        _ok(_review(env, course, who, "A"))
+    for who in ("c1", "a1"):
+        _ok(_review(env, course, who, "B", scores={k: 5 for k in GOOD}))
+    before = _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))
+
+    # The test student sees the round and can review like anyone else...
+    home = _ok(c.get(f"/api/r/{course.tokens['test']}"))
+    assert home["rounds"]
+    _ok(_review(env, course, "test", "A", scores={k: 1 for k in GOOD}))
+    # ...but the review changes nothing and the student is in no score table.
+    after = _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))
+    assert after["teams"] == before["teams"] and after["students"] == before["students"]
+    assert test_id not in {s["student_id"] for s in after["students"]}
+    students = {s["student_id"]: s for s in _ok(c.get(f"{base}/teams"))["students"]}
+    assert students[test_id]["is_test"] and not students[course.students["a1"]]["is_test"]

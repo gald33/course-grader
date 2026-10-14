@@ -202,7 +202,9 @@ def overview(course_id: int, db: Session = Depends(get_db)) -> dict:
     rounds = db.scalars(
         select(ReviewRound).where(ReviewRound.course_id == course_id).order_by(ReviewRound.number)
     ).all()
-    student_count = db.scalar(select(func.count()).select_from(Enrollment).where(Enrollment.course_id == course_id))
+    student_count = db.scalar(
+        select(func.count()).select_from(Enrollment).where(Enrollment.course_id == course_id, Enrollment.is_test.is_(False))
+    )
     return {
         "sessions": [
             {"number": s.number, "held_on": s.held_on.isoformat() if s.held_on else None, "title": s.title}
@@ -253,14 +255,20 @@ def list_teams(course_id: int, db: Session = Depends(get_db)) -> dict:
             select(TeamMembership).where(TeamMembership.course_id == course_id, TeamMembership.end_at.is_(None))
         )
     }
-    students = db.scalars(
-        select(Student).join(Enrollment).where(Enrollment.course_id == course_id).order_by(Student.name)
+    rows = db.execute(
+        select(Student, Enrollment.is_test).join(Enrollment).where(Enrollment.course_id == course_id).order_by(Student.name)
     ).all()
     return {
         "teams": [{"id": t.id, "name": t.name, "project_title": t.project_title} for t in teams],
         "students": [
-            {"student_id": s.id, "name": s.name, "national_id": s.national_id, "team_id": active.get(s.id)}
-            for s in students
+            {
+                "student_id": s.id,
+                "name": s.name,
+                "national_id": s.national_id,
+                "team_id": active.get(s.id),
+                "is_test": is_test,
+            }
+            for s, is_test in rows
         ],
     }
 
@@ -831,6 +839,7 @@ def review_links(course_id: int, db: Session = Depends(get_db)) -> list[dict]:
             "national_id": s.national_id,
             "team_name": teams.get(active.get(s.id)) if active.get(s.id) else None,
             "token": e.review_token,
+            "is_test": e.is_test,
         }
         for e, s in rows
     ]

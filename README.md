@@ -191,7 +191,8 @@ port 3000 needs to be reachable. Set the tunnel URL as **Link base URL** in Team
 Frontend and API are two Vercel projects deployed from `frontend/` and `backend/`; the frontend proxies
 `/api/*` to the API, so the browser only talks to one origin. Data lives in Supabase (`eu-central-1`).
 
-- `make deploy` deploys both (Vercel CLI logged in with `vercel login --global-config ~/.vercel-yvc`).
+- Pushes to `main` deploy both automatically (Vercel Git integration; pull requests get frontend previews).
+  `make deploy` deploys the working tree by hand (Vercel CLI logged in with `vercel login --global-config ~/.vercel-yvc`).
 - `make migrate-hosted` applies new migrations to Supabase. Run it before deploying code that needs them.
 - `make worker-hosted` starts the notebook worker in the background on this machine (Docker Desktop running),
   against the hosted database and storage; `make worker-hosted-logs` / `make worker-hosted-stop`. Notebook

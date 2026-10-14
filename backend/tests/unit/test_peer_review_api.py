@@ -298,6 +298,9 @@ def test_student_payloads_never_reveal_reviewers(env, course):
     raw = json.dumps(home, ensure_ascii=False)
     results = next(r for r in home["rounds"] if r["id"] == course.round_id)["results"]
     assert results["valid_reviews"] == 2
+    # Only the normalised result: no raw average of the counted final score.
+    assert "mean_total" not in results and "final_score" not in results["criterion_means"]
+    assert set(results["criterion_means"]) <= {"problem_clarity", "usefulness", "functionality", "testing"}
     texts = [f["responses"]["worked_well"] for f in results["feedback"]]
     assert "Loved the onboarding" in texts
     for ident in _all_identities_except(env, course, {"b1"}):

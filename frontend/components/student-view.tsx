@@ -77,7 +77,6 @@ type RoundView = {
     valid_reviews: number;
     share: number | null;
     relative: number | null;
-    mean_total: number | null;
     criterion_means: Record<string, number>;
     prompts: Prompt[];
     feedback: { source: 'peer' | 'ai'; responses: Record<string, string> }[];
@@ -896,6 +895,7 @@ function ResultsCard({ round }: { round: RoundView }) {
       )}
       {criteria.length && Object.keys(r.criterion_means).length ? (
         <div className="mt-4 grid gap-2">
+          <p className="text-[13px] text-ink-3">ממוצע ההערות שקיבלתם (לא נכנס לציון):</p>
           {criteria.map((c) => {
             const v = r.criterion_means[c.key];
             if (v == null) return null;

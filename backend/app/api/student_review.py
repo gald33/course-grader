@@ -60,6 +60,10 @@ def _released_results(db: Session, rnd: ReviewRound, presentation: Presentation)
     result = compute_round_scores(db, rnd)
     team = next((t for t in result.teams if t.presentation_id == presentation.id), None)
     prompts = json.loads(rnd.rubric_version.prompts_json) if rnd.rubric_version else []
+    criteria = json.loads(rnd.rubric_version.criteria_json) if rnd.rubric_version else []
+    # The grade is only ever the normalised result computed after the round;
+    # raw averages of counted criteria (e.g. the final score) are never sent.
+    remarks = {c["key"] for c in criteria if not c.get("counts", True)}
     reviews = db.scalars(
         select(PeerReview).where(PeerReview.presentation_id == presentation.id, PeerReview.excluded.is_(False))
     ).all()
@@ -73,8 +77,7 @@ def _released_results(db: Session, rnd: ReviewRound, presentation: Presentation)
         "valid_reviews": team.valid_reviews if team else 0,
         "share": team.share if team else None,
         "relative": team.relative if team else None,
-        "mean_total": team.mean_total if team else None,
-        "criterion_means": team.criterion_means if team else {},
+        "criterion_means": {k: v for k, v in (team.criterion_means if team else {}).items() if k in remarks},
         "prompts": prompts,
         "feedback": feedback,
     }

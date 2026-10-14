@@ -283,6 +283,9 @@ def test_student_payloads_never_reveal_reviewers(env, course):
 
     # Before release, B's members see nothing about reviews of their team.
     home = _ok(c.get(f"/api/r/{course.tokens['b1']}"))
+    # Teammates are listed by name (they never review their own team).
+    assert sorted(home["team"]["members"]) == sorted([STUDENTS["b1"][1], STUDENTS["b2"][1]])
+    home["team"]["members"] = []
     raw = json.dumps(home, ensure_ascii=False)
     assert "Loved the onboarding" not in raw
     for ident in _all_identities_except(env, course, {"b1"}):
@@ -301,6 +304,7 @@ def test_student_payloads_never_reveal_reviewers(env, course):
     _ok(c.post(f"{_base(course)}/rounds/{course.round_id}/actions/close"))
     _ok(c.post(f"{_base(course)}/rounds/{course.round_id}/actions/release"))
     home = _ok(c.get(f"/api/r/{course.tokens['b1']}"))
+    home["team"]["members"] = []
     raw = json.dumps(home, ensure_ascii=False)
     results = next(r for r in home["rounds"] if r["id"] == course.round_id)["results"]
     assert results["valid_reviews"] == 2
@@ -676,3 +680,50 @@ def test_llm_number_scores_within_range():
         llm_peer_review.parse_result(json.dumps(ok), rubric, [1])
     schema = llm_peer_review.output_schema(rubric["criteria"], [1, 2], [], [1])
     assert "final_score" in json.dumps(schema) and '"type": "number"' in json.dumps(schema)
+
+
+def test_students_create_join_and_leave_teams(env):
+    c = env.client
+    course_id = _ok(c.post("/api/courses", json={"code": "T", "name": "Teams", "year": 2026, "semester": "A"}))["id"]
+    tokens = {}
+    with env.Session() as db:
+        for i in range(4):
+            s = Student(national_id=f"90000000{i}", name=f"Student {i}")
+            db.add(s)
+            db.flush()
+            db.add(Enrollment(course_id=course_id, student_id=s.id, review_token=f"tok{i}" * 8))
+            tokens[i] = f"tok{i}" * 8
+        db.commit()
+    _ok(c.post(f"/api/courses/{course_id}/peer/setup"))
+    _ok(c.put(f"/api/courses/{course_id}/peer/team-settings", json={"max_team_size": 2}))
+    r = lambda i, path="", **kw: c.post(f"/api/r/{tokens[i]}/team{path}", **kw)  # noqa: E731
+
+    # Student 0 opens a team and gets a code to share.
+    home = _ok(r(0, json={"name": "Jokers", "project_title": "Joke site"}))
+    code = home["team"]["join_code"]
+    assert home["team"]["members"] == ["Student 0"] and len(code) == 6
+    assert r(1, json={"name": "Jokers"}).json()["detail"]["code"] == "team_name_taken"
+    assert r(1, "/join", json={"code": "ZZZZZZ"}).json()["detail"]["code"] == "bad_code"
+    home = _ok(r(1, "/join", json={"code": code.lower()}))
+    assert home["team"]["members"] == ["Student 0", "Student 1"]
+    assert r(2, "/join", json={"code": code}).json()["detail"]["code"] == "team_full"
+    assert r(0, json={"name": "Second"}).json()["detail"]["code"] == "already_in_team"
+
+    # The instructor sees the team, its code and members, and can move anyone.
+    teams = _ok(c.get(f"/api/courses/{course_id}/peer/teams"))
+    jokers = next(t for t in teams["teams"] if t["name"] == "Jokers")
+    assert jokers["join_code"] == code and teams["settings"] == {"teams_open": True, "max_team_size": 2}
+    students = {s["name"]: s for s in teams["students"]}
+    _ok(c.put(f"/api/courses/{course_id}/peer/students/{students['Student 2']['student_id']}/team", json={"team_id": jokers["id"]}))
+
+    # Locked: students can no longer change teams; the instructor still can.
+    _ok(c.put(f"/api/courses/{course_id}/peer/team-settings", json={"teams_open": False}))
+    assert r(3, json={"name": "Late"}).json()["detail"]["code"] == "teams_locked"
+    assert r(1, "/leave").json()["detail"]["code"] == "teams_locked"
+    assert _ok(c.get(f"/api/r/{tokens[3]}"))["teams_policy"]["open"] is False
+
+    # Leaving the last member removes an unused team.
+    _ok(c.put(f"/api/courses/{course_id}/peer/team-settings", json={"teams_open": True}))
+    _ok(r(3, json={"name": "Solo"}))
+    assert _ok(r(3, "/leave"))["team"] is None
+    assert "Solo" not in {t["name"] for t in _ok(c.get(f"/api/courses/{course_id}/peer/teams"))["teams"]}

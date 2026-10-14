@@ -44,6 +44,7 @@ from app.schemas.api import (
     SwapRequest,
     TeamCreate,
     PracticeRoundIn,
+    TeamSettingsIn,
     TeamUpdate,
     UploadedFileIn,
 )
@@ -262,8 +263,12 @@ def list_teams(course_id: int, db: Session = Depends(get_db)) -> dict:
     rows = db.execute(
         select(Student, Enrollment.is_test).join(Enrollment).where(Enrollment.course_id == course_id).order_by(Student.name)
     ).all()
+    course = _course(db, course_id)
     return {
-        "teams": [{"id": t.id, "name": t.name, "project_title": t.project_title} for t in teams],
+        "settings": {"teams_open": course.teams_open, "max_team_size": course.max_team_size},
+        "teams": [
+            {"id": t.id, "name": t.name, "project_title": t.project_title, "join_code": t.join_code} for t in teams
+        ],
         "students": [
             {
                 "student_id": s.id,
@@ -280,18 +285,22 @@ def list_teams(course_id: int, db: Session = Depends(get_db)) -> dict:
 @router.post("/teams")
 def create_team(course_id: int, payload: TeamCreate, db: Session = Depends(get_db)) -> dict:
     _course(db, course_id)
-    if db.scalar(select(Team).where(Team.course_id == course_id, Team.name == payload.name.strip())):
-        raise HTTPException(status_code=409, detail="A team with this name already exists")
-    team = Team(course_id=course_id, name=payload.name.strip(), project_title=payload.project_title.strip())
-    db.add(team)
-    db.flush()
-    # Rounds not yet open for reviewing get a presentation slot for the team.
-    for rnd in db.scalars(select(ReviewRound).where(ReviewRound.course_id == course_id)):
-        if rnd.status in ("draft", "scheduling"):
-            svc.sync_round_presentations(db, rnd)
+    try:
+        team = svc.create_team(db, course_id, payload.name, payload.project_title)
+    except svc.PeerReviewError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message)
+    return {"id": team.id, "join_code": team.join_code}
+
+
+@router.put("/team-settings")
+def update_team_settings(course_id: int, payload: TeamSettingsIn, db: Session = Depends(get_db)) -> dict:
+    course = _course(db, course_id)
+    if payload.teams_open is not None:
+        course.teams_open = payload.teams_open
+    if payload.max_team_size is not None:
+        course.max_team_size = payload.max_team_size
     db.commit()
-    svc.refresh_practice_rounds(db, course_id)
-    return {"id": team.id}
+    return {"teams_open": course.teams_open, "max_team_size": course.max_team_size}
 
 
 @router.patch("/teams/{team_id}")
@@ -308,16 +317,7 @@ def update_team(course_id: int, team_id: int, payload: TeamUpdate, db: Session =
 @router.delete("/teams/{team_id}")
 def delete_team(course_id: int, team_id: int, db: Session = Depends(get_db)) -> dict:
     team = _team(db, course_id, team_id)
-    pres_ids = list(db.scalars(select(Presentation.id).where(Presentation.team_id == team.id)))
-    has_history = pres_ids and (
-        db.scalar(select(func.count()).select_from(PeerReview).where(PeerReview.presentation_id.in_(pres_ids)))
-        or db.scalar(
-            select(func.count()).select_from(ReviewObligation).where(ReviewObligation.presentation_id.in_(pres_ids))
-        )
-    )
-    if has_history or db.scalar(
-        select(func.count()).select_from(ReviewRoundRoster).where(ReviewRoundRoster.team_id == team.id)
-    ):
+    if svc.team_has_history(db, team):
         raise HTTPException(status_code=409, detail="This team already has review history and can't be deleted")
     db.delete(team)
     db.commit()

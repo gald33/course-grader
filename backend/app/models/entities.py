@@ -32,6 +32,9 @@ class Course(Base):
     year: Mapped[int] = mapped_column(Integer)
     semester: Mapped[str] = mapped_column(String(64))
     attendance_threshold: Mapped[float] = mapped_column(Float, default=80.0)
+    # Students may create, join and leave teams themselves while this is on.
+    teams_open: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    max_team_size: Mapped[int] = mapped_column(Integer, default=7, server_default=text("7"))
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="course", cascade="all, delete-orphan")
     assignments: Mapped[list[Assignment]] = relationship(back_populates="course", cascade="all, delete-orphan")
@@ -289,6 +292,8 @@ class Team(Base):
     course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     project_title: Mapped[str] = mapped_column(String(255), default="")
+    # Teammates share this code to join (students can't join a team without it).
+    join_code: Mapped[str | None] = mapped_column(String(16), nullable=True, unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     memberships: Mapped[list[TeamMembership]] = relationship(back_populates="team", cascade="all, delete-orphan")

@@ -376,6 +376,88 @@ def set_student_team(db: Session, course_id: int, student_id: int, team_id: int 
     refresh_practice_rounds(db, course_id)
 
 
+# ---------------------------------------------------------------------------
+# Teams: created by the instructor or by students (join code)
+# ---------------------------------------------------------------------------
+
+JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I
+
+
+def new_join_code(db: Session) -> str:
+    while True:
+        code = "".join(secrets.choice(JOIN_CODE_ALPHABET) for _ in range(6))
+        if db.scalar(select(Team.id).where(Team.join_code == code)) is None:
+            return code
+
+
+def create_team(db: Session, course_id: int, name: str, project_title: str = "") -> Team:
+    name = name.strip()
+    if not name:
+        raise PeerReviewError("invalid_team", "The team needs a name", 422)
+    if db.scalar(select(Team).where(Team.course_id == course_id, Team.name == name)):
+        raise PeerReviewError("team_name_taken", "A team with this name already exists", 409)
+    team = Team(course_id=course_id, name=name, project_title=project_title.strip(), join_code=new_join_code(db))
+    db.add(team)
+    db.flush()
+    # Rounds not yet open for reviewing get a presentation slot for the team.
+    for rnd in db.scalars(select(ReviewRound).where(ReviewRound.course_id == course_id)):
+        if rnd.status in ("draft", "scheduling"):
+            sync_round_presentations(db, rnd)
+    db.commit()
+    refresh_practice_rounds(db, course_id)
+    return team
+
+
+def team_has_history(db: Session, team: Team) -> bool:
+    pres_ids = list(db.scalars(select(Presentation.id).where(Presentation.team_id == team.id)))
+    if pres_ids and (
+        db.scalar(select(PeerReview.id).where(PeerReview.presentation_id.in_(pres_ids)).limit(1))
+        or db.scalar(select(ReviewObligation.id).where(ReviewObligation.presentation_id.in_(pres_ids)).limit(1))
+    ):
+        return True
+    return db.scalar(select(ReviewRoundRoster.id).where(ReviewRoundRoster.team_id == team.id).limit(1)) is not None
+
+
+def _require_teams_open(course: Course) -> None:
+    if not course.teams_open:
+        raise PeerReviewError("teams_locked", "Teams are locked; ask the instructor to change your team", 409)
+
+
+def student_create_team(db: Session, course: Course, student_id: int, name: str, project_title: str) -> Team:
+    _require_teams_open(course)
+    if active_team_id(db, course.id, student_id) is not None:
+        raise PeerReviewError("already_in_team", "Leave your current team first", 409)
+    team = create_team(db, course.id, name, project_title)
+    set_student_team(db, course.id, student_id, team.id)
+    return team
+
+
+def student_join_team(db: Session, course: Course, student_id: int, code: str) -> Team:
+    _require_teams_open(course)
+    if active_team_id(db, course.id, student_id) is not None:
+        raise PeerReviewError("already_in_team", "Leave your current team first", 409)
+    team = db.scalar(select(Team).where(Team.course_id == course.id, Team.join_code == code.strip().upper()))
+    if team is None:
+        raise PeerReviewError("bad_code", "No team with this code in your course", 404)
+    if len(active_members(db, team.id)) >= course.max_team_size:
+        raise PeerReviewError("team_full", f"This team already has {course.max_team_size} members", 409)
+    set_student_team(db, course.id, student_id, team.id)
+    return team
+
+
+def student_leave_team(db: Session, course: Course, student_id: int) -> None:
+    """Leave the team; a team left empty with no review history is removed."""
+    _require_teams_open(course)
+    team_id = active_team_id(db, course.id, student_id)
+    if team_id is None:
+        return
+    set_student_team(db, course.id, student_id, None)
+    team = db.get(Team, team_id)
+    if team is not None and not active_members(db, team_id) and not team_has_history(db, team):
+        db.delete(team)
+        db.commit()
+
+
 def active_members(db: Session, team_id: int) -> list[int]:
     return list(
         db.scalars(

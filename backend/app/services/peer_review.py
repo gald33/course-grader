@@ -18,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.services import link_check
 from app.models.entities import (
     ClassSession,
     Course,
@@ -823,3 +824,27 @@ def refresh_practice_rounds(db: Session, course_id: int) -> None:
         )
     ):
         snapshot_round(db, rnd)
+
+
+# ---------------------------------------------------------------------------
+# Site links
+# ---------------------------------------------------------------------------
+
+
+def check_site_link(p: Presentation) -> None:
+    """Re-check the presentation's link and store the result."""
+    if not p.demo_url:
+        p.link_status, p.link_detail, p.link_checked_at = "", "", None
+        return
+    result = link_check.check_link(p.demo_url)
+    p.link_status, p.link_detail, p.link_checked_at = result.status, result.detail, utcnow()
+
+
+def set_site_link(p: Presentation, url: str) -> None:
+    """Save a team's link and check it right away, so the team sees at once
+    whether reviewers will be able to open it."""
+    url = url.strip()
+    if url and not url.startswith(("http://", "https://")):
+        raise PeerReviewError("invalid_url", "Link must start with http(s)://", 422)
+    p.demo_url = url
+    check_site_link(p)

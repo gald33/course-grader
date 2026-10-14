@@ -28,6 +28,8 @@ type PresentationItem = {
   team_name: string;
   project_title: string;
   demo_url: string;
+  link_status: LinkStatus;
+  link_detail: string;
   session_number: number | null;
   held_on: string | null;
   is_today: boolean;
@@ -37,12 +39,14 @@ type PresentationItem = {
   my_review: MyReview | null;
   my_share: number | null;
 };
+type LinkStatus = 'ok' | 'warning' | 'broken' | '';
 type RoundView = {
   id: number;
   number: number;
   kind: 'progress' | 'final';
   title: string;
   practice: boolean;
+  link_required: boolean;
   status: 'scheduling' | 'reviewing' | 'closed';
   released: boolean;
   my_presentation: {
@@ -50,6 +54,8 @@ type RoundView = {
     session_number: number | null;
     held_on: string | null;
     demo_url: string;
+    link_status: LinkStatus;
+    link_detail: string;
     materials_text: string;
     has_slides: boolean;
     editable: boolean;
@@ -333,6 +339,15 @@ function RoundPanel({
           <strong>סבב תרגול – לא נכלל בציון.</strong> זו הזדמנות להתנסות בטופס הביקורת. אפשר לבקר כל צוות אחר בסבב.
         </div>
       ) : null}
+      {round.link_required && round.my_presentation && round.my_presentation.link_status !== 'ok' ? (
+        <div className="rounded-lg border border-bad/40 bg-bad/5 px-4 py-3 text-[14px] leading-relaxed">
+          <strong>
+            {round.my_presentation.demo_url ? 'הקישור של הצוות לא עובד כמו שצריך.' : 'הצוות עוד לא הגיש קישור לאתר.'}
+          </strong>{' '}
+          {round.my_presentation.link_detail ? `${round.my_presentation.link_detail}. ` : ''}
+          המבקרים צריכים קישור לאתר פעיל כדי להתנסות בו. אפשר לעדכן אותו למטה, ב״ההצגה של הצוות שלך״.
+        </div>
+      ) : null}
       {round.selection ? <SelectionCard token={token} round={round} hasTeam={!!team} onUpdate={onUpdate} /> : null}
       {round.results ? <ResultsCard round={round} /> : null}
       {round.reviewing ? <ReviewingSection token={token} round={round} onUpdate={onUpdate} /> : null}
@@ -530,6 +545,7 @@ function ReviewingSection({ token, round, onUpdate }: { token: string; round: Ro
               token={token}
               p={p}
               rubric={rubric}
+              linkRequired={round.link_required}
               draft={drafts[p.id] ?? null}
               setDraft={(d) => setDraft(p.id, d)}
               share={live[p.id]}
@@ -602,13 +618,15 @@ function PresentationCard({
   share,
   expanded,
   toggle,
-  onSaved
+  onSaved,
+  linkRequired = false
 }: {
   token: string;
   p: PresentationItem;
   rubric: Rubric;
   draft: Draft | null;
   setDraft: (d: Draft | null) => void;
+  linkRequired?: boolean;
   share?: { share: number; draft: boolean };
   expanded: boolean;
   toggle: () => void;
@@ -635,17 +653,32 @@ function PresentationCard({
         <div className="shrink-0">{statusPill(p, draft)}</div>
       </button>
       {p.demo_url ? (
-        <div className="-mt-2 px-4 pb-3">
-          <a href={p.demo_url} target="_blank" rel="noopener noreferrer" className="text-[14px] text-forest underline">
-            פתיחת ההדגמה / ה-MVP ↗
+        <div className="-mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-3">
+          <a
+            href={p.demo_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center rounded-md border border-forest px-4 text-[14px] font-semibold text-forest hover:bg-forest hover:text-paper"
+          >
+            {linkRequired ? 'פתיחת האתר של הצוות ↗' : 'פתיחת ההדגמה / ה-MVP ↗'}
           </a>
+          <LinkStatusNote status={p.link_status} detail={p.link_detail} />
         </div>
+      ) : linkRequired && !p.own_team ? (
+        <div className="-mt-1 px-4 pb-3 text-[13px] text-ink-3">הצוות עוד לא הגיש קישור לאתר.</div>
       ) : null}
       {expanded && canOpen ? (
         <ReviewForm token={token} p={p} rubric={rubric} draft={draft} setDraft={setDraft} onSaved={onSaved} />
       ) : null}
     </article>
   );
+}
+
+function LinkStatusNote({ status, detail }: { status: LinkStatus; detail: string }) {
+  if (!status) return null;
+  const tone = status === 'ok' ? 'text-ok' : status === 'warning' ? 'text-warn' : 'text-bad';
+  const text = status === 'ok' ? 'האתר נבדק ונפתח ✓' : `⚠ ${detail}`;
+  return <span className={`text-[13px] ${tone}`}>{text}</span>;
 }
 
 function ReviewForm({
@@ -948,7 +981,10 @@ function MaterialsCard({
   };
 
   return (
-    <details className="rounded-lg border border-border bg-card p-4 shadow-soft">
+    <details
+      className="rounded-lg border border-border bg-card p-4 shadow-soft"
+      open={round.link_required && mp.link_status !== 'ok' ? true : undefined}
+    >
       <summary className="cursor-pointer font-hebrew text-[18px]">
         ההצגה של הצוות שלך · {sessionLabel(mp.session_number, mp.held_on)}
       </summary>
@@ -962,7 +998,9 @@ function MaterialsCard({
           <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 rounded-md border border-border bg-white px-3" />
         </label>
         <label className="grid gap-1 text-[14px]">
-          <span className="font-semibold">קישור להדגמה / MVP (רשות)</span>
+          <span className="font-semibold">
+            {round.link_required ? 'קישור לאתר הפעיל (חובה)' : 'קישור להדגמה / MVP (רשות)'}
+          </span>
           <input
             dir="ltr"
             type="url"
@@ -972,6 +1010,12 @@ function MaterialsCard({
             onChange={(e) => setDemo(e.target.value)}
             className="h-11 rounded-md border border-border bg-white px-3 text-left"
           />
+          {mp.demo_url && demo === mp.demo_url ? <LinkStatusNote status={mp.link_status} detail={mp.link_detail} /> : null}
+          {round.link_required ? (
+            <span className="text-[12px] text-ink-3">
+              קישור שאחרים יכולים לפתוח בלי להתחבר – לא קישור לקוד, לשיחה או לקובץ. נבדוק אותו בשמירה.
+            </span>
+          ) : null}
         </label>
         <label className="grid gap-1 text-[14px]">
           <span className="font-semibold">תיאור קצר: הבעיה, המשתמש/ת, מה הודגם ומה נבדק</span>

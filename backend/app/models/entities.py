@@ -369,6 +369,9 @@ class ReviewRound(Base):
     # Practice rounds never count toward a grade; while reviewing, every
     # presentation in them accepts reviews (no per-session opening).
     counts_toward_grade: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    # The team must give a link to its live site (e.g. the jokes-site homework);
+    # reviewers get it up front and missing/broken links are flagged.
+    link_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     rubric_version: Mapped[PeerRubricVersion | None] = relationship()
@@ -392,6 +395,10 @@ class Presentation(Base):
     status: Mapped[str] = mapped_column(String(16), default="scheduled")  # scheduled | postponed
     review_open: Mapped[bool] = mapped_column(Boolean, default=False)
     demo_url: Mapped[str] = mapped_column(Text, default="")
+    # Result of the last check of demo_url (services/link_check.py): ok | warning | broken | "".
+    link_status: Mapped[str] = mapped_column(String(16), default="")
+    link_detail: Mapped[str] = mapped_column(Text, default="")
+    link_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     materials_text: Mapped[str] = mapped_column(Text, default="")
     slides_artifact_id: Mapped[int | None] = mapped_column(ForeignKey("artifacts.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

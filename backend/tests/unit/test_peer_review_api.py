@@ -597,3 +597,40 @@ def test_test_students_take_part_but_never_count(env, course):
     assert test_id not in {s["student_id"] for s in after["students"]}
     students = {s["student_id"]: s for s in _ok(c.get(f"{base}/teams"))["students"]}
     assert students[test_id]["is_test"] and not students[course.students["a1"]]["is_test"]
+
+
+def test_site_link_is_checked_when_saved_and_shown_to_reviewers(env, course, monkeypatch):
+    from app.services import link_check
+
+    checked = []
+
+    def fake_check(url):
+        checked.append(url)
+        if "github.com" in url:
+            return link_check.LinkCheck("warning", "זה קישור לקוד ב-GitHub, לא לאתר פעיל", url)
+        return link_check.LinkCheck("ok", "האתר נפתח", url)
+
+    monkeypatch.setattr(link_check, "check_link", fake_check)
+    c, base = env.client, _base(course)
+    _ok(c.patch(f"{base}/rounds/{course.round_id}", json={"link_required": True}))
+    _schedule_and_open(env, course)
+
+    url = f"/api/r/{course.tokens['a1']}/presentations/{course.pres['A']}/materials"
+    assert c.patch(url, json={"demo_url": "jokes.example.org"}).status_code == 422
+    home = _ok(c.patch(url, json={"demo_url": "https://github.com/team-a/jokes"}))
+    mine = next(r for r in home["rounds"] if r["id"] == course.round_id)
+    assert mine["link_required"] and mine["my_presentation"]["link_status"] == "warning"
+    _ok(c.patch(url, json={"demo_url": " https://team-a.example.org/ "}))
+
+    # A reviewer from another team sees the link and that it was checked.
+    view = _ok(c.get(f"/api/r/{course.tokens['b1']}"))
+    rnd = next(r for r in view["rounds"] if r["id"] == course.round_id)
+    item = next(i for i in rnd["reviewing"]["presentations"] if i["id"] == course.pres["A"])
+    assert (item["demo_url"], item["link_status"]) == ("https://team-a.example.org/", "ok")
+
+    # The instructor can re-check every link at once.
+    res = _ok(c.post(f"{base}/rounds/{course.round_id}/check-links"))
+    assert res["counts"] == {"ok": 1, "missing": 2}
+    overview = _ok(c.get(f"{base}/overview"))
+    rnd = next(r for r in overview["rounds"] if r["id"] == course.round_id)
+    assert rnd["link_required"] and {p["link_status"] for p in rnd["presentations"]} == {"ok", ""}

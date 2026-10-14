@@ -360,6 +360,7 @@ class RoundUpdate(BaseModel):
     target_mean: float | None = Field(default=None, ge=0, le=100)
     target_std: float | None = Field(default=None, ge=0, le=50)
     missing_review_policy: str | None = Field(default=None, pattern="^(missing|zero)$")
+    link_required: bool | None = None
     participation_factor: bool | None = None
     llm_enabled: bool | None = None
 

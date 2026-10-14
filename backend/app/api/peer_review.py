@@ -157,6 +157,7 @@ def _round_payload(db: Session, rnd: ReviewRound, teams: dict[int, Team]) -> dic
         "participation_factor": rnd.participation_factor,
         "llm_enabled": rnd.llm_enabled,
         "counts_toward_grade": rnd.counts_toward_grade,
+        "link_required": rnd.link_required,
         "obligations": {"expected": len(obligations), "completed": completed},
         "presentations": [
             {
@@ -170,6 +171,9 @@ def _round_payload(db: Session, rnd: ReviewRound, teams: dict[int, Team]) -> dic
                 "status": p.status,
                 "review_open": p.review_open,
                 "demo_url": p.demo_url,
+                "link_status": p.link_status,
+                "link_detail": p.link_detail,
+                "link_checked_at": p.link_checked_at.isoformat() + "Z" if p.link_checked_at else None,
                 "materials_text": p.materials_text,
                 "has_slides": p.slides_artifact_id is not None,
                 "slides_artifact_id": p.slides_artifact_id,
@@ -405,12 +409,25 @@ def update_round(course_id: int, round_id: int, payload: RoundUpdate, db: Sessio
         rnd.review_deadline = None
     elif payload.review_deadline is not None:
         rnd.review_deadline = to_utc_naive(payload.review_deadline)
-    for field in ("target_mean", "target_std", "missing_review_policy", "participation_factor", "llm_enabled"):
+    for field in ("target_mean", "target_std", "missing_review_policy", "participation_factor", "llm_enabled", "link_required"):
         value = getattr(payload, field)
         if value is not None:
             setattr(rnd, field, value)
     db.commit()
     return {"status": "ok"}
+
+
+@router.post("/rounds/{round_id}/check-links")
+def check_round_links(course_id: int, round_id: int, db: Session = Depends(get_db)) -> dict:
+    """Re-check every team's link in the round (e.g. just before class)."""
+    rnd = _round(db, course_id, round_id)
+    counts: dict[str, int] = {}
+    for p in db.scalars(select(Presentation).where(Presentation.round_id == rnd.id)):
+        svc.check_site_link(p)
+        key = p.link_status or "missing"
+        counts[key] = counts.get(key, 0) + 1
+    db.commit()
+    return {"counts": counts}
 
 
 ROUND_ACTIONS = {
@@ -465,7 +482,7 @@ def update_presentation(
         if payload.move:
             svc.move_presentation(db, p, payload.session_number, payload.reason.strip(), postpone=payload.postpone)
         if payload.demo_url is not None:
-            p.demo_url = payload.demo_url.strip()
+            svc.set_site_link(p, payload.demo_url)
         if payload.materials_text is not None:
             p.materials_text = payload.materials_text
         if payload.review_open is not None:

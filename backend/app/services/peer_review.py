@@ -306,7 +306,8 @@ def validate_rubric(criteria: list[dict], scale: list[dict], prompts: list[dict]
         if key in seen_prompts:
             raise PeerReviewError("invalid_rubric", f"Duplicate prompt key '{key}'")
         seen_prompts.add(key)
-        clean_prompts.append({"key": key, "label": label, "required": bool(p.get("required", False))})
+        # Only the counted score is ever required; text answers are always optional.
+        clean_prompts.append({"key": key, "label": label, "required": False})
     return clean_criteria, clean_scale, clean_prompts
 
 
@@ -676,8 +677,6 @@ def validate_review(rubric: PeerRubricVersion, scores: dict, responses: dict) ->
         text = value.strip() if isinstance(value, str) else ""
         if len(text) > MAX_RESPONSE_CHARS:
             raise PeerReviewError("response_too_long", f"'{p['label']}' is too long", 422)
-        if p.get("required") and not text:
-            raise PeerReviewError("missing_response", f"'{p['label']}' is required", 422)
         clean_responses[p["key"]] = text
     return clean_scores, clean_responses
 

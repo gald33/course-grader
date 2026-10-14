@@ -197,6 +197,12 @@ def test_own_team_window_and_validation_rules(env, course):
     assert res.json()["detail"]["code"] == "missing_score"
     _ok(_review(env, course, "a1", "B", scores={"final_score": 3}, responses={}))
     _ok(_review(env, course, "a1", "B"))
+    # A text answer can't be made required, even by editing the rubric.
+    final = _ok(env.client.get(f"{_base(course)}/rubrics"))["final"]
+    for pr in final["prompts"]:
+        pr["required"] = True
+    saved = _ok(env.client.put(f"{_base(course)}/rubrics/final", json={k: final[k] for k in ("criteria", "scale", "prompts", "instructions")}))
+    assert saved["prompts"] and not any(pr["required"] for pr in saved["prompts"])
 
 
 def test_one_review_per_student_with_edits_until_deadline(env, course):

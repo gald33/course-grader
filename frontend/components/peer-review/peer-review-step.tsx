@@ -1329,8 +1329,8 @@ function RubricEditor({
 
       <div>
         <div className="label-eyebrow mb-2">
-          Criteria · only those marked “counts” make up the score (weights normalised by their sum); the rest are
-          optional remarks shown to the team
+          Criteria · only those marked “counts” are required and make up the score (weights normalised by their sum);
+          everything else, including the text prompts, is optional for students
         </div>
         <div className="grid gap-2">
           {draft.criteria.map((c, i) => (
@@ -1419,25 +1419,15 @@ function RubricEditor({
       </div>
 
       <div>
-        <div className="label-eyebrow mb-2">Text prompts</div>
+        <div className="label-eyebrow mb-2">Text prompts · always optional for students</div>
         <div className="grid gap-2">
           {draft.prompts.map((p, i) => (
-            <div key={i} className="grid items-center gap-2 md:grid-cols-[1fr_auto_auto]">
+            <div key={i} className="grid items-center gap-2 md:grid-cols-[1fr_auto]">
               <Input
                 dir="auto"
                 value={p.label}
                 onChange={(e) => setDraft({ ...draft, prompts: draft.prompts.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })}
               />
-              <label className="flex items-center gap-1.5 text-[13px]">
-                <input
-                  type="checkbox"
-                  checked={p.required}
-                  onChange={(e) =>
-                    setDraft({ ...draft, prompts: draft.prompts.map((x, j) => (j === i ? { ...x, required: e.target.checked } : x)) })
-                  }
-                />
-                required
-              </label>
               <Button size="sm" variant="ghost" onClick={() => setDraft({ ...draft, prompts: draft.prompts.filter((_, j) => j !== i) })}>
                 ✕
               </Button>

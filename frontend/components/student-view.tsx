@@ -753,11 +753,6 @@ function ReviewForm({
       setError(`הציון ב״${outOfRange.label}״ צריך להיות בין 0 ל-${outOfRange.max}.`);
       return;
     }
-    const missingText = rubric.prompts.filter((pr) => pr.required && !(base.responses[pr.key] ?? '').trim());
-    if (missingText.length) {
-      setError(ERRORS.missing_response);
-      return;
-    }
     setSaving(true);
     setError(null);
     try {
@@ -839,7 +834,7 @@ function ReviewForm({
         <label key={pr.key} className="grid gap-1.5">
           <span className="text-[15px] font-semibold">
             {pr.label}
-            {pr.required ? <span className="text-terracotta"> *</span> : <span className="text-[12px] font-normal text-ink-3"> (רשות)</span>}
+            <span className="text-[12px] font-normal text-ink-3"> (רשות)</span>
           </span>
           <textarea
             dir="auto"

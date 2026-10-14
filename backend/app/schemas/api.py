@@ -315,6 +315,20 @@ class TeamUpdate(BaseModel):
     project_title: str | None = Field(default=None, max_length=255)
 
 
+class TeamSettingsIn(BaseModel):
+    teams_open: bool | None = None
+    max_team_size: int | None = Field(default=None, ge=1, le=50)
+
+
+class StudentTeamCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    project_title: str = Field(default="", max_length=255)
+
+
+class StudentTeamJoin(BaseModel):
+    code: str = Field(min_length=4, max_length=16)
+
+
 class StudentTeamUpdate(BaseModel):
     team_id: int | None = None
 

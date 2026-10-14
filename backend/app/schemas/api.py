@@ -325,6 +325,7 @@ class RubricCriterionIn(BaseModel):
     description: str = ""
     weight: float = 1.0
     counts: bool = True
+    max: float | None = None  # number score 0..max instead of the scale
 
 
 class RubricScalePointIn(BaseModel):
@@ -360,6 +361,7 @@ class RoundUpdate(BaseModel):
     target_mean: float | None = Field(default=None, ge=0, le=100)
     target_std: float | None = Field(default=None, ge=0, le=50)
     missing_review_policy: str | None = Field(default=None, pattern="^(missing|zero)$")
+    link_required: bool | None = None
     participation_factor: bool | None = None
     llm_enabled: bool | None = None
 

@@ -4,6 +4,7 @@ resets, and email invites (when Supabase has an SMTP server)."""
 
 from __future__ import annotations
 
+import secrets
 from datetime import timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,6 +18,10 @@ from app.services import supabase_auth
 from app.services.peer_review import utcnow
 
 router = APIRouter(prefix="/api/courses/{course_id}/accounts", tags=["accounts"])
+
+
+class TestStudentIn(BaseModel):
+    email: str
 
 
 class InviteIn(BaseModel):
@@ -36,8 +41,15 @@ def _students(db: Session, course_id: int) -> list[Student]:
     )
 
 
+def _test_ids(db: Session, course_id: int) -> set[int]:
+    return set(
+        db.scalars(select(Enrollment.student_id).where(Enrollment.course_id == course_id, Enrollment.is_test.is_(True)))
+    )
+
+
 @router.get("")
 def list_accounts(course_id: int, db: Session = Depends(get_db)) -> dict:
+    test_ids = _test_ids(db, course_id)
     return {
         "configured": supabase_auth.configured(),
         "login_url": supabase_auth.callback_url().rsplit("/auth/callback", 1)[0] + "/login",
@@ -50,6 +62,7 @@ def list_accounts(course_id: int, db: Session = Depends(get_db)) -> dict:
                 "has_account": bool(s.auth_user_id),
                 "invited_at": _iso(s.invited_at),
                 "activated_at": _iso(s.account_activated_at),
+                "is_test": s.id in test_ids,
             }
             for s in _students(db, course_id)
         ],
@@ -153,3 +166,45 @@ def reset_password(course_id: int, student_id: int, db: Session = Depends(get_db
     student.account_activated_at = None
     db.commit()
     return {"status": "ok"}
+
+
+@router.post("/test-student")
+def create_test_student(course_id: int, payload: TestStudentIn, db: Session = Depends(get_db)) -> dict:
+    """Create a student account for the instructor to try the site as a
+    student. It is enrolled like any student but flagged is_test, so it is
+    left out of scores, exports and grades. Its "ID number" (and so its first
+    password) is random; it must be changed at first login like any other."""
+    _require_accounts()
+    if not db.get(Course, course_id):
+        raise HTTPException(status_code=404, detail="Course not found")
+    email = payload.email.strip().lower()
+    if "@" not in email:
+        raise HTTPException(status_code=422, detail="Enter an email address")
+    student = db.scalar(select(Student).where(Student.email == email))
+    if student is None:
+        student = Student(national_id=f"test-{secrets.token_hex(4)}", name="Test student", email=email)
+        db.add(student)
+        db.flush()
+    enrollment = db.scalar(
+        select(Enrollment).where(Enrollment.course_id == course_id, Enrollment.student_id == student.id)
+    )
+    if enrollment is None:
+        if not student.national_id.startswith("test-"):
+            raise HTTPException(status_code=409, detail="That email belongs to a real student")
+        enrollment = Enrollment(course_id=course_id, student_id=student.id)
+        db.add(enrollment)
+    elif not enrollment.is_test:
+        raise HTTPException(status_code=409, detail="That email belongs to a real student in this course")
+    enrollment.is_test = True
+    if not student.auth_user_id:
+        try:
+            student.auth_user_id = supabase_auth.create_user(email, student.national_id, student.name).id
+        except supabase_auth.AuthError as exc:
+            if exc.code != "email_exists":
+                raise HTTPException(status_code=502, detail=exc.message)
+            student.auth_user_id = supabase_auth.find_user_id(email)
+            supabase_auth.admin_set_password(student.auth_user_id, student.national_id)
+        student.invited_at = utcnow()
+        student.account_activated_at = None
+    db.commit()
+    return {"student_id": student.id, "email": email, "initial_password": student.national_id}

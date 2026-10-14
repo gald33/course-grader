@@ -60,6 +60,10 @@ def _released_results(db: Session, rnd: ReviewRound, presentation: Presentation)
     result = compute_round_scores(db, rnd)
     team = next((t for t in result.teams if t.presentation_id == presentation.id), None)
     prompts = json.loads(rnd.rubric_version.prompts_json) if rnd.rubric_version else []
+    criteria = json.loads(rnd.rubric_version.criteria_json) if rnd.rubric_version else []
+    # The grade is only ever the normalised result computed after the round;
+    # raw averages of counted criteria (e.g. the final score) are never sent.
+    remarks = {c["key"] for c in criteria if not c.get("counts", True)}
     reviews = db.scalars(
         select(PeerReview).where(PeerReview.presentation_id == presentation.id, PeerReview.excluded.is_(False))
     ).all()
@@ -73,8 +77,7 @@ def _released_results(db: Session, rnd: ReviewRound, presentation: Presentation)
         "valid_reviews": team.valid_reviews if team else 0,
         "share": team.share if team else None,
         "relative": team.relative if team else None,
-        "mean_total": team.mean_total if team else None,
-        "criterion_means": team.criterion_means if team else {},
+        "criterion_means": {k: v for k, v in (team.criterion_means if team else {}).items() if k in remarks},
         "prompts": prompts,
         "feedback": feedback,
     }
@@ -106,6 +109,7 @@ def _round_view(
         "title": rnd.title,
         "status": rnd.status,
         "practice": not rnd.counts_toward_grade,
+        "link_required": rnd.link_required,
         "released": rnd.released_at is not None,
         "my_presentation": None,
         "selection": None,
@@ -119,6 +123,8 @@ def _round_view(
             "session_number": own.session_number,
             "held_on": held_on(own.session_number),
             "demo_url": own.demo_url,
+            "link_status": own.link_status,
+            "link_detail": own.link_detail,
             "materials_text": own.materials_text,
             "has_slides": own.slides_artifact_id is not None,
             "editable": rnd.status != "closed",
@@ -193,6 +199,8 @@ def _round_view(
                     "team_name": team.name if team else "",
                     "project_title": team.project_title if team else "",
                     "demo_url": p.demo_url,
+                    "link_status": p.link_status,
+                    "link_detail": p.link_detail,
                     "session_number": p.session_number,
                     "held_on": held_on(p.session_number),
                     "is_today": held_on(p.session_number) == today.isoformat(),
@@ -290,10 +298,10 @@ def update_materials(
     p = _own_presentation(db, enrollment, presentation_id)
     _require_own_team(db, enrollment, p)
     if payload.demo_url is not None:
-        url = payload.demo_url.strip()
-        if url and not url.startswith(("http://", "https://")):
-            raise HTTPException(status_code=422, detail={"code": "invalid_url", "message": "Link must start with http(s)://"})
-        p.demo_url = url
+        try:
+            svc.set_site_link(p, payload.demo_url)
+        except svc.PeerReviewError as exc:
+            raise_domain(exc)
     if payload.materials_text is not None:
         p.materials_text = payload.materials_text
     db.commit()

@@ -39,6 +39,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.entities import (
+    Enrollment,
     PeerReview,
     Presentation,
     ReviewObligation,
@@ -316,9 +317,14 @@ def load_round_inputs(db: Session, rnd: ReviewRound) -> RoundInputs:
     presentations = {
         p.id: p.team_id for p in db.scalars(select(Presentation).where(Presentation.round_id == rnd.id)).all()
     }
+    # Test students take part on screen but never in the numbers.
+    test_ids = set(
+        db.scalars(select(Enrollment.student_id).where(Enrollment.course_id == rnd.course_id, Enrollment.is_test.is_(True)))
+    )
     roster = {
         r.student_id: r.team_id
         for r in db.scalars(select(ReviewRoundRoster).where(ReviewRoundRoster.round_id == rnd.id)).all()
+        if r.student_id not in test_ids
     }
     reviews = [
         ScoredReview(
@@ -330,10 +336,12 @@ def load_round_inputs(db: Session, rnd: ReviewRound) -> RoundInputs:
         for r in db.scalars(
             select(PeerReview).where(PeerReview.round_id == rnd.id, PeerReview.excluded.is_(False))
         ).all()
+        if r.reviewer_student_id not in test_ids
     ]
     obligations = [
         Obligation(student_id=o.student_id, presentation_id=o.presentation_id, exempt=o.exempt)
         for o in db.scalars(select(ReviewObligation).where(ReviewObligation.round_id == rnd.id)).all()
+        if o.student_id not in test_ids
     ]
     bonuses: dict[int, float] = defaultdict(float)
     for o in db.scalars(

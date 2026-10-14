@@ -8,6 +8,7 @@ duplicates, scale) is enforced here, server-side.
 from __future__ import annotations
 
 import json
+import math
 import random
 import re
 import secrets
@@ -18,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.services import link_check
 from app.models.entities import (
     ClassSession,
     Course,
@@ -82,14 +84,17 @@ DEFAULT_SESSION_CAPACITY = 4
 
 # Student-facing text is Hebrew, like the rest of the student-facing output.
 # Only criteria with counts=True enter the grade (here: the final score); the
-# others are optional remarks shown to the team as feedback.
+# others are optional remarks shown to the team as feedback. A criterion with
+# "max" takes any number from 0 to max instead of a point on the scale (scores
+# are normalised per reviewer, so only their ratios matter).
 _DEFAULT_CRITERIA = [
     {
         "key": "final_score",
         "label": "ציון סופי",
-        "description": "הציון שלך להצגה. רק הציון הזה נספר; שאר השדות הם הערות לצוות.",
+        "description": "הציון שלך להצגה, מ-0 עד 100. רק הציון הזה נספר; שאר השדות הם הערות לצוות.",
         "weight": 1.0,
         "counts": True,
+        "max": 100,
     },
     {
         "key": "problem_clarity",
@@ -260,15 +265,22 @@ def validate_rubric(criteria: list[dict], scale: list[dict], prompts: list[dict]
             raise PeerReviewError("invalid_rubric", f"Criterion '{label}' has an invalid weight")
         if weight <= 0:
             raise PeerReviewError("invalid_rubric", f"Criterion '{label}' needs a positive weight")
-        clean_criteria.append(
-            {
-                "key": key,
-                "label": label,
-                "description": str(c.get("description", "")).strip(),
-                "weight": weight,
-                "counts": bool(c.get("counts", True)),
-            }
-        )
+        clean = {
+            "key": key,
+            "label": label,
+            "description": str(c.get("description", "")).strip(),
+            "weight": weight,
+            "counts": bool(c.get("counts", True)),
+        }
+        if c.get("max") is not None:
+            try:
+                top = float(c["max"])
+            except (TypeError, ValueError):
+                raise PeerReviewError("invalid_rubric", f"Criterion '{label}' has an invalid maximum")
+            if top <= 0:
+                raise PeerReviewError("invalid_rubric", f"Criterion '{label}' needs a positive maximum")
+            clean["max"] = int(top) if top == int(top) else top
+        clean_criteria.append(clean)
     if not any(c["counts"] for c in clean_criteria):
         raise PeerReviewError("invalid_rubric", "At least one criterion must count toward the score")
 
@@ -294,7 +306,8 @@ def validate_rubric(criteria: list[dict], scale: list[dict], prompts: list[dict]
         if key in seen_prompts:
             raise PeerReviewError("invalid_rubric", f"Duplicate prompt key '{key}'")
         seen_prompts.add(key)
-        clean_prompts.append({"key": key, "label": label, "required": bool(p.get("required", False))})
+        # Only the counted score is ever required; text answers are always optional.
+        clean_prompts.append({"key": key, "label": label, "required": False})
     return clean_criteria, clean_scale, clean_prompts
 
 
@@ -642,14 +655,19 @@ def validate_review(rubric: PeerRubricVersion, scores: dict, responses: dict) ->
     unknown = set(scores) - keys
     if unknown:
         raise PeerReviewError("invalid_score", f"Unknown criteria: {sorted(unknown)}", 422)
-    clean_scores: dict[str, int] = {}
+    clean_scores: dict[str, float] = {}
     for c in criteria:
         value = scores.get(c["key"])
         if value is None and not c.get("counts", True):
             continue  # optional remark
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) != value:
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
             raise PeerReviewError("missing_score", f"Score required for '{c['label']}'", 422)
-        if int(value) not in allowed:
+        if c.get("max") is not None:
+            if not 0 <= value <= float(c["max"]):
+                raise PeerReviewError("invalid_score", f"Score for '{c['label']}' must be 0–{c['max']:g}", 422)
+            clean_scores[c["key"]] = int(value) if value == int(value) else round(float(value), 2)
+            continue
+        if int(value) != value or int(value) not in allowed:
             raise PeerReviewError("invalid_score", f"Score for '{c['label']}' is outside the scale", 422)
         clean_scores[c["key"]] = int(value)
 
@@ -659,8 +677,6 @@ def validate_review(rubric: PeerRubricVersion, scores: dict, responses: dict) ->
         text = value.strip() if isinstance(value, str) else ""
         if len(text) > MAX_RESPONSE_CHARS:
             raise PeerReviewError("response_too_long", f"'{p['label']}' is too long", 422)
-        if p.get("required") and not text:
-            raise PeerReviewError("missing_response", f"'{p['label']}' is required", 422)
         clean_responses[p["key"]] = text
     return clean_scores, clean_responses
 
@@ -823,3 +839,27 @@ def refresh_practice_rounds(db: Session, course_id: int) -> None:
         )
     ):
         snapshot_round(db, rnd)
+
+
+# ---------------------------------------------------------------------------
+# Site links
+# ---------------------------------------------------------------------------
+
+
+def check_site_link(p: Presentation) -> None:
+    """Re-check the presentation's link and store the result."""
+    if not p.demo_url:
+        p.link_status, p.link_detail, p.link_checked_at = "", "", None
+        return
+    result = link_check.check_link(p.demo_url)
+    p.link_status, p.link_detail, p.link_checked_at = result.status, result.detail, utcnow()
+
+
+def set_site_link(p: Presentation, url: str) -> None:
+    """Save a team's link and check it right away, so the team sees at once
+    whether reviewers will be able to open it."""
+    url = url.strip()
+    if url and not url.startswith(("http://", "https://")):
+        raise PeerReviewError("invalid_url", "Link must start with http(s)://", 422)
+    p.demo_url = url
+    check_site_link(p)

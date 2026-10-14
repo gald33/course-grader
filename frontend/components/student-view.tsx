@@ -9,7 +9,7 @@ import { FormEvent, createContext, useCallback, useContext, useEffect, useMemo, 
 // True in the instructor preview: everything renders, nothing can be saved.
 const PreviewCtx = createContext(false);
 
-type Criterion = { key: string; label: string; description: string; weight: number; counts?: boolean };
+type Criterion = { key: string; label: string; description: string; weight: number; counts?: boolean; max?: number | null };
 const counts = (c: Criterion) => c.counts !== false;
 type ScalePoint = { value: number; label: string };
 type Prompt = { key: string; label: string; required: boolean };
@@ -28,6 +28,8 @@ type PresentationItem = {
   team_name: string;
   project_title: string;
   demo_url: string;
+  link_status: LinkStatus;
+  link_detail: string;
   session_number: number | null;
   held_on: string | null;
   is_today: boolean;
@@ -37,12 +39,14 @@ type PresentationItem = {
   my_review: MyReview | null;
   my_share: number | null;
 };
+type LinkStatus = 'ok' | 'warning' | 'broken' | '';
 type RoundView = {
   id: number;
   number: number;
   kind: 'progress' | 'final';
   title: string;
   practice: boolean;
+  link_required: boolean;
   status: 'scheduling' | 'reviewing' | 'closed';
   released: boolean;
   my_presentation: {
@@ -50,6 +54,8 @@ type RoundView = {
     session_number: number | null;
     held_on: string | null;
     demo_url: string;
+    link_status: LinkStatus;
+    link_detail: string;
     materials_text: string;
     has_slides: boolean;
     editable: boolean;
@@ -71,7 +77,6 @@ type RoundView = {
     valid_reviews: number;
     share: number | null;
     relative: number | null;
-    mean_total: number | null;
     criterion_means: Record<string, number>;
     prompts: Prompt[];
     feedback: { source: 'peer' | 'ai'; responses: Record<string, string> }[];
@@ -333,6 +338,15 @@ function RoundPanel({
           <strong>סבב תרגול – לא נכלל בציון.</strong> זו הזדמנות להתנסות בטופס הביקורת. אפשר לבקר כל צוות אחר בסבב.
         </div>
       ) : null}
+      {round.link_required && round.my_presentation && round.my_presentation.link_status !== 'ok' ? (
+        <div className="rounded-lg border border-bad/40 bg-bad/5 px-4 py-3 text-[14px] leading-relaxed">
+          <strong>
+            {round.my_presentation.demo_url ? 'הקישור של הצוות לא עובד כמו שצריך.' : 'הצוות עוד לא הגיש קישור לאתר.'}
+          </strong>{' '}
+          {round.my_presentation.link_detail ? `${round.my_presentation.link_detail}. ` : ''}
+          המבקרים צריכים קישור לאתר פעיל כדי להתנסות בו. אפשר לעדכן אותו למטה, ב״ההצגה של הצוות שלך״.
+        </div>
+      ) : null}
       {round.selection ? <SelectionCard token={token} round={round} hasTeam={!!team} onUpdate={onUpdate} /> : null}
       {round.results ? <ResultsCard round={round} /> : null}
       {round.reviewing ? <ReviewingSection token={token} round={round} onUpdate={onUpdate} /> : null}
@@ -530,6 +544,7 @@ function ReviewingSection({ token, round, onUpdate }: { token: string; round: Ro
               token={token}
               p={p}
               rubric={rubric}
+              linkRequired={round.link_required}
               draft={drafts[p.id] ?? null}
               setDraft={(d) => setDraft(p.id, d)}
               share={live[p.id]}
@@ -602,13 +617,15 @@ function PresentationCard({
   share,
   expanded,
   toggle,
-  onSaved
+  onSaved,
+  linkRequired = false
 }: {
   token: string;
   p: PresentationItem;
   rubric: Rubric;
   draft: Draft | null;
   setDraft: (d: Draft | null) => void;
+  linkRequired?: boolean;
   share?: { share: number; draft: boolean };
   expanded: boolean;
   toggle: () => void;
@@ -635,16 +652,60 @@ function PresentationCard({
         <div className="shrink-0">{statusPill(p, draft)}</div>
       </button>
       {p.demo_url ? (
-        <div className="-mt-2 px-4 pb-3">
-          <a href={p.demo_url} target="_blank" rel="noopener noreferrer" className="text-[14px] text-forest underline">
-            פתיחת ההדגמה / ה-MVP ↗
+        <div className="-mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 px-4 pb-3">
+          <a
+            href={p.demo_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center rounded-md border border-forest px-4 text-[14px] font-semibold text-forest hover:bg-forest hover:text-paper"
+          >
+            {linkRequired ? 'פתיחת האתר של הצוות ↗' : 'פתיחת ההדגמה / ה-MVP ↗'}
           </a>
+          <LinkStatusNote status={p.link_status} detail={p.link_detail} />
         </div>
+      ) : linkRequired && !p.own_team ? (
+        <div className="-mt-1 px-4 pb-3 text-[13px] text-ink-3">הצוות עוד לא הגיש קישור לאתר.</div>
       ) : null}
       {expanded && canOpen ? (
         <ReviewForm token={token} p={p} rubric={rubric} draft={draft} setDraft={setDraft} onSaved={onSaved} />
       ) : null}
     </article>
+  );
+}
+
+function LinkStatusNote({ status, detail }: { status: LinkStatus; detail: string }) {
+  if (!status) return null;
+  const tone = status === 'ok' ? 'text-ok' : status === 'warning' ? 'text-warn' : 'text-bad';
+  const text = status === 'ok' ? 'האתר נבדק ונפתח ✓' : `⚠ ${detail}`;
+  return <span className={`text-[13px] ${tone}`}>{text}</span>;
+}
+
+function NumberScore({
+  value,
+  max,
+  onChange
+}: {
+  value: number | undefined;
+  max: number;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <div className="mt-2 flex items-center gap-3">
+      <input
+        type="number"
+        inputMode="decimal"
+        min={0}
+        max={max}
+        step="any"
+        dir="ltr"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+        placeholder={`0–${max}`}
+        aria-label={`ציון מ-0 עד ${max}`}
+        className="h-12 w-28 rounded-md border border-border bg-white px-3 text-center text-[20px] font-semibold"
+      />
+      <span className="text-[14px] text-ink-3">מתוך {max}</span>
+    </div>
   );
 }
 
@@ -684,9 +745,12 @@ function ReviewForm({
       setError(ERRORS.missing_score);
       return;
     }
-    const missingText = rubric.prompts.filter((pr) => pr.required && !(base.responses[pr.key] ?? '').trim());
-    if (missingText.length) {
-      setError(ERRORS.missing_response);
+    const outOfRange = rubric.criteria.find((c) => {
+      const v = base.scores[c.key];
+      return c.max != null && v != null && (v < 0 || v > c.max);
+    });
+    if (outOfRange) {
+      setError(`הציון ב״${outOfRange.label}״ צריך להיות בין 0 ל-${outOfRange.max}.`);
       return;
     }
     setSaving(true);
@@ -726,6 +790,19 @@ function ReviewForm({
               {counts(c) ? <span className="text-terracotta"> *</span> : <span className="text-[12px] font-normal text-ink-3"> (רשות)</span>}
             </legend>
             {c.description ? <p className="mt-0.5 text-[13px] text-ink-3">{c.description}</p> : null}
+            {c.max != null ? (
+              <NumberScore
+                value={value}
+                max={c.max}
+                onChange={(v) => {
+                  const scores = { ...base.scores };
+                  if (v == null) delete scores[c.key];
+                  else scores[c.key] = v;
+                  update({ ...base, scores });
+                }}
+              />
+            ) : (
+            <>
             <div className="mt-2 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${rubric.scale.length}, minmax(0, 1fr))` }}>
               {rubric.scale.map((s) => (
                 <button
@@ -747,6 +824,8 @@ function ReviewForm({
               <span className="font-semibold text-ink-2">{label ?? ''}</span>
               <span>{rubric.scale[rubric.scale.length - 1]?.label}</span>
             </div>
+            </>
+            )}
           </fieldset>
           </div>
         );
@@ -755,7 +834,7 @@ function ReviewForm({
         <label key={pr.key} className="grid gap-1.5">
           <span className="text-[15px] font-semibold">
             {pr.label}
-            {pr.required ? <span className="text-terracotta"> *</span> : <span className="text-[12px] font-normal text-ink-3"> (רשות)</span>}
+            <span className="text-[12px] font-normal text-ink-3"> (רשות)</span>
           </span>
           <textarea
             dir="auto"
@@ -811,6 +890,7 @@ function ResultsCard({ round }: { round: RoundView }) {
       )}
       {criteria.length && Object.keys(r.criterion_means).length ? (
         <div className="mt-4 grid gap-2">
+          <p className="text-[13px] text-ink-3">ממוצע ההערות שקיבלתם (לא נכנס לציון):</p>
           {criteria.map((c) => {
             const v = r.criterion_means[c.key];
             if (v == null) return null;
@@ -821,7 +901,10 @@ function ResultsCard({ round }: { round: RoundView }) {
                   <span className="tnum font-semibold">{v.toFixed(2)}</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-paper-2">
-                  <div className="h-full rounded-full bg-forest" style={{ width: `${(v / scaleMax) * 100}%` }} />
+                  <div
+                    className="h-full rounded-full bg-forest"
+                    style={{ width: `${Math.min(100, (v / (c.max ?? scaleMax)) * 100)}%` }}
+                  />
                 </div>
               </div>
             );
@@ -948,7 +1031,10 @@ function MaterialsCard({
   };
 
   return (
-    <details className="rounded-lg border border-border bg-card p-4 shadow-soft">
+    <details
+      className="rounded-lg border border-border bg-card p-4 shadow-soft"
+      open={round.link_required && mp.link_status !== 'ok' ? true : undefined}
+    >
       <summary className="cursor-pointer font-hebrew text-[18px]">
         ההצגה של הצוות שלך · {sessionLabel(mp.session_number, mp.held_on)}
       </summary>
@@ -962,7 +1048,9 @@ function MaterialsCard({
           <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 rounded-md border border-border bg-white px-3" />
         </label>
         <label className="grid gap-1 text-[14px]">
-          <span className="font-semibold">קישור להדגמה / MVP (רשות)</span>
+          <span className="font-semibold">
+            {round.link_required ? 'קישור לאתר הפעיל (חובה)' : 'קישור להדגמה / MVP (רשות)'}
+          </span>
           <input
             dir="ltr"
             type="url"
@@ -972,6 +1060,12 @@ function MaterialsCard({
             onChange={(e) => setDemo(e.target.value)}
             className="h-11 rounded-md border border-border bg-white px-3 text-left"
           />
+          {mp.demo_url && demo === mp.demo_url ? <LinkStatusNote status={mp.link_status} detail={mp.link_detail} /> : null}
+          {round.link_required ? (
+            <span className="text-[12px] text-ink-3">
+              קישור שאחרים יכולים לפתוח בלי להתחבר – לא קישור לקוד, לשיחה או לקובץ. נבדוק אותו בשמירה.
+            </span>
+          ) : null}
         </label>
         <label className="grid gap-1 text-[14px]">
           <span className="font-semibold">תיאור קצר: הבעיה, המשתמש/ת, מה הודגם ומה נבדק</span>

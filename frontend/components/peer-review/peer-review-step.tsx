@@ -800,6 +800,7 @@ type AccountRow = {
   has_account: boolean;
   invited_at: string | null;
   activated_at: string | null;
+  is_test: boolean;
 };
 type AccountsData = { configured: boolean; login_url: string; students: AccountRow[] };
 
@@ -813,10 +814,12 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
   }, [load, setToast]);
 
   if (!data) return null;
-  const withoutAccount = data.students.filter((s) => s.email && !s.has_account);
-  const waiting = data.students.filter((s) => s.has_account && !s.activated_at).length;
-  const active = data.students.filter((s) => s.activated_at).length;
-  const noEmail = data.students.filter((s) => !s.email).length;
+  const real = data.students.filter((s) => !s.is_test);
+  const testStudent = data.students.find((s) => s.is_test);
+  const withoutAccount = real.filter((s) => s.email && !s.has_account);
+  const waiting = real.filter((s) => s.has_account && !s.activated_at).length;
+  const active = real.filter((s) => s.activated_at).length;
+  const noEmail = real.filter((s) => !s.email).length;
 
   const act = async (fn: () => Promise<string>) => {
     setBusy(true);
@@ -850,8 +853,21 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
     });
   };
 
+  const createTest = () => {
+    const email = window.prompt(
+      'Email for your test student account (it must not be a real student\'s). Tip: a +alias of your own address, e.g. you+student@…'
+    );
+    if (!email) return;
+    void act(async () => {
+      const res = await apiPost<{ email: string }>(`${base}/test-student`, { email });
+      return `Test student ${res.email} ready — first password is shown in the accounts card`;
+    });
+  };
+
   const status = (s: AccountRow) =>
-    !s.email ? (
+    s.is_test ? (
+      <span className="pill pill-info">test student</span>
+    ) : !s.email ? (
       <span className="pill pill-warn">no email</span>
     ) : s.activated_at ? (
       <span className="pill pill-ok">active</span>
@@ -900,6 +916,40 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
           </div>
         </div>
       )}
+      {data.configured ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-line-soft px-3 py-2 text-[13px]">
+          {testStudent ? (
+            <div>
+              <b>Your test student:</b> sign in at the login link as{' '}
+              <span className="font-mono">{testStudent.email}</span>
+              {testStudent.activated_at ? (
+                ' with the password you chose.'
+              ) : (
+                <>
+                  {' '}
+                  with first password <span className="font-mono">{testStudent.national_id}</span> (you&apos;ll pick your
+                  own).
+                </>
+              )}{' '}
+              <span className="text-ink-3">It reviews like a student but never counts in scores, exports or grades.</span>
+            </div>
+          ) : (
+            <div className="text-ink-3">
+              Want to see the site as a student? Create a test student — it takes part like anyone else but never counts
+              in scores, exports or grades.
+            </div>
+          )}
+          {testStudent ? (
+            <button className="text-forest hover:underline" disabled={busy} onClick={() => reset(testStudent)}>
+              Reset its password
+            </button>
+          ) : (
+            <Button size="sm" variant="outline" disabled={busy} onClick={createTest}>
+              Create test student
+            </Button>
+          )}
+        </div>
+      ) : null}
       <details>
         <summary className="cursor-pointer text-[13px] text-ink-2">Per-student status</summary>
         <div className="mt-2 max-h-[360px] overflow-auto">
@@ -1192,7 +1242,7 @@ type RubricData = {
   id: number;
   kind: 'progress' | 'final';
   version: number;
-  criteria: { key: string; label: string; description: string; weight: number; counts?: boolean }[];
+  criteria: { key: string; label: string; description: string; weight: number; counts?: boolean; max?: number | null }[];
   scale: { value: number; label: string }[];
   prompts: { key: string; label: string; required: boolean }[];
   instructions: string;
@@ -1279,12 +1329,12 @@ function RubricEditor({
 
       <div>
         <div className="label-eyebrow mb-2">
-          Criteria · only those marked “counts” make up the score (weights normalised by their sum); the rest are
-          optional remarks shown to the team
+          Criteria · only those marked “counts” are required and make up the score (weights normalised by their sum);
+          everything else, including the text prompts, is optional for students
         </div>
         <div className="grid gap-2">
           {draft.criteria.map((c, i) => (
-            <div key={i} className="grid items-center gap-2 md:grid-cols-[1.2fr_2fr_90px_auto_auto]" dir="auto">
+            <div key={i} className="grid items-center gap-2 md:grid-cols-[1.2fr_2fr_90px_auto_auto_auto]" dir="auto">
               <Input
                 value={c.label}
                 dir="auto"
@@ -1317,6 +1367,19 @@ function RubricEditor({
                   }
                 />
                 counts
+              </label>
+              <label className="flex items-center gap-1.5 whitespace-nowrap text-[13px]" title="A number from 0 to 100 instead of the scale">
+                <input
+                  type="checkbox"
+                  checked={c.max != null}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      criteria: draft.criteria.map((x, j) => (j === i ? { ...x, max: e.target.checked ? 100 : null } : x))
+                    })
+                  }
+                />
+                0–100
               </label>
               <Button
                 size="sm"
@@ -1356,25 +1419,15 @@ function RubricEditor({
       </div>
 
       <div>
-        <div className="label-eyebrow mb-2">Text prompts</div>
+        <div className="label-eyebrow mb-2">Text prompts · always optional for students</div>
         <div className="grid gap-2">
           {draft.prompts.map((p, i) => (
-            <div key={i} className="grid items-center gap-2 md:grid-cols-[1fr_auto_auto]">
+            <div key={i} className="grid items-center gap-2 md:grid-cols-[1fr_auto]">
               <Input
                 dir="auto"
                 value={p.label}
                 onChange={(e) => setDraft({ ...draft, prompts: draft.prompts.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })}
               />
-              <label className="flex items-center gap-1.5 text-[13px]">
-                <input
-                  type="checkbox"
-                  checked={p.required}
-                  onChange={(e) =>
-                    setDraft({ ...draft, prompts: draft.prompts.map((x, j) => (j === i ? { ...x, required: e.target.checked } : x)) })
-                  }
-                />
-                required
-              </label>
               <Button size="sm" variant="ghost" onClick={() => setDraft({ ...draft, prompts: draft.prompts.filter((_, j) => j !== i) })}>
                 ✕
               </Button>

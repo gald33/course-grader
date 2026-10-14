@@ -16,7 +16,7 @@ from openpyxl.styles import Font
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.entities import Course, PeerReview, Presentation, ReviewRound, Team
+from app.models.entities import Course, Enrollment, PeerReview, Presentation, ReviewRound, Team
 from app.services.paths import export_path
 from app.services.peer_scoring import review_scores, weighted_total
 
@@ -109,7 +109,10 @@ def export_round_xlsx(db: Session, rnd: ReviewRound, scores: dict) -> Path:
         + [p["label"] for p in prompts]
         + ["Excluded", "Exclusion reason"],
     )
-    reviews = list(db.scalars(select(PeerReview).where(PeerReview.round_id == rnd.id)))
+    test_ids = set(
+        db.scalars(select(Enrollment.student_id).where(Enrollment.course_id == rnd.course_id, Enrollment.is_test.is_(True)))
+    )
+    reviews = [r for r in db.scalars(select(PeerReview).where(PeerReview.round_id == rnd.id)) if r.reviewer_student_id not in test_ids]
     student_ids = sorted({r.reviewer_student_id for r in reviews if r.reviewer_student_id is not None})
     secrets.SystemRandom().shuffle(student_ids)
     pseudonym = {sid: f"Reviewer {i + 1:02d}" for i, sid in enumerate(student_ids)}

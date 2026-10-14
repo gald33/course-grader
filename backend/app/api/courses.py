@@ -89,6 +89,7 @@ def set_threshold_25_fail(course_id: int, db: Session = Depends(get_db)) -> Cour
                 Enrollment.course_id == course_id,
                 Enrollment.attendance_percent.is_not(None),
                 Enrollment.attendance_exempt.is_(False),
+                Enrollment.is_test.is_(False),
             )
         ).all()
     ]

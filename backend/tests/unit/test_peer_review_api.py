@@ -197,6 +197,12 @@ def test_own_team_window_and_validation_rules(env, course):
     assert res.json()["detail"]["code"] == "missing_score"
     _ok(_review(env, course, "a1", "B", scores={"final_score": 3}, responses={}))
     _ok(_review(env, course, "a1", "B"))
+    # A text answer can't be made required, even by editing the rubric.
+    final = _ok(env.client.get(f"{_base(course)}/rubrics"))["final"]
+    for pr in final["prompts"]:
+        pr["required"] = True
+    saved = _ok(env.client.put(f"{_base(course)}/rubrics/final", json={k: final[k] for k in ("criteria", "scale", "prompts", "instructions")}))
+    assert saved["prompts"] and not any(pr["required"] for pr in saved["prompts"])
 
 
 def test_one_review_per_student_with_edits_until_deadline(env, course):
@@ -298,6 +304,9 @@ def test_student_payloads_never_reveal_reviewers(env, course):
     raw = json.dumps(home, ensure_ascii=False)
     results = next(r for r in home["rounds"] if r["id"] == course.round_id)["results"]
     assert results["valid_reviews"] == 2
+    # Only the normalised result: no raw average of the counted final score.
+    assert "mean_total" not in results and "final_score" not in results["criterion_means"]
+    assert set(results["criterion_means"]) <= {"problem_clarity", "usefulness", "functionality", "testing"}
     texts = [f["responses"]["worked_well"] for f in results["feedback"]]
     assert "Loved the onboarding" in texts
     for ident in _all_identities_except(env, course, {"b1"}):
@@ -568,3 +577,102 @@ def test_instructor_can_preview_a_students_page(env, course, monkeypatch):
     assert env.client.get(f"/api/courses/{course.id}/peer/student-view/999999").status_code == 404
     monkeypatch.setattr(env.settings, "instructor_token", "teacher")
     assert env.client.get(f"/api/courses/{course.id}/peer/student-view/{sid}").status_code == 401
+
+
+def test_test_students_take_part_but_never_count(env, course):
+    with env.Session() as db:
+        s = Student(national_id="test-abcd1234", name="Test student")
+        db.add(s)
+        db.flush()
+        db.add(Enrollment(course_id=course.id, student_id=s.id, is_test=True, review_token="t" * 32))
+        db.commit()
+        test_id = s.id
+    course.tokens["test"] = "t" * 32
+    _schedule_and_open(env, course)
+    c, base = env.client, _base(course)
+    for who in ("c1", "b1"):
+        _ok(_review(env, course, who, "A"))
+    for who in ("c1", "a1"):
+        _ok(_review(env, course, who, "B", scores={k: 5 for k in GOOD}))
+    before = _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))
+
+    # The test student sees the round and can review like anyone else...
+    home = _ok(c.get(f"/api/r/{course.tokens['test']}"))
+    assert home["rounds"]
+    _ok(_review(env, course, "test", "A", scores={k: 1 for k in GOOD}))
+    # ...but the review changes nothing and the student is in no score table.
+    after = _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))
+    assert after["teams"] == before["teams"] and after["students"] == before["students"]
+    assert test_id not in {s["student_id"] for s in after["students"]}
+    students = {s["student_id"]: s for s in _ok(c.get(f"{base}/teams"))["students"]}
+    assert students[test_id]["is_test"] and not students[course.students["a1"]]["is_test"]
+
+
+def test_site_link_is_checked_when_saved_and_shown_to_reviewers(env, course, monkeypatch):
+    from app.services import link_check
+
+    checked = []
+
+    def fake_check(url):
+        checked.append(url)
+        if "github.com" in url:
+            return link_check.LinkCheck("warning", "זה קישור לקוד ב-GitHub, לא לאתר פעיל", url)
+        return link_check.LinkCheck("ok", "האתר נפתח", url)
+
+    monkeypatch.setattr(link_check, "check_link", fake_check)
+    c, base = env.client, _base(course)
+    _ok(c.patch(f"{base}/rounds/{course.round_id}", json={"link_required": True}))
+    _schedule_and_open(env, course)
+
+    url = f"/api/r/{course.tokens['a1']}/presentations/{course.pres['A']}/materials"
+    assert c.patch(url, json={"demo_url": "jokes.example.org"}).status_code == 422
+    home = _ok(c.patch(url, json={"demo_url": "https://github.com/team-a/jokes"}))
+    mine = next(r for r in home["rounds"] if r["id"] == course.round_id)
+    assert mine["link_required"] and mine["my_presentation"]["link_status"] == "warning"
+    _ok(c.patch(url, json={"demo_url": " https://team-a.example.org/ "}))
+
+    # A reviewer from another team sees the link and that it was checked.
+    view = _ok(c.get(f"/api/r/{course.tokens['b1']}"))
+    rnd = next(r for r in view["rounds"] if r["id"] == course.round_id)
+    item = next(i for i in rnd["reviewing"]["presentations"] if i["id"] == course.pres["A"])
+    assert (item["demo_url"], item["link_status"]) == ("https://team-a.example.org/", "ok")
+
+    # The instructor can re-check every link at once.
+    res = _ok(c.post(f"{base}/rounds/{course.round_id}/check-links"))
+    assert res["counts"] == {"ok": 1, "missing": 2}
+    overview = _ok(c.get(f"{base}/overview"))
+    rnd = next(r for r in overview["rounds"] if r["id"] == course.round_id)
+    assert rnd["link_required"] and {p["link_status"] for p in rnd["presentations"]} == {"ok", ""}
+
+
+def test_final_score_is_any_number_from_0_to_100(env, course):
+    _schedule_and_open(env, course)
+    remarks = {k: 3 for k in GOOD if k != "final_score"}
+    for bad in (101, -1):
+        res = _review(env, course, "a1", "B", scores={"final_score": bad, **remarks})
+        assert res.status_code == 422, bad
+    # Remarks keep the 1–5 scale.
+    assert _review(env, course, "a1", "B", scores={"final_score": 70, "testing": 7}).status_code == 422
+    _ok(_review(env, course, "a1", "B", scores={"final_score": 87.5}))
+    _ok(_review(env, course, "c1", "B", scores={"final_score": 0}))
+    _ok(_review(env, course, "c1", "A", scores={"final_score": 60}))
+    reviews = {r["reviewer_name"]: r for r in _ok(env.client.get(f"{_base(course)}/rounds/{course.round_id}/reviews"))}
+    assert reviews["Alice Avraham"]["scores"]["final_score"] == 87.5
+    # c1 gave B 0 and A 60: all of c1's mass goes to A.
+    teams = {t["team_name"]: t for t in _ok(env.client.get(f"{_base(course)}/rounds/{course.round_id}/scores"))["teams"]}
+    assert teams["Team A"]["share"] > teams["Team B"]["share"]
+
+
+def test_llm_number_scores_within_range():
+    rubric = {
+        "criteria": [{"key": "final_score", "weight": 1, "max": 100}, {"key": "x", "weight": 1, "counts": False}],
+        "scale": [{"value": 1}, {"value": 2}],
+        "prompts": [],
+    }
+    ok = {"p1": {"scores": {"final_score": 72.5, "x": 2}, "responses": {}, "rationales": {}}}
+    assert llm_peer_review.parse_result(json.dumps(ok), rubric, [1])[1]["scores"]["final_score"] == 72.5
+    ok["p1"]["scores"]["final_score"] = 140
+    with pytest.raises(Exception):
+        llm_peer_review.parse_result(json.dumps(ok), rubric, [1])
+    schema = llm_peer_review.output_schema(rubric["criteria"], [1, 2], [], [1])
+    assert "final_score" in json.dumps(schema) and '"type": "number"' in json.dumps(schema)

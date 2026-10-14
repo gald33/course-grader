@@ -193,8 +193,9 @@ Frontend and API are two Vercel projects deployed from `frontend/` and `backend/
 
 - `make deploy` deploys both (Vercel CLI logged in with `vercel login --global-config ~/.vercel-yvc`).
 - `make migrate-hosted` applies new migrations to Supabase. Run it before deploying code that needs them.
-- `make worker-hosted` runs the notebook worker on this machine against the hosted database and storage;
-  notebook runs, snapshot fetches, and report exports queued in the hosted app wait until it runs.
+- `make worker-hosted` starts the notebook worker in the background on this machine (Docker Desktop running),
+  against the hosted database and storage; `make worker-hosted-logs` / `make worker-hosted-stop`. Notebook
+  runs, snapshot fetches, and report exports queued in the hosted app wait until it runs.
 - API settings (database URL via the transaction pooler, storage, keys, instructor token, session secret)
   are Vercel environment variables of the `course-grader-api` project.
 

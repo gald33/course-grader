@@ -65,6 +65,7 @@ app.include_router(exports.router)
 app.include_router(auth.router)
 app.include_router(peer_review.router)
 app.include_router(student_review.router)
+app.include_router(student_review.preview_router)
 app.include_router(student_auth.router)
 app.include_router(accounts.router)
 

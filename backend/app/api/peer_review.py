@@ -43,6 +43,7 @@ from app.schemas.api import (
     StudentTeamUpdate,
     SwapRequest,
     TeamCreate,
+    PracticeRoundIn,
     TeamUpdate,
     UploadedFileIn,
 )
@@ -155,6 +156,7 @@ def _round_payload(db: Session, rnd: ReviewRound, teams: dict[int, Team]) -> dic
         "missing_review_policy": rnd.missing_review_policy,
         "participation_factor": rnd.participation_factor,
         "llm_enabled": rnd.llm_enabled,
+        "counts_toward_grade": rnd.counts_toward_grade,
         "obligations": {"expected": len(obligations), "completed": completed},
         "presentations": [
             {
@@ -276,6 +278,7 @@ def create_team(course_id: int, payload: TeamCreate, db: Session = Depends(get_d
         if rnd.status in ("draft", "scheduling"):
             svc.sync_round_presentations(db, rnd)
     db.commit()
+    svc.refresh_practice_rounds(db, course_id)
     return {"id": team.id}
 
 
@@ -363,6 +366,17 @@ def save_rubric(course_id: int, kind: str, payload: RubricSave, db: Session = De
 # ---------------------------------------------------------------------------
 # Rounds & scheduling
 # ---------------------------------------------------------------------------
+
+
+@router.post("/rounds/practice")
+def create_practice_round(course_id: int, payload: PracticeRoundIn, db: Session = Depends(get_db)) -> dict:
+    """A round for trying the process: never counts toward a grade."""
+    course = _course(db, course_id)
+    try:
+        rnd = svc.create_practice_round(db, course, payload.title, payload.open_now)
+    except svc.PeerReviewError as exc:
+        raise_domain(exc)
+    return {"status": "ok", "round_id": rnd.id, "number": rnd.number}
 
 
 @router.patch("/rounds/{round_id}")
@@ -719,6 +733,7 @@ def round_scores_payload(db: Session, rnd: ReviewRound) -> dict:
     return {
         "round_id": rnd.id,
         "criteria": json.loads(rnd.rubric_version.criteria_json) if rnd.rubric_version else [],
+        "counts_toward_grade": rnd.counts_toward_grade,
         "settings": {
             "target_mean": rnd.target_mean,
             "target_std": rnd.target_std,

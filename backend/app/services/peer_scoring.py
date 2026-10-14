@@ -121,10 +121,14 @@ class RoundResult:
 
 
 def weighted_total(scores: dict[str, float], criteria: list[dict]) -> float | None:
-    """Weighted mean of criterion scores, normalised by the sum of weights."""
+    """Weighted mean of the counted criteria, normalised by the sum of their
+    weights. Criteria with counts=False are remarks and never enter the score
+    (older rubrics without the flag count every criterion)."""
     num = 0.0
     den = 0.0
     for c in criteria:
+        if not c.get("counts", True):
+            continue
         value = scores.get(c["key"])
         if value is None:
             return None

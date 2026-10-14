@@ -105,6 +105,7 @@ def _round_view(
         "kind": rnd.kind,
         "title": rnd.title,
         "status": rnd.status,
+        "practice": not rnd.counts_toward_grade,
         "released": rnd.released_at is not None,
         "my_presentation": None,
         "selection": None,
@@ -336,4 +337,19 @@ def update_team(token: str, payload: StudentTeamIn, db: Session = Depends(get_db
     team = db.get(Team, team_id)
     team.project_title = payload.project_title.strip()
     db.commit()
+    return _payload(db, enrollment)
+
+
+# Instructor preview: the exact payload a student sees, for any enrolled
+# student. Lives under /api/courses, so it needs the instructor token.
+preview_router = APIRouter(prefix="/api/courses/{course_id}/peer/student-view", tags=["student-review"])
+
+
+@preview_router.get("/{student_id}")
+def student_view_preview(course_id: int, student_id: int, db: Session = Depends(get_db)) -> dict:
+    enrollment = db.scalar(
+        select(Enrollment).where(Enrollment.course_id == course_id, Enrollment.student_id == student_id)
+    )
+    if enrollment is None:
+        raise HTTPException(status_code=404, detail="Student is not enrolled in this course")
     return _payload(db, enrollment)

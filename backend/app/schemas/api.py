@@ -324,6 +324,7 @@ class RubricCriterionIn(BaseModel):
     label: str
     description: str = ""
     weight: float = 1.0
+    counts: bool = True
 
 
 class RubricScalePointIn(BaseModel):
@@ -423,3 +424,8 @@ class UploadedFileIn(BaseModel):
 
     key: str = Field(min_length=1, max_length=512)
     filename: str = Field(default="", max_length=255)
+
+
+class PracticeRoundIn(BaseModel):
+    title: str = Field(default="Practice round (not graded)", max_length=255)
+    open_now: bool = True

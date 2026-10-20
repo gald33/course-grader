@@ -45,3 +45,8 @@ roster_attendance.xlsx
 
 # Vercel CLI project links
 .vercel
+
+# Frontend smoke test (Playwright)
+frontend/.e2e/
+frontend/test-results/
+frontend/playwright-report/

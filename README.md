@@ -260,8 +260,20 @@ cd backend
 pytest -q
 ```
 
+Frontend smoke test (Playwright): builds the frontend, migrates and seeds a fresh SQLite database
+(`backend/scripts/seed_e2e.py`), starts both servers on ports 8100/3100, and checks that the instructor
+course page and the student review page render. It needs the backend's Python dependencies; point
+`PYTHON` at that interpreter if it isn't `python3`:
+
+```bash
+cd frontend
+npx playwright install chromium   # once
+PYTHON=../backend/.venv/bin/python npm run test:e2e
+```
+
 CI (GitHub Actions, `.github/workflows/ci.yml`) runs the backend tests, applies the migrations to a fresh
-database, and type-checks the frontend on every pull request and on pushes to `main`. It skips the
+database, type-checks the frontend, and runs the frontend smoke test on every pull request and on pushes
+to `main`. It skips the
 student-notebook ML stack, which the app and tests never import.
 
 ## API highlights

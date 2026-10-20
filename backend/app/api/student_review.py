@@ -250,14 +250,19 @@ def _round_view(
 def _lesson_links(db: Session, enrollment: Enrollment) -> list[dict]:
     """The course page's lesson entry points. They are optional: on a database
     the lessons migration (0021) hasn't reached, the page shows none instead of
-    failing as a whole (peer review, teams, grades). The savepoint keeps the
-    session usable after the failed query. The lesson routes themselves still
-    fail loudly."""
+    failing as a whole (peer review, teams, grades). The same holds when a
+    lesson's progress can't be computed (say, malformed content): the links
+    carry each lesson's status, and a broken lesson must not take the page
+    down with it. The savepoint keeps the session usable after the failed
+    query. The lesson routes themselves still fail loudly."""
     try:
         with db.begin_nested():
             return lessons_svc.lesson_links(db, enrollment)
     except (OperationalError, ProgrammingError):
         logger.warning("Lesson links unavailable (is migration 0024_lessons applied?)", exc_info=True)
+        return []
+    except Exception:
+        logger.exception("Lesson links unavailable: computing lesson progress failed")
         return []
 
 

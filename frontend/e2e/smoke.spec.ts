@@ -99,6 +99,12 @@ test('student portal lands on Home and keeps the active tab in the URL', async (
   await page.reload();
   await expect(tab('מידע על הקורס')).toHaveAttribute('aria-selected', 'true');
 
+  // Arrow keys move between tabs too; the page is RTL, so ArrowRight goes back.
+  await tab('מידע על הקורס').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(tab('ביקורת עמיתים')).toBeFocused();
+  await expect(page).toHaveURL(/[?&]tab=review\b/);
+
   // Home drops the parameter again.
   await tab('בית').click();
   await expect(page).not.toHaveURL(/tab=/);
@@ -158,5 +164,47 @@ test('student portal links to the guided lessons and points at one in progress',
   await expect(page).toHaveURL(new RegExp(`/r/${seed.student.token}/lessons$`));
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('למידה בשיעור');
   await expect(page.getByText(seed.lesson.title).first()).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
+test('Home lists reviews still owed only while the review deadline is ahead', async ({ page }) => {
+  const problems = await watchForErrors(page);
+  // Rounds close only when the instructor closes them, so a round past its
+  // review deadline still says "reviewing". The seed has no open round, so
+  // the portal's answer gets two: one past its deadline, one still open.
+  const day = 24 * 60 * 60 * 1000;
+  const reviewing = (id: number, number: number, deadline: string) => ({
+    id,
+    number,
+    kind: 'progress',
+    title: '',
+    practice: false,
+    link_required: false,
+    status: 'reviewing',
+    released: false,
+    my_presentation: null,
+    selection: null,
+    reviewing: {
+      deadline,
+      rubric: { id: 1, kind: 'progress', version: 1, criteria: [], scale: [], prompts: [], instructions: '' },
+      presentations: [],
+      progress: { expected: 2, completed: 0, outstanding: [9001, 9002] }
+    },
+    results: null
+  });
+  await page.route(`**/api/r/${seed.student.token}`, async (route) => {
+    const res = await route.fetch();
+    const home = await res.json();
+    home.rounds = [
+      reviewing(9101, 1, new Date(Date.now() - day).toISOString()),
+      reviewing(9102, 2, new Date(Date.now() + day).toISOString())
+    ];
+    await route.fulfill({ response: res, json: home });
+  });
+  await page.goto(`/r/${seed.student.token}`);
+
+  const upNext = page.getByRole('region', { name: 'מה הלאה' });
+  await expect(upNext.getByRole('button', { name: /סבב התקדמות 2: נשארו 2 ביקורות/ })).toBeVisible();
+  await expect(upNext.getByText(/סבב התקדמות 1/)).toHaveCount(0);
   expect(problems).toEqual([]);
 });

@@ -1023,6 +1023,20 @@ def test_course_page_lists_published_lessons(env):
     assert listed["status"] == "in_progress"
 
 
+def test_course_page_survives_a_lesson_whose_progress_cannot_be_computed(env, monkeypatch):
+    """The lesson links carry each lesson's progress; if computing it fails,
+    the course page (peer review, teams, grades) still loads, without them."""
+    course = _course(env, "AI", [("100000001", "Alice", False)])
+    _publish(env, course, _install(env, course))
+
+    def broken(db, enrollment):
+        raise ValueError("malformed lesson content")
+
+    monkeypatch.setattr(lessons_svc, "student_lessons", broken)
+    page = _ok(env.client.get(f"/api/r/{course.tokens['Alice']}"))
+    assert page["lessons"] == [] and page["student"]["name"] == "Alice"
+
+
 def test_course_page_survives_a_database_without_the_lesson_tables(env):
     """Code deployed before migration 0021: the course page (peer review,
     teams, grades) still works and just lists no lessons."""

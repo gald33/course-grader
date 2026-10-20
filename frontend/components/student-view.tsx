@@ -309,48 +309,52 @@ export function StudentView({
 
       <TabBar tab={tab} onChange={go} />
 
-      <div role="tabpanel" id={`tab-${tab}`} aria-labelledby={`tab-btn-${tab}`} className="pt-4">
-        {tab === 'home' ? <HomeTab token={token} home={home} seenGrades={seenGrades} go={go} /> : null}
+      {/* Every panel stays mounted and only the active one shows, so
+          half-typed inputs (team code, slide link) survive a tab switch. */}
+      <TabPanel tab="home" active={tab}>
+        <HomeTab token={token} home={home} seenGrades={seenGrades} go={go} />
+      </TabPanel>
 
-        {tab === 'grades' ? (
-          Object.keys(home.grades).length ? (
-            <MyGradesCard grades={home.grades} />
-          ) : (
-            <EmptyNote>עדיין לא פורסמו ציונים. כשהמרצה יפרסם ציון, הוא יופיע כאן.</EmptyNote>
-          )
-        ) : null}
+      <TabPanel tab="grades" active={tab}>
+        {Object.keys(home.grades).length ? (
+          <MyGradesCard grades={home.grades} />
+        ) : (
+          <EmptyNote>עדיין לא פורסמו ציונים. כשהמרצה יפרסם ציון, הוא יופיע כאן.</EmptyNote>
+        )}
+      </TabPanel>
 
-        {tab === 'team' ? <TeamCard token={token} home={home} onUpdate={setHome} open /> : null}
+      <TabPanel tab="team" active={tab}>
+        <TeamCard token={token} home={home} onUpdate={setHome} open />
+      </TabPanel>
 
-        {tab === 'review' ? (
+      <TabPanel tab="review" active={tab}>
+        <AnonymityNote />
+        {home.rounds.length === 0 ? (
+          <EmptyNote className="mt-4">אין כרגע סבב הצגות פתוח. כשהמרצה תפתח סבב, הוא יופיע כאן.</EmptyNote>
+        ) : (
           <>
-            <AnonymityNote />
-            {home.rounds.length === 0 ? (
-              <EmptyNote className="mt-4">אין כרגע סבב הצגות פתוח. כשהמרצה תפתח סבב, הוא יופיע כאן.</EmptyNote>
-            ) : (
-              <>
-                <nav className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="סבבים">
-                  {home.rounds.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => setRoundId(r.id)}
-                      className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] ${
-                        r.id === roundId ? 'border-forest bg-forest text-paper' : 'border-border bg-card text-ink-2'
-                      }`}
-                    >
-                      {roundLabel(r)}
-                      {r.status === 'reviewing' ? ' · פתוח' : ''}
-                    </button>
-                  ))}
-                </nav>
-                {round ? <RoundPanel key={round.id} token={token} round={round} team={home.team} onUpdate={setHome} /> : null}
-              </>
-            )}
+            <nav className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="סבבים">
+              {home.rounds.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setRoundId(r.id)}
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] ${
+                    r.id === roundId ? 'border-forest bg-forest text-paper' : 'border-border bg-card text-ink-2'
+                  }`}
+                >
+                  {roundLabel(r)}
+                  {r.status === 'reviewing' ? ' · פתוח' : ''}
+                </button>
+              ))}
+            </nav>
+            {round ? <RoundPanel key={round.id} token={token} round={round} team={home.team} onUpdate={setHome} /> : null}
           </>
-        ) : null}
+        )}
+      </TabPanel>
 
-        {tab === 'info' ? <CourseInfoTab token={token} home={home} go={go} /> : null}
-      </div>
+      <TabPanel tab="info" active={tab}>
+        <CourseInfoTab token={token} home={home} go={go} />
+      </TabPanel>
     </Shell>
     </PreviewCtx.Provider>
   );
@@ -425,20 +429,29 @@ function useSeenGrades(token: string, preview: boolean): [Set<string>, (keys: st
 }
 
 function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  // Arrow keys move between tabs (WAI-ARIA tabs pattern). The page is RTL, so
+  // ArrowLeft goes to the next tab and ArrowRight to the previous one.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const step = { ArrowLeft: 1, ArrowRight: -1 }[e.key];
+    const next =
+      step != null ? TABS[(i + step + TABS.length) % TABS.length] : e.key === 'Home' ? TABS[0] : e.key === 'End' ? TABS[TABS.length - 1] : null;
+    if (!next) return;
+    e.preventDefault();
+    onChange(next.key);
+    document.getElementById(`tab-btn-${next.key}`)?.focus();
+  };
   return (
-    <nav
-      role="tablist"
-      aria-label="אזורים"
-      className="grid grid-cols-5 gap-1 border-b border-line-soft pb-2"
-    >
-      {TABS.map((t) => (
+    <div role="tablist" aria-label="אזורים" className="grid grid-cols-5 gap-1 border-b border-line-soft pb-2">
+      {TABS.map((t, i) => (
         <button
           key={t.key}
           id={`tab-btn-${t.key}`}
           role="tab"
           aria-selected={tab === t.key}
           aria-controls={`tab-${t.key}`}
+          tabIndex={tab === t.key ? 0 : -1}
           onClick={() => onChange(t.key)}
+          onKeyDown={(e) => onKeyDown(e, i)}
           className={`min-h-[44px] rounded-2xl px-1 text-[13px] leading-tight transition sm:text-[14px] ${
             tab === t.key ? 'bg-forest font-semibold text-paper' : 'text-ink-2 hover:bg-paper-2'
           }`}
@@ -446,7 +459,15 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
           {t.label}
         </button>
       ))}
-    </nav>
+    </div>
+  );
+}
+
+function TabPanel({ tab, active, children }: { tab: Tab; active: Tab; children: React.ReactNode }) {
+  return (
+    <div role="tabpanel" id={`tab-${tab}`} aria-labelledby={`tab-btn-${tab}`} hidden={tab !== active} className="pt-4">
+      {children}
+    </div>
   );
 }
 
@@ -490,7 +511,11 @@ function upNext(home: Home, seenGrades: Set<string>, now: number, lessonLink: (s
     const rv = r.reviewing;
     if (r.status !== 'reviewing' || !rv) continue;
     const left = rv.progress.outstanding.length;
-    if (left === 0) continue;
+    // Rounds close only when the instructor closes them, so a round past its
+    // review deadline is still "reviewing" while the server refuses reviews
+    // (deadline_passed). No deadline means reviews stay open.
+    const closed = rv.deadline != null && new Date(rv.deadline).getTime() <= now;
+    if (left === 0 || closed) continue;
     items.push({
       key: `review-${r.id}`,
       tone: 'act',

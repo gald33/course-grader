@@ -8,6 +8,7 @@ import { BilingualName, isHebrew } from '@/components/ui/bilingual-name';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GradeReleaseCard } from '@/components/grade-release-card';
+import { LessonsStep } from '@/components/lessons/instructor-lessons';
 import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
 import { RosterCard } from '@/components/roster-card';
 import { Input } from '@/components/ui/input';
@@ -111,12 +112,13 @@ type Assignment = {
   submission_count: number;
 };
 
-type StepKey = 'queue' | 'imports' | 'peer' | 'curve' | 'overrides' | 'gradebook' | 'settings';
+type StepKey = 'queue' | 'imports' | 'peer' | 'lessons' | 'curve' | 'overrides' | 'gradebook' | 'settings';
 
 const STEPS: { key: StepKey; label: string; icon: string; title: string; sub: string }[] = [
   { key: 'queue', label: 'Grading queue', icon: '📥', title: 'Grading queue', sub: 'Submissions, snapshots, and runs.' },
   { key: 'imports', label: 'Imports', icon: '⤴', title: 'Imports', sub: 'Roster, assignment ZIPs, presentation sheets.' },
   { key: 'peer', label: 'Peer review', icon: '⇄', title: 'Peer review', sub: 'Presentation schedule, student reviews, and round scores.' },
+  { key: 'lessons', label: 'Lessons', icon: '✦', title: 'Lessons', sub: 'Guided lessons: preview, publish, and where understanding breaks down.' },
   { key: 'curve', label: 'Curve & calibration', icon: '⚙', title: 'Curve & calibration', sub: 'Adjust dimension curves and attendance threshold.' },
   { key: 'overrides', label: 'Overrides', icon: '✎', title: 'Overrides', sub: 'Per-student deltas with reasons.' },
   { key: 'gradebook', label: 'Gradebook', icon: '▦', title: 'Gradebook', sub: 'Final scores by component.' },
@@ -179,6 +181,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     queue: submissions.length,
     imports: assignments.length,
     peer: null,
+    lessons: null,
     curve: activeCurve?.revision_number ?? 0,
     overrides: overrides.length,
     gradebook: gradebook.length,
@@ -237,6 +240,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             <ImportsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
           ) : null}
           {step === 'peer' ? <PeerReviewStep courseId={courseId} setToast={setToast} /> : null}
+          {step === 'lessons' ? <LessonsStep courseId={courseId} course={course} setToast={setToast} /> : null}
           {step === 'curve' ? (
             <CurveStep
               courseId={courseId}

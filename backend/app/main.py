@@ -15,11 +15,13 @@ from app.api import (
     grade_releases,
     gradebook,
     imports,
+    lessons,
     oauth,
     peer_review,
     roster,
     runs,
     student_auth,
+    student_lessons,
     student_review,
     submissions,
 )
@@ -72,6 +74,8 @@ app.include_router(student_review.preview_router)
 app.include_router(student_auth.router)
 app.include_router(accounts.router)
 app.include_router(roster.router)
+app.include_router(lessons.router)
+app.include_router(student_lessons.router)
 
 
 @app.on_event("startup")

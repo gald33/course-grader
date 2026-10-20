@@ -12,6 +12,27 @@ type LoginResult = Destinations | { must_change_password: true };
 
 const inputClass = 'h-11 w-full rounded-md border border-border bg-white px-3 text-left';
 
+// ?next= — where a student page sent us (e.g. a lesson after the session
+// expired). Only this site's student links: a path under /r/<token>, never
+// another origin (no scheme, no //, no backslashes or control characters)
+// and no dot segments that would climb out of /r/.
+const SAFE_NEXT = /^\/r\/[A-Za-z0-9_-]+(\/.*)?$/;
+
+function safeNext(): string | null {
+  const raw = new URLSearchParams(window.location.search).get('next');
+  if (
+    !raw ||
+    !SAFE_NEXT.test(raw) ||
+    raw.includes('//') ||
+    raw.includes('\\') ||
+    /\.\.|%2e/i.test(raw) ||
+    /[\u0000-\u001f\u007f]/.test(raw)
+  ) {
+    return null;
+  }
+  return raw;
+}
+
 export default function StudentLoginPage() {
   const [mode, setMode] = useState<'login' | 'change' | 'forgot'>('login');
   const [email, setEmail] = useState('');
@@ -23,7 +44,9 @@ export default function StudentLoginPage() {
   const [choices, setChoices] = useState<Destinations['courses'] | null>(null);
 
   const go = (d: Destinations) => {
-    if (d.redirect) window.location.assign(d.redirect);
+    const next = safeNext();
+    if (next) window.location.assign(next);
+    else if (d.redirect) window.location.assign(d.redirect);
     else setChoices(d.courses);
   };
 

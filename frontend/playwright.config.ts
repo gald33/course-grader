@@ -4,14 +4,19 @@ import { defineConfig, devices } from '@playwright/test';
 
 import { E2E_DIR, SEED_FILE } from './e2e/seed';
 
-/* Smoke test: a production build of the frontend against a real backend on a
- * freshly migrated, seeded SQLite database (backend/scripts/seed_e2e.py).
- * Ports 8100/3100 stay clear of a local dev setup on 8000/3000. */
+/* Browser tests: a production build of the frontend against a real backend on
+ * a freshly migrated, seeded SQLite database (backend/scripts/seed_e2e.py):
+ * the smoke tests, and the guided lesson walked through as signed-in students
+ * and as the instructor. Ports 8100/3100 stay clear of a local dev setup on
+ * 8000/3000. */
 const BACKEND_PORT = 8100;
 const FRONTEND_PORT = 3100;
 const backendUrl = `http://localhost:${BACKEND_PORT}`;
 const workDir = E2E_DIR;
 const python = process.env.PYTHON ?? 'python3';
+// Signs the students' cg_student cookies: the seed step issues them and the
+// backend verifies them, so both run with this value. Test-only.
+const SESSION_SECRET = 'e2e-only-session-secret-not-for-real-use';
 
 export default defineConfig({
   testDir: './e2e',
@@ -40,6 +45,7 @@ export default defineConfig({
         DATA_DIR: path.join(workDir, 'data'),
         STORAGE_BACKEND: 'local',
         INSTRUCTOR_TOKEN: '',
+        SESSION_SECRET,
         FRONTEND_ORIGIN: `http://localhost:${FRONTEND_PORT}`
       },
       reuseExistingServer: false,

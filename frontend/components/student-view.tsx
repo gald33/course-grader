@@ -92,6 +92,7 @@ export type Home = {
   today: string;
   rounds: RoundView[];
   grades: Grades;
+  lessons?: { slug: string; title: string }[];
 };
 type Draft = { scores: Record<string, number>; responses: Record<string, string> };
 
@@ -285,6 +286,8 @@ export function StudentView({
         </div>
       </header>
 
+      {!preview && home.lessons?.length ? <LessonsCard token={token} lessons={home.lessons} /> : null}
+
       <MyGradesCard grades={home.grades} />
 
       <TeamCard token={token} home={home} onUpdate={setHome} />
@@ -316,6 +319,28 @@ export function StudentView({
       )}
     </Shell>
     </PreviewCtx.Provider>
+  );
+}
+
+/* ---------------- Guided lessons entry point ---------------- */
+
+function LessonsCard({ token, lessons }: { token: string; lessons: { slug: string; title: string }[] }) {
+  return (
+    <section className="mb-3 rounded-lg border border-forest-soft bg-card p-4 shadow-soft">
+      <h2 className="font-hebrew text-[18px]">למידה בשיעור</h2>
+      <div className="mt-2 grid gap-2">
+        {lessons.map((l) => (
+          <a
+            key={l.slug}
+            href={`/r/${token}/lessons/${encodeURIComponent(l.slug)}`}
+            className="flex min-h-[48px] items-center justify-between gap-3 rounded-md border border-border bg-paper px-4 text-[15px] text-ink no-underline hover:border-forest"
+          >
+            <span>{l.title}</span>
+            <span className="shrink-0 text-[14px] font-semibold text-forest">לשיעור ←</span>
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 

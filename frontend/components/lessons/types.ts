@@ -235,7 +235,11 @@ export type ProgressPatch = {
   viewed_add?: string[];
   acks_add?: string[];
   acks_remove?: string[];
-  drafts?: Record<string, string | null>; // null deletes the draft
+  /** null deletes the draft. Keys the player uses: `q:<question key>` (typed
+   * answer text), `experiment_form`, `commitment_form`, `final_form` (JSON
+   * strings of unsent forms). Any key up to 100 chars is accepted (at most 200
+   * keys, 20,000 chars each, 200 KB in all); drafts are never attempts. */
+  drafts?: Record<string, string | null>;
 };
 
 export type ExperimentInput = {

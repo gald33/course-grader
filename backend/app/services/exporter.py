@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import csv
+import io
+import zipfile
 from dataclasses import dataclass
-from pathlib import Path
+from datetime import datetime
 
 from bidi.algorithm import get_display
 from fpdf import FPDF
@@ -11,6 +13,7 @@ from openpyxl.styles import Alignment, Font
 from sqlalchemy.orm import Session
 
 from app.models.entities import Course
+from app.services import storage
 from app.services.paths import export_path
 from app.services.scoring import _get_submission_for_student, compute_gradebook_rows
 from app.utils.text import sanitize_filename
@@ -19,7 +22,7 @@ from app.utils.text import sanitize_filename
 @dataclass
 class ExportResult:
     csv_path: str
-    report_dir: str
+    zip_location: str  # storage location (local path or supabase://...) of the PDFs zip
     report_count: int
 
 
@@ -116,48 +119,54 @@ def _name_parts(name: str) -> tuple[str, str]:
 
 
 def export_student_reports_hebrew(db: Session, course_id: int) -> ExportResult:
+    """Render one Hebrew PDF per student and store them as a single zip through
+    `services.storage`, so the hosted site can serve it (signed URL on Supabase)."""
     course = db.get(Course, course_id)
     if not course:
         raise ValueError("Course not found")
 
     rows = compute_gradebook_rows(db, course_id)
     course_dir_name = f"{course.code}_{course.year}_{course.semester}"
-    report_dir = export_path(course_dir_name, "student_reports")
-    report_dir.mkdir(parents=True, exist_ok=True)
 
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
-    for row in rows:
-        national_id = row["national_id"]
-        last, first = _name_parts(row["name"])
-        filename = sanitize_filename(f"{national_id}_{last}_{first}.pdf") + ".pdf"
-        path = report_dir / filename
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for row in rows:
+            national_id = row["national_id"]
+            last, first = _name_parts(row["name"])
+            filename = sanitize_filename(f"{national_id}_{last}_{first}") + ".pdf"
 
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.add_font("DejaVu", "", font_path)
-        pdf.set_font("DejaVu", size=14)
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.add_font("DejaVu", "", font_path)
+            pdf.set_font("DejaVu", size=14)
 
-        lines = [
-            f"דו\"ח ציונים לסטודנט/ית",
-            f"קורס: {course.name} ({course.code}) {course.year} {course.semester}",
-            f"שם: {row['name']}",
-            f"תעודת זהות: {national_id}",
-            f"נוכחות: {row['attendance_score']}",
-            f"תרגיל 1: {row['hw1']}",
-            f"תרגיל 2: {row['hw2']}",
-            f"קוד פרויקט: {row['project_code']}",
-            f"דו\"ח פרויקט: {row['project_report']}",
-            f"מצגת: {row['presentation']}",
-            f"מצגת סופית: {row['final_talk']}",
-            f"בונוס: {row['bonus_points']}",
-            f"ציון סופי: {row['final']}",
-        ]
+            lines = [
+                f"דו\"ח ציונים לסטודנט/ית",
+                f"קורס: {course.name} ({course.code}) {course.year} {course.semester}",
+                f"שם: {row['name']}",
+                f"תעודת זהות: {national_id}",
+                f"נוכחות: {row['attendance_score']}",
+                f"תרגיל 1: {row['hw1']}",
+                f"תרגיל 2: {row['hw2']}",
+                f"קוד פרויקט: {row['project_code']}",
+                f"דו\"ח פרויקט: {row['project_report']}",
+                f"מצגת: {row['presentation']}",
+                f"מצגת סופית: {row['final_talk']}",
+                f"בונוס: {row['bonus_points']}",
+                f"ציון סופי: {row['final']}",
+            ]
 
-        for line in lines:
-            pdf.cell(0, 10, _hebrew(line), new_x="LMARGIN", new_y="NEXT", align="R")
+            for line in lines:
+                pdf.cell(0, 10, _hebrew(line), new_x="LMARGIN", new_y="NEXT", align="R")
 
-        pdf.output(str(path))
+            archive.writestr(filename, bytes(pdf.output()))
+
+    stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S%f")
+    zip_location = storage.save(
+        f"exports/{course_dir_name}/student_reports_{stamp}.zip", buffer.getvalue(), "application/zip"
+    )
 
     csv_path = export_gradebook_csv(db, course_id)
-    return ExportResult(csv_path=csv_path, report_dir=str(report_dir), report_count=len(rows))
+    return ExportResult(csv_path=csv_path, zip_location=zip_location, report_count=len(rows))

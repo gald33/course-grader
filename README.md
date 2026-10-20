@@ -340,7 +340,6 @@ student-notebook ML stack, which the app and tests never import.
 - `GET /api/courses/{course_id}/gradebook/csv`
 - `POST /api/courses/{course_id}/exports/student-reports`, then `GET /api/tasks/{task_id}` and
   `GET /api/courses/{course_id}/exports/student-reports/{task_id}/download` (zip; a signed-URL redirect when hosted)
-- `PATCH /api/courses/{course_id}/enrollments/{enrollment_id}/bonus`
 
 Peer review (instructor, prefix `/api/courses/{course_id}/peer`):
 

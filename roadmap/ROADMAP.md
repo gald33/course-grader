@@ -14,6 +14,8 @@ Claim before starting: `roadmap claim <key>`
 
 - `now` **`hebrew-report-pdfs-cannot-be-downloaded`** — Hebrew student report PDFs are queued but can never be retrieved from the hosted site
 - `now` **`students-cannot-see-their-own-grades`** — Students cannot see their own grades, feedback or attendance status
+- `now` **`team-formation-closes-at-a-deadline`** — Let students form their own teams until a deadline, then lock teams automatically
+  - ↔ related: **`roster-cannot-be-edited-per-student`** — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
 - `next` **`no-button-to-recheck-site-links`** — Add a "re-check all links" button for a round
 - `next` **`peer-round-scores-never-reach-the-gradebook`** — Peer-review round scores have to be copied into the gradebook by hand
   - ↔ related: **`project-bonus-has-no-editor`** — If peer round scores are pushed into the gradebook as bonus, decide first whether they land in `bonus_points` or as overrides. Otherwise there will be three bonus mechanisms instead of two.
@@ -21,8 +23,6 @@ Claim before starting: `roadmap claim <key>`
   - ↔ related: **`peer-round-scores-never-reach-the-gradebook`** — If peer round scores are pushed into the gradebook as bonus, decide first whether they land in `bonus_points` or as overrides. Otherwise there will be three bonus mechanisms instead of two.
 - `next` **`roster-cannot-be-edited-per-student`** — Add, remove, withdraw or fix a single student without re-importing the roster
   - ↔ related: **`team-formation-closes-at-a-deadline`** — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
-- `next` **`team-formation-closes-at-a-deadline`** — Let students form their own teams until a deadline, then lock teams automatically
-  - ↔ related: **`roster-cannot-be-edited-per-student`** — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
 - `later` **`courses-and-submissions-cannot-be-deleted`** — Courses, assignments and submissions can't be deleted or archived
 - `later` **`frontend-has-no-tests`** — The frontend has no tests; CI only type-checks it
 - `later` **`onboarding-guide-has-todo-sections`** — ONBOARDING.md still has _TODO_ under Team Tips and Get Started
@@ -330,7 +330,7 @@ graph TD
 
 - **title:** Let students form their own teams until a deadline, then lock teams automatically
 - **status:** ready
-- **priority:** next
+- **priority:** now
 - **related to** (not a dependency — both are startable):
   - `roster-cannot-be-edited-per-student` — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
 - **refs:**

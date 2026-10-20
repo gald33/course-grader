@@ -1,7 +1,7 @@
 id: team-formation-closes-at-a-deadline
 title: Let students form their own teams until a deadline, then lock teams automatically
 status: ready
-priority: next
+priority: now
 blocked_on: []
 related_to:
 - key: roster-cannot-be-edited-per-student

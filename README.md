@@ -154,7 +154,7 @@ ProjectBase = 0.50*ProjectCode + 0.20*ProjectReport + 0.10*InitialTalk + 0.20*Fi
 
 - HW1: binary completion (100/0)
 - Attendance: threshold pass/fail; exemptions force 100
-- Bonus: per-student points added to project after rubric + curve adjustments
+- Bonus: per-student points added to project after rubric + curve adjustments — the sum of the student's `bonus` overrides (also written by the presentation import)
 - Notebook-based components (`HW2`, `ProjectCode`) multiplied by penalty (`run_ratio ** 1.5`)
 
 ## Peer review
@@ -340,7 +340,6 @@ student-notebook ML stack, which the app and tests never import.
 - `GET /api/courses/{course_id}/gradebook/csv`
 - `POST /api/courses/{course_id}/exports/student-reports`, then `GET /api/tasks/{task_id}` and
   `GET /api/courses/{course_id}/exports/student-reports/{task_id}/download` (zip; a signed-URL redirect when hosted)
-- `PATCH /api/courses/{course_id}/enrollments/{enrollment_id}/bonus`
 
 Peer review (instructor, prefix `/api/courses/{course_id}/peer`):
 

@@ -541,7 +541,7 @@ def _gradebook_row(
     if project_submission and project_submission.manual_grade is not None:
         project_base = float(project_submission.manual_grade)
         project_base_uncurved = float(project_submission.manual_grade)
-    bonus_points = enrollment.bonus_points + overrides.get("bonus", 0.0)
+    bonus_points = overrides.get("bonus", 0.0)
     if not include_bonus:
         bonus_points = 0.0
     project_with_bonus = project_base + bonus_points

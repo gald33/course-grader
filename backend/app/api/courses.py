@@ -12,7 +12,6 @@ from app.models.entities import Course, Enrollment
 from app.schemas.api import (
     AttendanceExemptUpdate,
     AttendanceThresholdUpdate,
-    BonusUpdate,
     CourseCreate,
     CourseRead,
     CourseUpdate,
@@ -146,20 +145,5 @@ def set_attendance_exempt(
     if not enrollment or enrollment.course_id != course_id:
         raise HTTPException(status_code=404, detail="Enrollment not found")
     enrollment.attendance_exempt = payload.attendance_exempt
-    db.commit()
-    return {"status": "ok"}
-
-
-@router.patch("/{course_id}/enrollments/{enrollment_id}/bonus")
-def set_bonus(
-    course_id: int,
-    enrollment_id: int,
-    payload: BonusUpdate,
-    db: Session = Depends(get_db),
-) -> dict:
-    enrollment = db.get(Enrollment, enrollment_id)
-    if not enrollment or enrollment.course_id != course_id:
-        raise HTTPException(status_code=404, detail="Enrollment not found")
-    enrollment.bonus_points = payload.bonus_points
     db.commit()
     return {"status": "ok"}

@@ -1025,6 +1025,215 @@ type TeamsData = {
 };
 type LinkRow = { enrollment_id: number; student_id: number; name: string; national_id: string; team_name: string | null; token: string | null };
 
+type AutoAssignProposal = {
+  seed: number;
+  fingerprint: string;
+  max_team_size: number;
+  existing: { team_id: number; student_ids: number[] }[];
+  new_teams: { name: string; student_ids: number[] }[];
+};
+/* Where each student goes: `e:<team id>`, `n:<new team index>`, or '' (left out). */
+type AutoAssignDraft = { seed: number; fingerprint: string; names: string[]; placement: Record<number, string> };
+
+function draftFrom(p: AutoAssignProposal): AutoAssignDraft {
+  const placement: Record<number, string> = {};
+  p.existing.forEach((e) => e.student_ids.forEach((id) => (placement[id] = `e:${e.team_id}`)));
+  p.new_teams.forEach((t, i) => t.student_ids.forEach((id) => (placement[id] = `n:${i}`)));
+  return { seed: p.seed, fingerprint: p.fingerprint, names: p.new_teams.map((t) => t.name), placement };
+}
+
+/* After teams lock: propose places for unteamed students, let the instructor
+ * edit the proposal, and apply it only on approval. Nothing is written before. */
+function AutoAssignPanel({
+  base,
+  data,
+  counts,
+  reload,
+  setToast
+}: {
+  base: string;
+  data: TeamsData;
+  counts: Record<number, number>;
+  reload: () => Promise<void>;
+  setToast: (m: string) => void;
+}) {
+  const [draft, setDraft] = useState<AutoAssignDraft | null>(null);
+  const [busy, setBusy] = useState(false);
+  const max = data.settings.max_team_size;
+  const nameOf = useMemo(() => new Map(data.students.map((s) => [s.student_id, s.name])), [data.students]);
+
+  const propose = async () => {
+    setBusy(true);
+    try {
+      setDraft(draftFrom(await apiPost<AutoAssignProposal>(`${base}/teams/auto-assign/propose`, {})));
+    } catch (e) {
+      setToast(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!draft) {
+    return (
+      <div dir="rtl" className="flex flex-wrap items-center gap-2 rounded-md border border-line-soft px-3 py-2 text-[13px]">
+        <Button size="sm" variant="outline" disabled={busy} onClick={propose}>
+          הצע שיבוץ
+        </Button>
+        <span className="text-ink-3">הצעה בלבד: שום דבר לא נשמר עד שתאשרו.</span>
+      </div>
+    );
+  }
+
+  const placed = Object.entries(draft.placement);
+  const studentsIn = (key: string) => placed.filter(([, k]) => k === key).map(([id]) => Number(id));
+  const dropped = placed.filter(([, k]) => !k).map(([id]) => Number(id));
+  const groups = [
+    ...data.teams
+      .filter((t) => studentsIn(`e:${t.id}`).length)
+      .map((t) => ({ key: `e:${t.id}`, label: t.name, current: counts[t.id] ?? 0, isNew: false, index: -1 })),
+    ...draft.names.map((n, i) => ({ key: `n:${i}`, label: n, current: 0, isNew: true, index: i }))
+  ];
+  const size = (key: string, current: number) => current + studentsIn(key).length;
+  const overfull = groups.some((g) => size(g.key, g.current) > max);
+  const move = (id: number, key: string) => setDraft({ ...draft, placement: { ...draft.placement, [id]: key } });
+
+  const approve = async () => {
+    const existing = data.teams
+      .map((t) => ({ team_id: t.id, student_ids: studentsIn(`e:${t.id}`) }))
+      .filter((e) => e.student_ids.length);
+    const new_teams = draft.names
+      .map((name, i) => ({ name, student_ids: studentsIn(`n:${i}`) }))
+      .filter((t) => t.student_ids.length);
+    setBusy(true);
+    try {
+      await apiPost(`${base}/teams/auto-assign/approve`, { fingerprint: draft.fingerprint, existing, new_teams });
+      setToast('השיבוץ אושר ונשמר');
+      setDraft(null);
+    } catch (e) {
+      // A stale proposal can't be applied: drop it so the next one is built from the current teams.
+      if (String(e).includes('stale_proposal')) setDraft(null);
+      setToast(errorMessage(e));
+    } finally {
+      setBusy(false);
+      await reload().catch(() => undefined);
+    }
+  };
+
+  return (
+    <div dir="rtl" className="grid gap-3 rounded-md border border-forest/40 px-3 py-2 text-[13px]">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <span className="font-medium">הצעת שיבוץ (טרם נשמרה)</span>
+        <span className="font-mono text-[11px] text-ink-3">seed {draft.seed}</span>
+      </div>
+      <p className="text-ink-3">
+        קודם ממלאים צוותים קיימים שיש בהם מקום (עד {max} חברים), ואחר כך יוצרים צוותים חדשים בגדלים מאוזנים, בלי
+        להשאיר סטודנט לבד כשאפשר. אפשר להעביר או להשמיט סטודנטים לפני האישור.
+      </p>
+      {groups.map((g) => {
+        const n = size(g.key, g.current);
+        if (g.isNew && !studentsIn(g.key).length) return null;
+        return (
+          <div key={g.key} className="grid gap-1 border-b border-line-soft pb-2 last:border-b-0">
+            <div className="flex items-center gap-2">
+              {g.isNew ? (
+                <>
+                  <span className="pill">חדש</span>
+                  <Input
+                    className="h-8 w-48"
+                    value={g.label}
+                    onChange={(e) =>
+                      setDraft({ ...draft, names: draft.names.map((x, i) => (i === g.index ? e.target.value : x)) })
+                    }
+                  />
+                </>
+              ) : (
+                <span className="font-medium">{g.label}</span>
+              )}
+              <span className={`tnum ms-auto ${n > max ? 'text-bad' : 'text-ink-3'}`}>
+                {n}/{max}
+                {g.current ? ` (${g.current} כבר בצוות)` : ''}
+              </span>
+            </div>
+            {studentsIn(g.key).map((id) => (
+              <div key={id} className="flex items-center gap-2">
+                <span className="flex-1">{nameOf.get(id) ?? id}</span>
+                <select
+                  aria-label="העבר"
+                  className="h-8 rounded-md border border-border bg-card px-2 text-sm"
+                  value={g.key}
+                  onChange={(e) => move(id, e.target.value)}
+                >
+                  {data.teams.map((t) => (
+                    <option key={t.id} value={`e:${t.id}`}>
+                      {t.name}
+                    </option>
+                  ))}
+                  {draft.names.map((name, i) => (
+                    <option key={`n:${i}`} value={`n:${i}`}>
+                      {name} (חדש)
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="text-ink-3 hover:text-bad" onClick={() => move(id, '')}>
+                  השמט
+                </button>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      {dropped.length ? (
+        <div className="grid gap-1">
+          <span className="text-ink-3">יישארו בלי צוות:</span>
+          {dropped.map((id) => (
+            <div key={id} className="flex items-center gap-2">
+              <span className="flex-1">{nameOf.get(id) ?? id}</span>
+              <select
+                aria-label="שבץ"
+                className="h-8 rounded-md border border-border bg-card px-2 text-sm"
+                value=""
+                onChange={(e) => e.target.value && move(id, e.target.value)}
+              >
+                <option value="">בלי צוות</option>
+                {data.teams.map((t) => (
+                  <option key={t.id} value={`e:${t.id}`}>
+                    {t.name}
+                  </option>
+                ))}
+                {draft.names.map((name, i) => (
+                  <option key={`n:${i}`} value={`n:${i}`}>
+                    {name} (חדש)
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {overfull ? <p className="text-bad">צוות אחד או יותר עובר את הגודל המרבי ({max}).</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={busy || overfull || !placed.some(([, k]) => k)} onClick={approve}>
+          אשר ושמור
+        </Button>
+        <Button size="sm" variant="outline" disabled={busy} onClick={propose}>
+          הצע מחדש
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => setDraft({ ...draft, names: [...draft.names, `צוות חדש ${draft.names.length + 1}`] })}
+        >
+          צוות חדש נוסף
+        </Button>
+        <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDraft(null)}>
+          בטל
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function TeamsTab({
   base,
   courseId,
@@ -1154,6 +1363,9 @@ function TeamsTab({
               </p>
             ) : null}
           </div>
+          {data.settings.teams_locked && data.unassigned.length ? (
+            <AutoAssignPanel base={base} data={data} counts={counts} reload={load} setToast={setToast} />
+          ) : null}
           <form
             className="flex gap-2"
             onSubmit={(e) => {

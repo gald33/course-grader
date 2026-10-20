@@ -28,5 +28,6 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `project-bonus-has-no-editor` — The per-student project bonus can't be edited directly
 - `readme-describes-a-localhost-only-app` — README still says "no login, localhost-only" and leaves out recent features
 - `roster-cannot-be-edited-per-student` — Add, remove, withdraw or fix a single student without re-importing the roster
+- `student-portal-is-one-long-scroll` — The student portal is one long scroll with no navigation
 - `students-cannot-see-their-own-grades` — Students cannot see their own grades, feedback or attendance status
 - `team-formation-closes-at-a-deadline` — Let students form their own teams until a deadline, then lock teams automatically

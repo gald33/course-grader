@@ -235,6 +235,8 @@ export function StudentView({
   const [home, setHome] = useState<Home | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [roundId, setRoundId] = useState<number | null>(null);
+  const [tab, setTab] = useTabInUrl();
+  const [seenGrades, markGradesSeen] = useSeenGrades(token, preview);
 
   const load = useCallback(async () => {
     try {
@@ -253,6 +255,11 @@ export function StudentView({
     void load();
   }, [load]);
 
+  // Opening the grades tab is what makes released grades "seen".
+  useEffect(() => {
+    if (home && tab === 'grades') markGradesSeen(Object.keys(home.grades));
+  }, [home, tab, markGradesSeen]);
+
   if (loadError && !home) {
     return (
       <Shell banner={banner}>
@@ -268,11 +275,16 @@ export function StudentView({
     );
   }
   const round = home.rounds.find((r) => r.id === roundId) ?? null;
+  const go = (next: Tab, nextRound?: number) => {
+    if (nextRound != null) setRoundId(nextRound);
+    setTab(next);
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <PreviewCtx.Provider value={preview}>
     <Shell banner={banner}>
-      <header className="pb-4 pt-2">
+      <header className="pb-3 pt-2">
         <div className="text-[12px] tracking-wide text-ink-3">{home.course.name}</div>
         <h1 className="font-hebrew text-[26px] leading-tight">שלום, {home.student.name}</h1>
         <div className="mt-1 text-[14px] text-ink-2">
@@ -285,43 +297,393 @@ export function StudentView({
         </div>
       </header>
 
-      <MyGradesCard grades={home.grades} />
+      <TabBar tab={tab} onChange={go} />
 
-      <TeamCard token={token} home={home} onUpdate={setHome} />
+      <div role="tabpanel" id={`tab-${tab}`} aria-labelledby={`tab-btn-${tab}`} className="pt-4">
+        {tab === 'home' ? <HomeTab home={home} seenGrades={seenGrades} go={go} /> : null}
 
-      <AnonymityNote />
+        {tab === 'grades' ? (
+          Object.keys(home.grades).length ? (
+            <MyGradesCard grades={home.grades} />
+          ) : (
+            <EmptyNote>עדיין לא פורסמו ציונים. כשהמרצה יפרסם ציון, הוא יופיע כאן.</EmptyNote>
+          )
+        ) : null}
 
-      {home.rounds.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-border bg-card p-5 text-[15px] text-ink-2">
-          אין כרגע סבב הצגות פתוח. כשהמרצה תפתח סבב, הוא יופיע כאן.
-        </div>
-      ) : (
-        <>
-          <nav className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="סבבים">
-            {home.rounds.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => setRoundId(r.id)}
-                className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] ${
-                  r.id === roundId ? 'border-forest bg-forest text-paper' : 'border-border bg-card text-ink-2'
-                }`}
-              >
-                {roundLabel(r)}
-                {r.status === 'reviewing' ? ' · פתוח' : ''}
-              </button>
-            ))}
-          </nav>
-          {round ? <RoundPanel key={round.id} token={token} round={round} team={home.team} onUpdate={setHome} /> : null}
-        </>
-      )}
+        {tab === 'team' ? <TeamCard token={token} home={home} onUpdate={setHome} open /> : null}
+
+        {tab === 'review' ? (
+          <>
+            <AnonymityNote />
+            {home.rounds.length === 0 ? (
+              <EmptyNote className="mt-4">אין כרגע סבב הצגות פתוח. כשהמרצה תפתח סבב, הוא יופיע כאן.</EmptyNote>
+            ) : (
+              <>
+                <nav className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1" aria-label="סבבים">
+                  {home.rounds.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => setRoundId(r.id)}
+                      className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] ${
+                        r.id === roundId ? 'border-forest bg-forest text-paper' : 'border-border bg-card text-ink-2'
+                      }`}
+                    >
+                      {roundLabel(r)}
+                      {r.status === 'reviewing' ? ' · פתוח' : ''}
+                    </button>
+                  ))}
+                </nav>
+                {round ? <RoundPanel key={round.id} token={token} round={round} team={home.team} onUpdate={setHome} /> : null}
+              </>
+            )}
+          </>
+        ) : null}
+
+        {tab === 'info' ? <CourseInfoTab home={home} go={go} /> : null}
+      </div>
     </Shell>
     </PreviewCtx.Provider>
   );
 }
 
+/* ---------------- Tabs: Home · Grades · Team · Peer review · Course info ---------------- */
+
+const TABS = [
+  { key: 'home', label: 'בית' },
+  { key: 'grades', label: 'ציונים' },
+  { key: 'team', label: 'צוות' },
+  { key: 'review', label: 'ביקורת עמיתים' },
+  { key: 'info', label: 'מידע על הקורס' }
+] as const;
+type Tab = (typeof TABS)[number]['key'];
+
+function tabFromUrl(): Tab {
+  if (typeof window === 'undefined') return 'home';
+  const t = new URLSearchParams(window.location.search).get('tab');
+  return TABS.some((x) => x.key === t) ? (t as Tab) : 'home';
+}
+
+/* The active tab lives in ?tab= (Home is the bare URL), so links, refresh and
+ * back/forward all land on the same tab. Other query params (the preview's
+ * ?student=) are kept. */
+function useTabInUrl(): [Tab, (t: Tab) => void] {
+  const [tab, setTabState] = useState<Tab>(tabFromUrl);
+  useEffect(() => {
+    const onPop = () => setTabState(tabFromUrl());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const setTab = useCallback((t: Tab) => {
+    const url = new URL(window.location.href);
+    if (t === 'home') url.searchParams.delete('tab');
+    else url.searchParams.set('tab', t);
+    if (url.href !== window.location.href) window.history.pushState(window.history.state, '', url);
+    setTabState(t);
+  }, []);
+  return [tab, setTab];
+}
+
+/* Grade components the student has already looked at, per link and device.
+ * Previews never touch a student's device storage, so they keep it in memory. */
+function useSeenGrades(token: string, preview: boolean): [Set<string>, (keys: string[]) => void] {
+  const key = `cg-seen-grades:${token}`;
+  const [seen, setSeen] = useState<Set<string>>(() => {
+    if (preview || typeof window === 'undefined') return new Set();
+    try {
+      return new Set(JSON.parse(localStorage.getItem(key) ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const mark = useCallback(
+    (keys: string[]) =>
+      setSeen((prev) => {
+        if (keys.every((k) => prev.has(k))) return prev;
+        const next = new Set([...prev, ...keys]);
+        if (!preview) {
+          try {
+            localStorage.setItem(key, JSON.stringify([...next]));
+          } catch {
+            /* storage unavailable — grades just stay marked new */
+          }
+        }
+        return next;
+      }),
+    [key, preview]
+  );
+  return [seen, mark];
+}
+
+function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  return (
+    <nav
+      role="tablist"
+      aria-label="אזורים"
+      className="-mx-4 flex gap-1.5 overflow-x-auto border-b border-line-soft px-4 pb-2"
+    >
+      {TABS.map((t) => (
+        <button
+          key={t.key}
+          id={`tab-btn-${t.key}`}
+          role="tab"
+          aria-selected={tab === t.key}
+          aria-controls={`tab-${t.key}`}
+          onClick={() => onChange(t.key)}
+          className={`h-10 shrink-0 rounded-full px-4 text-[14px] transition ${
+            tab === t.key ? 'bg-forest font-semibold text-paper' : 'text-ink-2 hover:bg-paper-2'
+          }`}
+        >
+          {t.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function EmptyNote({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-lg border border-border bg-card p-5 text-[15px] text-ink-2 ${className}`}>{children}</div>;
+}
+
+const GRADE_LABELS: Record<string, string> = {
+  hw1: 'תרגיל 1',
+  hw2: 'תרגיל 2',
+  project: 'פרויקט',
+  talks: 'הצגות',
+  attendance: 'נוכחות',
+  final: 'ציון סופי'
+};
+
+type UpNext = { key: string; tone: 'act' | 'info'; title: string; detail?: string; tab: Tab; round?: number };
+
+/* What the student should look at next, built only from the home payload. */
+function upNext(home: Home, seenGrades: Set<string>, now: number): UpNext[] {
+  const items: UpNext[] = [];
+  const live = home.rounds.filter((r) => r.status !== 'closed');
+
+  for (const r of live) {
+    const rv = r.reviewing;
+    if (r.status !== 'reviewing' || !rv) continue;
+    const left = rv.progress.outstanding.length;
+    if (left === 0) continue;
+    items.push({
+      key: `review-${r.id}`,
+      tone: 'act',
+      title: `${roundLabel(r)}: ${left === 1 ? 'נשארה ביקורת אחת' : `נשארו ${left} ביקורות`}`,
+      detail: rv.deadline ? `עד ${formatDeadline(rv.deadline)}` : undefined,
+      tab: 'review',
+      round: r.id
+    });
+  }
+
+  if (home.team) {
+    for (const r of live) {
+      const mp = r.my_presentation;
+      if (!mp) continue;
+      if (mp.session_number != null) {
+        items.push({
+          key: `slot-${r.id}`,
+          tone: 'info',
+          title: `ההצגה שלכם ב${roundLabel(r)}`,
+          detail: sessionLabel(mp.session_number, mp.held_on),
+          tab: 'review',
+          round: r.id
+        });
+      } else if (r.selection?.open && !r.selection.locked) {
+        items.push({
+          key: `slot-${r.id}`,
+          tone: 'act',
+          title: `בחרו מועד הצגה ל${roundLabel(r)}`,
+          detail: r.selection.deadline ? `עד ${formatDeadline(r.selection.deadline)}` : undefined,
+          tab: 'review',
+          round: r.id
+        });
+      } else {
+        items.push({ key: `slot-${r.id}`, tone: 'info', title: `ההצגה שלכם ב${roundLabel(r)}`, detail: sessionLabel(null, null), tab: 'review', round: r.id });
+      }
+    }
+  }
+
+  const deadlineMs = home.teams_policy.deadline ? new Date(home.teams_policy.deadline).getTime() : null;
+  const teamsOpen = home.teams_policy.open && (deadlineMs == null || now < deadlineMs);
+  if (!home.team) {
+    items.push({
+      key: 'team',
+      tone: 'act',
+      title: 'עדיין אין לך צוות',
+      detail: teamsOpen
+        ? deadlineMs != null
+          ? `אפשר לפתוח צוות או להצטרף עד ${formatDeadline(home.teams_policy.deadline)}`
+          : 'אפשר לפתוח צוות או להצטרף לצוות קיים'
+        : 'המרצה קובע/ת את הצוותים',
+      tab: 'team'
+    });
+  } else if (teamsOpen && deadlineMs != null) {
+    items.push({
+      key: 'team',
+      tone: 'info',
+      title: 'הרכב הצוותים ננעל בקרוב',
+      detail: `${formatDeadline(home.teams_policy.deadline)} (עוד ${countdown(deadlineMs - now)})`,
+      tab: 'team'
+    });
+  }
+
+  const fresh = Object.keys(home.grades).filter((k) => !seenGrades.has(k));
+  if (fresh.length) {
+    items.push({
+      key: 'grades',
+      tone: 'act',
+      title: 'פורסמו ציונים חדשים',
+      detail: fresh.map((k) => GRADE_LABELS[k] ?? k).join(', '),
+      tab: 'grades'
+    });
+  }
+  return items;
+}
+
+function HomeTab({ home, seenGrades, go }: { home: Home; seenGrades: Set<string>; go: (t: Tab, round?: number) => void }) {
+  const items = upNext(home, seenGrades, Date.now());
+  return (
+    <section aria-labelledby="up-next" className="grid gap-2">
+      <h2 id="up-next" className="font-hebrew text-[20px]">
+        מה הלאה
+      </h2>
+      {items.length === 0 ? (
+        <EmptyNote>✓ אין כרגע משהו שמחכה לך. כשייפתח סבב ביקורת או יפורסם ציון, זה יופיע כאן.</EmptyNote>
+      ) : (
+        <ul className="grid gap-2">
+          {items.map((it) => (
+            <li key={it.key}>
+              <button
+                onClick={() => go(it.tab, it.round)}
+                className={`flex min-h-[56px] w-full items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-right shadow-soft ${
+                  it.tone === 'act' ? 'border-forest-soft' : 'border-border'
+                }`}
+              >
+                <span className="min-w-0">
+                  <span className={`block text-[15px] font-semibold ${it.tone === 'act' ? 'text-forest' : ''}`}>{it.title}</span>
+                  {it.detail ? <span className="block text-[13px] text-ink-2">{it.detail}</span> : null}
+                </span>
+                <span aria-hidden className="shrink-0 text-ink-3">
+                  ←
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* Everything the course already publishes to students, in one place. Built
+ * from the same /api/r/<token> payload as the other tabs. */
+function CourseInfoTab({ home, go }: { home: Home; go: (t: Tab, round?: number) => void }) {
+  const { course, teams_policy: policy, rounds, team } = home;
+  const sites = new Map<string, { team: string; url: string; status: LinkStatus; detail: string; own: boolean }>();
+  for (const r of rounds) {
+    if (team && r.my_presentation?.demo_url) {
+      sites.set(team.name, { team: team.name, url: r.my_presentation.demo_url, status: r.my_presentation.link_status, detail: r.my_presentation.link_detail, own: true });
+    }
+    for (const p of r.reviewing?.presentations ?? []) {
+      if (p.demo_url) sites.set(p.team_name, { team: p.team_name, url: p.demo_url, status: p.link_status, detail: p.link_detail, own: p.own_team });
+    }
+  }
+  const attendance = home.grades.attendance;
+  return (
+    <div className="grid gap-4">
+      <section className="rounded-lg border border-border bg-card p-4 shadow-soft">
+        <h2 className="font-hebrew text-[20px]">{course.name}</h2>
+        {course.code ? (
+          <div className="text-[13px] text-ink-3" dir="ltr">
+            {course.code}
+          </div>
+        ) : null}
+        <dl className="mt-3 grid gap-1.5 text-[14px]">
+          <InfoRow label="גודל צוות מרבי" value={policy.max_size ? `${policy.max_size} חברים` : '—'} />
+          <InfoRow
+            label="נעילת הרכב הצוותים"
+            value={policy.deadline ? formatDeadline(policy.deadline)! : policy.open ? 'לא נקבע מועד' : 'נעול'}
+          />
+          {attendance ? <InfoRow label="נוכחות נדרשת" value={`${attendance.threshold}%`} /> : null}
+        </dl>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-4 shadow-soft">
+        <h2 className="font-hebrew text-[18px]">סבבי הצגות ומועדים</h2>
+        {rounds.length === 0 ? (
+          <p className="mt-2 text-[14px] text-ink-2">עוד לא נפתחו סבבי הצגות.</p>
+        ) : (
+          <ul className="mt-2 grid gap-3">
+            {rounds.map((r) => (
+              <li key={r.id} className="rounded-md border border-line-soft bg-paper px-3 py-2.5 text-[14px]">
+                <button onClick={() => go('review', r.id)} className="flex w-full justify-between gap-2 text-right">
+                  <span className="font-semibold">{roundLabel(r)}</span>
+                  <span className="text-[13px] text-ink-3">{ROUND_STATUS[r.status]}</span>
+                </button>
+                <dl className="mt-1 grid gap-0.5 text-ink-2">
+                  {r.my_presentation ? (
+                    <InfoRow label="ההצגה שלכם" value={sessionLabel(r.my_presentation.session_number, r.my_presentation.held_on)} />
+                  ) : null}
+                  {r.selection?.deadline ? <InfoRow label="בחירת מועד עד" value={formatDeadline(r.selection.deadline)!} /> : null}
+                  {r.reviewing?.deadline ? <InfoRow label="הגשת ביקורות עד" value={formatDeadline(r.reviewing.deadline)!} /> : null}
+                  {r.link_required ? <InfoRow label="קישור לאתר" value="חובה" /> : null}
+                </dl>
+                {r.selection?.sessions.length ? (
+                  <p className="mt-1 text-[13px] text-ink-3">
+                    מפגשים: {r.selection.sessions.map((s) => sessionLabel(s.number, s.held_on)).join(' · ')}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-4 shadow-soft">
+        <h2 className="font-hebrew text-[18px]">האתרים של הצוותים</h2>
+        {sites.size === 0 ? (
+          <p className="mt-2 text-[14px] text-ink-2">עוד לא הוגשו קישורים.</p>
+        ) : (
+          <ul className="mt-2 grid gap-2">
+            {[...sites.values()].map((s) => (
+              <li key={s.team} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[14px]">
+                <span className="font-semibold">
+                  {s.team}
+                  {s.own ? <span className="text-[12px] font-normal text-ink-3"> · הצוות שלך</span> : null}
+                </span>
+                <span className="flex items-center gap-2">
+                  <LinkStatusNote status={s.status} detail={s.detail} />
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="font-semibold text-forest hover:underline">
+                    פתיחה ↗
+                  </a>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+const ROUND_STATUS: Record<RoundView['status'], string> = {
+  scheduling: 'בחירת מועדים',
+  reviewing: 'פתוח לביקורת',
+  closed: 'נסגר'
+};
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-2">
+      <dt>{label}</dt>
+      <dd className="tnum text-ink">{value}</dd>
+    </div>
+  );
+}
+
 /* ---------------- Team: create, join with a code, leave ---------------- */
 
-function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpdate: (h: Home) => void }) {
+function TeamCard({ token, home, onUpdate, open = false }: { token: string; home: Home; onUpdate: (h: Home) => void; open?: boolean }) {
   const preview = useContext(PreviewCtx);
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
@@ -376,7 +738,7 @@ function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpda
 
   if (team) {
     return (
-      <details className="mb-3 rounded-lg border border-border bg-card px-4 py-3 text-[14px] shadow-soft">
+      <details open={open || undefined} className="mb-3 rounded-lg border border-border bg-card px-4 py-3 text-[14px] shadow-soft">
         <summary className="cursor-pointer text-ink-2">
           חברי הצוות ({team.members.length}){policy.open && team.join_code ? ' · קוד הצטרפות' : ''}
           {policy.open && deadlineMs != null ? ` · ננעל בעוד ${countdown(deadlineMs - now)}` : ''}

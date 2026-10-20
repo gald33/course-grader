@@ -60,3 +60,61 @@ test('student review page rejects an unknown link', async ({ page }) => {
   // The browser logs the expected 404 itself; nothing else may go wrong.
   expect(problems.filter((p) => !p.includes('404'))).toEqual([]);
 });
+
+test('student portal lands on Home and keeps the active tab in the URL', async ({ page }) => {
+  const problems = await watchForErrors(page);
+  const tab = (name: string) => page.getByRole('tab', { name, exact: true });
+  await page.goto(`/r/${seed.student.token}`);
+
+  // Home is the default: the bare link, with the "up next" strip.
+  await expect(tab('בית')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: 'מה הלאה' })).toBeVisible();
+
+  // Every area is one tap away, and the tap lands in the URL.
+  await tab('ציונים').click();
+  await expect(page).toHaveURL(/[?&]tab=grades\b/);
+  await expect(page.getByText('עדיין לא פורסמו ציונים')).toBeVisible();
+
+  await tab('צוות').click();
+  await expect(page).toHaveURL(/[?&]tab=team\b/);
+  await expect(page.getByRole('tabpanel').getByText(seed.student.name)).toBeVisible();
+
+  await tab('ביקורת עמיתים').click();
+  await expect(page).toHaveURL(/[?&]tab=review\b/);
+  await expect(page.getByText('מי רואה את הביקורות שלך?')).toBeVisible();
+
+  await tab('מידע על הקורס').click();
+  await expect(page).toHaveURL(/[?&]tab=info\b/);
+  await expect(page.getByRole('tabpanel').getByRole('heading', { name: seed.course.name })).toBeVisible();
+
+  // Refresh stays on the tab; back/forward walk the tab history.
+  await page.reload();
+  await expect(tab('מידע על הקורס')).toHaveAttribute('aria-selected', 'true');
+  await page.goBack();
+  await expect(page).toHaveURL(/[?&]tab=review\b/);
+  await expect(tab('ביקורת עמיתים')).toHaveAttribute('aria-selected', 'true');
+  await page.goForward();
+  await expect(tab('מידע על הקורס')).toHaveAttribute('aria-selected', 'true');
+
+  // Home drops the parameter again.
+  await tab('בית').click();
+  await expect(page).not.toHaveURL(/tab=/);
+  await expect(page.getByRole('heading', { name: 'מה הלאה' })).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
+test('instructor "view as student" opens the same portal on the linked tab', async ({ page }) => {
+  const problems = await watchForErrors(page);
+  await page.goto(`/course/${seed.course.id}/student-view?tab=team`);
+
+  await expect(page.getByRole('tab', { name: 'צוות', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  // Switching the previewed student keeps the tab.
+  const picker = page.getByRole('combobox');
+  const other = await picker.locator('option').nth(1).getAttribute('value');
+  await picker.selectOption(other!);
+  await expect(page).toHaveURL(new RegExp(`student=${other}`));
+  await expect(page).toHaveURL(/[?&]tab=team\b/);
+  await expect(page.getByRole('tab', { name: 'צוות', exact: true })).toHaveAttribute('aria-selected', 'true');
+  expect(problems).toEqual([]);
+});

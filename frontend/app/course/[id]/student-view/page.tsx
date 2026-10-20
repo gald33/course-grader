@@ -57,7 +57,10 @@ export default function StudentViewPreview({ params }: { params: { id: string } 
             onChange={(e) => {
               const id = Number(e.target.value);
               setStudentId(id);
-              window.history.replaceState(null, '', `?student=${id}`);
+              // Keep the portal's ?tab= so switching students stays on the same tab.
+              const url = new URL(window.location.href);
+              url.searchParams.set('student', String(id));
+              window.history.replaceState(window.history.state, '', url);
             }}
           >
             {sorted.map((s) => (

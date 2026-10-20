@@ -34,7 +34,11 @@ _Nothing deferred._
 
 ## 🔒 Claimed — someone is on these
 
-_Nothing claimed._
+| item | held by | since |
+|---|---|---|
+| `student-portal-is-one-long-scroll` | claude/student-portal-is-one-long-scroll | 2026-10-20T00:00:00Z |
+
+A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
 ## ⛔ Blocked
 
@@ -59,6 +63,7 @@ graph TD
   project_bonus_has_no_editor["The per-student project bonus can't be edited directly"]:::ready
   readme_describes_a_localhost_only_app["README still says 'no login, localhost-only' and leaves out recent features"]:::ready
   roster_cannot_be_edited_per_student["Add, remove, withdraw or fix a single student without re-importing the roster"]:::ready
+  student_portal_is_one_long_scroll["The student portal is one long scroll with no navigation"]:::claimed
   students_cannot_see_their_own_grades["Students cannot see their own grades, feedback or attendance status"]:::ready
   team_formation_closes_at_a_deadline["Let students form their own teams until a deadline, then lock teams automatically"]:::ready
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
@@ -294,6 +299,48 @@ graph TD
 > Done when: the instructor can add a student, edit their name and email, and
 > withdraw them (kept for history, excluded from teams, review obligations and
 > the gradebook) from the course UI.
+
+</details>
+
+### `student-portal-is-one-long-scroll`
+
+- **title:** The student portal is one long scroll with no navigation
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/student-portal-is-one-long-scroll (since 2026-10-20T00:00:00Z)
+- **refs:**
+  - `frontend/components/student-view.tsx`
+  - `frontend/components/my-grades.tsx`
+  - `frontend/app/r/[token]/page.tsx`
+  - `frontend/app/course/[id]/student-view/page.tsx`
+  - `frontend/e2e/smoke.spec.ts`
+  - `backend/app/api/student_review.py`
+
+<details><summary>evidence</summary>
+
+> VERIFIED at 022ad17. `StudentView` (frontend/components/student-view.tsx:224)
+> renders everything in one column with no navigation: the greeting header
+> (:275), `MyGradesCard` (:288), `TeamCard` (:290), `AnonymityNote` (:292),
+> then the round pills (:300) and the selected round's `RoundPanel` (:314).
+> Nothing says what the student has to do next; an open review round or a
+> missing presentation slot sits below the grades and team cards. The page
+> keeps no state in the URL, so a link or a refresh always lands at the top.
+> The instructor's "view as student" (frontend/app/course/[id]/student-view/
+> page.tsx:85) renders the same component, and its student picker rewrites
+> the query string to `?student=<id>` (:60).
+>
+> Everything the portal needs is already in `GET /api/r/{token}`
+> (backend/app/api/student_review.py:246 `_payload`): course name and code,
+> team and team policy (deadline, max size), every non-draft round with its
+> selection deadline and sessions, review deadline and progress, the team's
+> presentation slot and site links, and the released grades.
+>
+> Done when: a student lands on Home, which shows an "up next" strip (open
+> review round with reviews left, presentation slot or "pick one", team
+> deadline or "no team yet", newly released grades), and reaches Grades,
+> Team, Peer review and Course info in one tap each; the active tab is kept
+> in `?tab=` so links, refresh and back/forward work; the instructor preview
+> gets the same portal; and the Playwright smoke test covers switching tabs.
 
 </details>
 

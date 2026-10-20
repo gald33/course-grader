@@ -3,8 +3,8 @@ grades and the peer share of that task; round bonus overrides move from
 peer_round_<n> to peer_round_<n>_bonus, so peer_round_<n> can hold the
 round's final score applied to the gradebook.
 
-Revision ID: 0020_peer_round_bonus_component
-Revises: 0019_teams_deadline
+Revision ID: 0023_peer_round_bonus_component
+Revises: 0022_retire_bonus_points
 Create Date: 2026-10-20
 """
 
@@ -14,8 +14,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0020_peer_round_bonus_component"
-down_revision: Union[str, None] = "0019_teams_deadline"
+revision: str = "0023_peer_round_bonus_component"
+down_revision: Union[str, None] = "0022_retire_bonus_points"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

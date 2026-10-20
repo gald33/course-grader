@@ -1016,7 +1016,8 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
 /* =============== Teams & links =============== */
 
 type TeamsData = {
-  settings: { teams_open: boolean; max_team_size: number };
+  settings: { teams_open: boolean; max_team_size: number; teams_deadline: string | null; teams_locked: boolean };
+  unassigned: number[];
   teams: { id: number; name: string; project_title: string; join_code: string | null }[];
   students: { student_id: number; name: string; national_id: string; team_id: number | null; is_test?: boolean }[];
 };
@@ -1106,10 +1107,50 @@ function TeamsTab({
                 }
               />
             </label>
+            <label className="flex flex-wrap items-center gap-2">
+              Teams lock at
+              <Input
+                key={data.settings.teams_deadline ?? 'none'}
+                type="datetime-local"
+                className="h-8 w-auto"
+                defaultValue={toLocalInput(data.settings.teams_deadline)}
+                onBlur={(e) =>
+                  e.target.value !== toLocalInput(data.settings.teams_deadline) &&
+                  act(
+                    () =>
+                      apiPut(
+                        `${base}/team-settings`,
+                        e.target.value
+                          ? { teams_deadline: new Date(e.target.value).toISOString() }
+                          : { clear_teams_deadline: true }
+                      ),
+                    e.target.value ? 'Team deadline saved' : 'Team deadline cleared'
+                  )
+                }
+              />
+              {data.settings.teams_deadline ? (
+                <button
+                  type="button"
+                  className="text-ink-3 hover:underline"
+                  onClick={() => act(() => apiPut(`${base}/team-settings`, { clear_teams_deadline: true }), 'Team deadline cleared')}
+                >
+                  Clear
+                </button>
+              ) : null}
+            </label>
             <p className="text-ink-3">
-              A student opens a team and shares its join code (below) with teammates. Lock this once teams are final;
-              you can still move students yourself.
+              A student opens a team and shares its join code (below) with teammates. Teams lock for students at the
+              deadline (or when you untick the box); you can still move students yourself.
             </p>
+            {data.settings.teams_locked && data.unassigned.length ? (
+              <p className="text-bad">
+                Teams are locked. Without a team:{' '}
+                {data.students
+                  .filter((s) => data.unassigned.includes(s.student_id))
+                  .map((s) => s.name)
+                  .join(', ')}
+              </p>
+            ) : null}
           </div>
           <form
             className="flex gap-2"

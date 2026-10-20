@@ -712,7 +712,12 @@ def test_students_create_join_and_leave_teams(env):
     # The instructor sees the team, its code and members, and can move anyone.
     teams = _ok(c.get(f"/api/courses/{course_id}/peer/teams"))
     jokers = next(t for t in teams["teams"] if t["name"] == "Jokers")
-    assert jokers["join_code"] == code and teams["settings"] == {"teams_open": True, "max_team_size": 2}
+    assert jokers["join_code"] == code and teams["settings"] == {
+        "teams_open": True,
+        "max_team_size": 2,
+        "teams_deadline": None,
+        "teams_locked": False,
+    }
     students = {s["name"]: s for s in teams["students"]}
     _ok(c.put(f"/api/courses/{course_id}/peer/students/{students['Student 2']['student_id']}/team", json={"team_id": jokers["id"]}))
 
@@ -770,3 +775,59 @@ def test_released_round_applies_to_gradebook_once_per_student(env, course):
         db.get(ReviewRound, course.round_id).counts_toward_grade = False
         db.commit()
     assert c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook").status_code == 409
+
+
+def test_teams_lock_at_the_deadline(env, monkeypatch):
+    from app.services import peer_review as svc
+
+    c = env.client
+    course_id = _ok(c.post("/api/courses", json={"code": "D", "name": "Deadline", "year": 2026, "semester": "A"}))["id"]
+    tokens, ids = {}, {}
+    with env.Session() as db:
+        for i in range(4):
+            s = Student(national_id=f"91000000{i}", name=f"Student {i}")
+            db.add(s)
+            db.flush()
+            db.add(Enrollment(course_id=course_id, student_id=s.id, review_token=f"dl{i}" * 8))
+            tokens[i], ids[i] = f"dl{i}" * 8, s.id
+        db.commit()
+    base = f"/api/courses/{course_id}/peer"
+    r = lambda i, path="", **kw: c.post(f"/api/r/{tokens[i]}/team{path}", **kw)  # noqa: E731
+
+    # Deadline given with a time zone offset is stored as UTC.
+    settings = _ok(c.put(f"{base}/team-settings", json={"teams_deadline": "2026-11-01T12:00:00+02:00"}))
+    assert settings["teams_deadline"] == "2026-11-01T10:00:00Z" and settings["teams_locked"] is False
+    deadline = datetime(2026, 11, 1, 10, 0)
+
+    # Just before the deadline (server clock) students can still change teams.
+    monkeypatch.setattr(svc, "utcnow", lambda: deadline - timedelta(seconds=1))
+    home = _ok(r(0, json={"name": "Early"}))
+    assert home["teams_policy"]["open"] is True
+    assert home["teams_policy"]["deadline"] == "2026-11-01T10:00:00Z"
+    _ok(r(1, "/join", json={"code": home["team"]["join_code"]}))
+    _ok(r(2, json={"name": "Leaver"}))
+    _ok(r(2, "/leave"))
+
+    # At / just after the deadline: create, join and leave are refused.
+    monkeypatch.setattr(svc, "utcnow", lambda: deadline)
+    assert r(2, json={"name": "Late"}).json()["detail"]["code"] == "teams_locked"
+    monkeypatch.setattr(svc, "utcnow", lambda: deadline + timedelta(seconds=1))
+    assert r(2, "/join", json={"code": home["team"]["join_code"]}).json()["detail"]["code"] == "teams_locked"
+    assert r(1, "/leave").json()["detail"]["code"] == "teams_locked"
+    assert _ok(c.get(f"/api/r/{tokens[2]}"))["teams_policy"]["open"] is False
+
+    # The instructor sees who is left without a team and can still move anyone.
+    teams = _ok(c.get(f"{base}/teams"))
+    assert teams["settings"]["teams_locked"] is True
+    assert sorted(teams["unassigned"]) == sorted([ids[2], ids[3]])
+    early = next(t for t in teams["teams"] if t["name"] == "Early")
+    _ok(c.put(f"{base}/students/{ids[2]}/team", json={"team_id": early["id"]}))
+    assert _ok(c.get(f"{base}/teams"))["unassigned"] == [ids[3]]
+    with env.Session() as db:
+        svc.remove_student_from_team(db, course_id, ids[1])
+    assert _ok(c.get(f"/api/r/{tokens[1]}"))["team"] is None
+
+    # Clearing the deadline reopens teams.
+    settings = _ok(c.put(f"{base}/team-settings", json={"clear_teams_deadline": True}))
+    assert settings["teams_deadline"] is None and settings["teams_locked"] is False
+    _ok(r(3, json={"name": "Reopened"}))

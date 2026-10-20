@@ -418,8 +418,13 @@ def team_has_history(db: Session, team: Team) -> bool:
     return db.scalar(select(ReviewRoundRoster.id).where(ReviewRoundRoster.team_id == team.id).limit(1)) is not None
 
 
+def teams_locked(course: Course) -> bool:
+    """Students can't change teams: switched off, or the deadline has passed (server clock)."""
+    return not course.teams_open or (course.teams_deadline is not None and utcnow() >= course.teams_deadline)
+
+
 def _require_teams_open(course: Course) -> None:
-    if not course.teams_open:
+    if teams_locked(course):
         raise PeerReviewError("teams_locked", "Teams are locked; ask the instructor to change your team", 409)
 
 
@@ -448,14 +453,38 @@ def student_join_team(db: Session, course: Course, student_id: int, code: str) -
 def student_leave_team(db: Session, course: Course, student_id: int) -> None:
     """Leave the team; a team left empty with no review history is removed."""
     _require_teams_open(course)
-    team_id = active_team_id(db, course.id, student_id)
+    remove_student_from_team(db, course.id, student_id)
+
+
+def remove_student_from_team(db: Session, course_id: int, student_id: int) -> None:
+    """Take a student off their team, ignoring the lock (instructor action).
+
+    A team left empty with no review history is removed.
+    """
+    team_id = active_team_id(db, course_id, student_id)
     if team_id is None:
         return
-    set_student_team(db, course.id, student_id, None)
+    set_student_team(db, course_id, student_id, None)
     team = db.get(Team, team_id)
     if team is not None and not active_members(db, team_id) and not team_has_history(db, team):
         db.delete(team)
         db.commit()
+
+
+def unassigned_students(db: Session, course_id: int) -> list[int]:
+    """Enrolled (non-test) students with no active team."""
+    assigned = select(TeamMembership.student_id).where(
+        TeamMembership.course_id == course_id, TeamMembership.end_at.is_(None)
+    )
+    return list(
+        db.scalars(
+            select(Enrollment.student_id).where(
+                Enrollment.course_id == course_id,
+                Enrollment.is_test.is_(False),
+                Enrollment.student_id.not_in(assigned),
+            )
+        )
+    )
 
 
 def active_members(db: Session, team_id: int) -> list[int]:

@@ -396,6 +396,10 @@ class ReviewRound(Base):
     # The team must give a link to its live site (e.g. the jokes-site homework);
     # reviewers get it up front and missing/broken links are flagged.
     link_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Gradebook task the round's applied scores feed (hw1 | hw2 | project_code
+    # | presentation), and the peer share of that task: T = (1-w)·A + w·P.
+    gradebook_task: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    peer_weight: Mapped[float] = mapped_column(Float, default=0.3, server_default=text("0.3"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     rubric_version: Mapped[PeerRubricVersion | None] = relationship()

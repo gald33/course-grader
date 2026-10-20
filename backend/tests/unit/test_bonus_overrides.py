@@ -144,6 +144,7 @@ def test_retire_migration_preserves_totals_for_old_and_new_code(tmp_path):
         # New code doesn't map the column; the server default fills it.
         conn.execute(text("INSERT INTO students (id, national_id, name) VALUES (4, '4', 'y')"))
         conn.execute(text("INSERT INTO enrollments (course_id, student_id, attendance_exempt, is_test) VALUES (1, 4, 0, 0)"))
+    _alembic(url, "upgrade", "head")  # the current code needs every later migration too
     with Session(engine) as db:
         new_totals = {r["national_id"]: r["bonus_points"] for r in compute_gradebook_rows(db, 1)}
     assert new_totals == {"1": 6.5, "2": 0.0, "3": -1.0, "4": 0.0}

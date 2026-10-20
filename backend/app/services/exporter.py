@@ -58,6 +58,10 @@ def export_gradebook_csv(db: Session, course_id: int) -> str:
             "bonus_points",
             "project_with_bonus",
             "final",
+            "hw1_peer",
+            "hw2_peer",
+            "project_code_peer",
+            "presentation_peer",
             "overrides",
         ]
 
@@ -142,17 +146,20 @@ def export_student_reports_hebrew(db: Session, course_id: int) -> ExportResult:
             pdf.add_font("DejaVu", "", font_path)
             pdf.set_font("DejaVu", size=14)
 
+            def peer_note(task: str) -> str:
+                return " (כולל ביקורת עמיתים)" if task in row["peer"] else ""
+
             lines = [
                 f"דו\"ח ציונים לסטודנט/ית",
                 f"קורס: {course.name} ({course.code}) {course.year} {course.semester}",
                 f"שם: {row['name']}",
                 f"תעודת זהות: {national_id}",
                 f"נוכחות: {row['attendance_score']}",
-                f"תרגיל 1: {row['hw1']}",
-                f"תרגיל 2: {row['hw2']}",
-                f"קוד פרויקט: {row['project_code']}",
+                f"תרגיל 1: {row['hw1']}{peer_note('hw1')}",
+                f"תרגיל 2: {row['hw2']}{peer_note('hw2')}",
+                f"קוד פרויקט: {row['project_code']}{peer_note('project_code')}",
                 f"דו\"ח פרויקט: {row['project_report']}",
-                f"מצגת: {row['presentation']}",
+                f"מצגת: {row['presentation']}{peer_note('presentation')}",
                 f"מצגת סופית: {row['final_talk']}",
                 f"בונוס: {row['bonus_points']}",
                 f"ציון סופי: {row['final']}",

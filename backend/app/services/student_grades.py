@@ -40,11 +40,16 @@ def grades_view(db: Session, enrollment: Enrollment) -> dict:
     if not released:
         return {}
     row = compute_student_grade_row(db, enrollment)
+
+    # Marks a part whose score includes applied peer-review rounds.
+    def peer(task: str) -> dict:
+        return {"peer": True} if task in row["peer"] else {}
+
     view: dict = {}
     if "hw1" in released:
-        view["hw1"] = {"score": row["hw1"], "feedback": _feedback(db, enrollment, "HW1")}
+        view["hw1"] = {"score": row["hw1"], "feedback": _feedback(db, enrollment, "HW1"), **peer("hw1")}
     if "hw2" in released:
-        view["hw2"] = {"score": row["hw2"], "feedback": _feedback(db, enrollment, "HW2")}
+        view["hw2"] = {"score": row["hw2"], "feedback": _feedback(db, enrollment, "HW2"), **peer("hw2")}
     if "project" in released:
         view["project"] = {
             "code": row["project_code"],
@@ -52,9 +57,14 @@ def grades_view(db: Session, enrollment: Enrollment) -> dict:
             "bonus": row["bonus_points"],
             "score": row["project_with_bonus"],
             "feedback": _feedback(db, enrollment, "PROJECT"),
+            **peer("project_code"),
         }
     if "talks" in released:
-        view["talks"] = {"presentation": row["presentation"], "final_talk": row["final_talk"]}
+        view["talks"] = {
+            "presentation": row["presentation"],
+            "final_talk": row["final_talk"],
+            **peer("presentation"),
+        }
     if "attendance" in released:
         course = db.get(Course, enrollment.course_id)
         view["attendance"] = {

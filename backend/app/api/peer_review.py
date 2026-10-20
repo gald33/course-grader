@@ -52,7 +52,13 @@ from app.services import peer_review as svc
 from app.services.llm_peer_review import run_llm_round_review
 from app.services import storage
 from app.services.peer_export import export_round_xlsx
-from app.services.peer_scoring import compute_round_scores, review_scores, weighted_total
+from app.services.peer_scoring import (
+    apply_round_to_gradebook,
+    compute_round_scores,
+    remove_round_from_gradebook,
+    review_scores,
+    weighted_total,
+)
 
 router = APIRouter(prefix="/api/courses/{course_id}/peer", tags=["peer-review"])
 
@@ -159,6 +165,8 @@ def _round_payload(db: Session, rnd: ReviewRound, teams: dict[int, Team]) -> dic
         "llm_enabled": rnd.llm_enabled,
         "counts_toward_grade": rnd.counts_toward_grade,
         "link_required": rnd.link_required,
+        "gradebook_task": rnd.gradebook_task,
+        "peer_weight": rnd.peer_weight,
         "obligations": {"expected": len(obligations), "completed": completed},
         "presentations": [
             {
@@ -434,7 +442,9 @@ def update_round(course_id: int, round_id: int, payload: RoundUpdate, db: Sessio
         rnd.review_deadline = None
     elif payload.review_deadline is not None:
         rnd.review_deadline = to_utc_naive(payload.review_deadline)
-    for field in ("target_mean", "target_std", "missing_review_policy", "participation_factor", "llm_enabled", "link_required"):
+    if payload.gradebook_task is not None:
+        rnd.gradebook_task = payload.gradebook_task or None
+    for field in ("target_mean", "target_std", "missing_review_policy", "participation_factor", "llm_enabled", "link_required", "peer_weight"):
         value = getattr(payload, field)
         if value is not None:
             setattr(rnd, field, value)
@@ -832,6 +842,23 @@ def round_scores_payload(db: Session, rnd: ReviewRound) -> dict:
 @router.get("/rounds/{round_id}/scores")
 def round_scores(course_id: int, round_id: int, db: Session = Depends(get_db)) -> dict:
     return round_scores_payload(db, _round(db, course_id, round_id))
+
+
+@router.post("/rounds/{round_id}/apply-to-gradebook")
+def apply_to_gradebook(course_id: int, round_id: int, db: Session = Depends(get_db)) -> dict:
+    rnd = _round(db, course_id, round_id)
+    if not rnd.counts_toward_grade:
+        raise_domain(svc.PeerReviewError("invalid_state", "Practice rounds never count toward a grade", 409))
+    if rnd.released_at is None:
+        raise_domain(svc.PeerReviewError("invalid_state", "Release the round's results before applying them", 409))
+    if rnd.gradebook_task is None:
+        raise_domain(svc.PeerReviewError("invalid_state", "Choose the gradebook task this round grades first", 409))
+    return {"status": "ok", **apply_round_to_gradebook(db, rnd)}
+
+
+@router.delete("/rounds/{round_id}/apply-to-gradebook")
+def remove_from_gradebook(course_id: int, round_id: int, db: Session = Depends(get_db)) -> dict:
+    return {"status": "ok", "removed": remove_round_from_gradebook(db, _round(db, course_id, round_id))}
 
 
 @router.post("/rounds/{round_id}/llm-review")

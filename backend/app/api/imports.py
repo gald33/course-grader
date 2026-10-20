@@ -104,7 +104,11 @@ async def import_roster(
                 student.name = row.name
         if row.email and row.email != student.email:
             owner = db.scalar(select(Student).where(Student.email == row.email, Student.id != student.id))
-            if owner is None:
+            if student.auth_user_id and student.email:
+                # Has a sign-in account (its email may have been fixed by hand):
+                # don't silently move the student off the address they sign in with.
+                email_conflicts.append(row.national_id)
+            elif owner is None:
                 student.email = row.email
             else:
                 email_conflicts.append(row.national_id)

@@ -208,7 +208,9 @@ def overview(course_id: int, db: Session = Depends(get_db)) -> dict:
         select(ReviewRound).where(ReviewRound.course_id == course_id).order_by(ReviewRound.number)
     ).all()
     student_count = db.scalar(
-        select(func.count()).select_from(Enrollment).where(Enrollment.course_id == course_id, Enrollment.is_test.is_(False))
+        select(func.count())
+        .select_from(Enrollment)
+        .where(Enrollment.course_id == course_id, Enrollment.is_test.is_(False), Enrollment.withdrawn_at.is_(None))
     )
     return {
         "sessions": [
@@ -261,7 +263,10 @@ def list_teams(course_id: int, db: Session = Depends(get_db)) -> dict:
         )
     }
     rows = db.execute(
-        select(Student, Enrollment.is_test).join(Enrollment).where(Enrollment.course_id == course_id).order_by(Student.name)
+        select(Student, Enrollment.is_test)
+        .join(Enrollment)
+        .where(Enrollment.course_id == course_id, Enrollment.withdrawn_at.is_(None))
+        .order_by(Student.name)
     ).all()
     course = _course(db, course_id)
     return {
@@ -342,8 +347,13 @@ def delete_team(course_id: int, team_id: int, db: Session = Depends(get_db)) -> 
 @router.put("/students/{student_id}/team")
 def set_student_team(course_id: int, student_id: int, payload: StudentTeamUpdate, db: Session = Depends(get_db)) -> dict:
     _course(db, course_id)
-    if not db.scalar(select(Enrollment).where(Enrollment.course_id == course_id, Enrollment.student_id == student_id)):
+    enrollment = db.scalar(
+        select(Enrollment).where(Enrollment.course_id == course_id, Enrollment.student_id == student_id)
+    )
+    if not enrollment:
         raise HTTPException(status_code=404, detail="Student is not enrolled in this course")
+    if enrollment.withdrawn_at is not None and payload.team_id is not None:
+        raise HTTPException(status_code=409, detail="This student has withdrawn; reinstate them first")
     try:
         svc.set_student_team(db, course_id, student_id, payload.team_id)
     except svc.PeerReviewError as exc:

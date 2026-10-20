@@ -74,6 +74,9 @@ class Enrollment(Base):
     # Test student (e.g. the instructor's own student account): uses the site
     # normally but is left out of scores, normalisation, exports and grades.
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Withdrawn from the course (UTC): kept for history, but out of teams,
+    # review obligations and the gradebook.
+    withdrawn_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Capability token for the student-facing peer-review page (/r/<token>).
     # Generated on demand by the instructor; the only student credential.
     review_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)

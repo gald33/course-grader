@@ -190,7 +190,8 @@ never a raw average of the counted score.
 A round can require a working site link (`link_required`, set with `PATCH /api/courses/{course_id}/peer/rounds/{round_id}`;
 there is no toggle for it in the UI yet). When a team saves its link the server checks that it loads as an HTML page from a
 public address and flags links to code, chats or files; reviewers get an "open the site" button with the result, and
-the team sees a banner until the link works. **Re-check all links** on the round's schedule view
+the team sees a banner until the link works. The round's schedule view shows each team's link status, and
+**Re-check all links** there
 (`POST /api/courses/{course_id}/peer/rounds/{round_id}/check-links`) re-checks every link in the round.
 
 **Test students and "View as student".** The accounts card can create a test student (an email of your own, e.g. a

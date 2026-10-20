@@ -442,6 +442,6 @@ def export_student_reports(course_id: int) -> dict:
         return {
             "status": "ok",
             "csv_path": result.csv_path,
-            "report_dir": result.report_dir,
+            "zip_location": result.zip_location,
             "report_count": result.report_count,
         }

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import io
 import json
 import re
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,10 +16,10 @@ from sqlalchemy.orm import sessionmaker
 from app.api.deps import get_db
 from app.core.config import get_settings
 from app.main import app
-from app.models.entities import Artifact, ColabSnapshot, Course, Submission
+from app.models.entities import Artifact, ColabSnapshot, Course, Enrollment, Student, Submission
 from app.services import llm_peer_review, snapshot_service, storage
 from app.services.zip_ingest import ingest_submission_zip
-from app.tasks import jobs
+from app.tasks import jobs, queue
 
 SECRET = "sb_secret_test"
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -254,5 +256,100 @@ def test_large_files_upload_straight_to_storage(fake_storage, session_factory, t
             assert ("course-grader", target["key"]) not in fake_storage.objects
             other = c.post(f"/api/courses/{cid}/imports/roster", data={"storage_key": "imports/999/x/roster.xlsx"})
             assert other.status_code == 400
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _export_course(db) -> int:
+    course = Course(code="AI101", name="Applied AI", year=2026, semester="A")
+    db.add(course)
+    db.flush()
+    for nid, name in [("111111111", "Dana Levi"), ("222222222", "Yossi Cohen")]:
+        student = Student(national_id=nid, name=name)
+        db.add(student)
+        db.flush()
+        db.add(Enrollment(course_id=course.id, student_id=student.id))
+    db.commit()
+    return course.id
+
+
+@pytest.mark.parametrize("backend", ["local", "supabase"])
+def test_hebrew_report_export_is_stored_and_downloadable(backend, request, monkeypatch, session_factory, tmp_path):
+    fake = request.getfixturevalue("fake_storage") if backend == "supabase" else None
+    monkeypatch.setattr(get_settings(), "data_dir", str(tmp_path))
+    monkeypatch.setattr(get_settings(), "instructor_token", None)
+    monkeypatch.setattr(jobs, "SessionLocal", session_factory)
+    with session_factory() as db:
+        course_id = _export_course(db)
+        other_course = Course(code="X", name="Other", year=2026, semester="A")
+        db.add(other_course)
+        db.commit()
+        other_id = other_course.id
+
+    def _db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _db
+    try:
+        with TestClient(app, follow_redirects=False) as client:
+            res = client.post(f"/api/courses/{course_id}/exports/student-reports?async_job=true")
+            task_id = res.json()["task_id"]
+            assert client.get(f"/api/tasks/{task_id}").json()["state"] == "PENDING"
+            assert client.get(f"/api/courses/{course_id}/exports/student-reports/{task_id}/download").status_code == 409
+
+            with session_factory() as db:
+                queue.run_job(db, queue.claim_next(db, "w"))
+
+            status = client.get(f"/api/tasks/{task_id}").json()
+            assert status["state"] == "SUCCESS" and status["payload"]["report_count"] == 2
+            location = status["payload"]["zip_location"]
+
+            url = f"/api/courses/{course_id}/exports/student-reports/{task_id}/download"
+            assert client.get(f"/api/courses/{other_id}/exports/student-reports/{task_id}/download").status_code == 404
+            res = client.get(url)
+            if backend == "supabase":
+                assert location.startswith("supabase://course-grader/exports/AI101_2026_A/student_reports_")
+                assert res.status_code == 307
+                assert "/object/sign/course-grader/exports/AI101_2026_A/" in res.headers["location"]
+                assert res.headers["location"].endswith("&download=student_reports_AI101_2026_A.zip")
+                data = fake.objects[("course-grader", location.split("course-grader/", 1)[1])][0]
+            else:
+                assert res.status_code == 200 and res.headers["content-type"] == "application/zip"
+                assert "student_reports_AI101_2026_A.zip" in res.headers["content-disposition"]
+                data = res.content
+    finally:
+        app.dependency_overrides.clear()
+
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        names = sorted(archive.namelist())
+        assert names == ["111111111_Levi_Dana.pdf", "222222222_Cohen_Yossi.pdf"]
+        assert all(archive.read(n).startswith(b"%PDF") for n in names)
+
+
+def test_failed_hebrew_report_export_is_reported(monkeypatch, session_factory, tmp_path):
+    monkeypatch.setattr(get_settings(), "data_dir", str(tmp_path))
+    monkeypatch.setattr(get_settings(), "instructor_token", None)
+    monkeypatch.setattr(jobs, "SessionLocal", session_factory)
+
+    def _db():
+        db = session_factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _db
+    try:
+        with TestClient(app) as client:
+            task_id = client.post("/api/courses/999/exports/student-reports?async_job=true").json()["task_id"]
+            with session_factory() as db:
+                queue.run_job(db, queue.claim_next(db, "w"))
+            status = client.get(f"/api/tasks/{task_id}").json()
+            assert status["state"] == "FAILURE" and "Course not found" in status["payload"]["error"]
+            assert client.get(f"/api/courses/999/exports/student-reports/{task_id}/download").status_code == 409
     finally:
         app.dependency_overrides.clear()

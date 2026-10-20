@@ -844,9 +844,12 @@ def published_lessons(db: Session, course_id: int) -> list[Lesson]:
     )
 
 
-def lesson_links(db: Session, course_id: int) -> list[dict]:
-    """Entry points for the student's course page."""
-    return [{"slug": lesson.slug, "title": lesson.title} for lesson in published_lessons(db, course_id)]
+def lesson_links(db: Session, enrollment: Enrollment) -> list[dict]:
+    """Entry points for the student's course page, with how far the student
+    got (the same numbers as the lesson list), so the page can point at a
+    lesson in progress."""
+    keep = ("slug", "title", "status", "required_done", "required_total")
+    return [{k: row[k] for k in keep} for row in student_lessons(db, enrollment)]
 
 
 def student_lesson(db: Session, enrollment: Enrollment, slug: str) -> Lesson:

@@ -27,6 +27,8 @@ async function watchForErrors(page: Page): Promise<string[]> {
   return problems;
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 test('instructor course page loads the seeded course', async ({ page }) => {
   const problems = await watchForErrors(page);
   await page.goto(`/course/${seed.course.id}`);
@@ -120,4 +122,41 @@ test('instructor "view as student" opens the same portal on the linked tab', asy
   // Rewriting the URL makes Next cancel its prefetch of the banner's "Back to
   // course" link; a cancelled prefetch is not an error.
   expect(problems.filter((p) => !(p.includes('_rsc=') && p.includes('ERR_ABORTED')))).toEqual([]);
+});
+
+test('student portal links to the guided lessons and points at one in progress', async ({ page, context, baseURL }) => {
+  const problems = await watchForErrors(page);
+  const lessonUrl = `/r/${seed.student.token}/lessons/${encodeURIComponent(seed.lesson.slug)}`;
+
+  // Course info lists the published lesson, linked to its existing route.
+  await page.goto(`/r/${seed.student.token}?tab=info`);
+  const lessons = page.getByRole('region', { name: 'למידה בשיעור' });
+  await expect(lessons.getByRole('link', { name: new RegExp(escapeRe(seed.lesson.title)) })).toHaveAttribute('href', lessonUrl);
+
+  // Home points at a lesson in progress. Nothing here may write lesson
+  // progress (lesson.spec compares the class's insights while it runs), so
+  // the portal's answer is edited to say this student is midway.
+  await page.route(`**/api/r/${seed.student.token}`, async (route) => {
+    const res = await route.fetch();
+    const home = await res.json();
+    home.lessons = home.lessons.map((l: { slug: string }) =>
+      l.slug === seed.lesson.slug ? { ...l, status: 'in_progress', required_done: 1 } : l
+    );
+    await route.fulfill({ response: res, json: home });
+  });
+  await page.getByRole('tab', { name: 'בית', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('link', { name: new RegExp(`להמשיך בשיעור: ${escapeRe(seed.lesson.title)}`) })).toHaveAttribute(
+    'href',
+    lessonUrl
+  );
+
+  // "All lessons" opens the existing lesson list for a signed-in student.
+  await context.addCookies([{ name: 'cg_student', value: seed.student.cookie, url: baseURL, httpOnly: true, sameSite: 'Lax' }]);
+  await page.getByRole('tab', { name: 'מידע על הקורס', exact: true }).click();
+  await lessons.getByRole('link', { name: 'כל השיעורים' }).click();
+  await expect(page).toHaveURL(new RegExp(`/r/${seed.student.token}/lessons$`));
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('למידה בשיעור');
+  await expect(page.getByText(seed.lesson.title).first()).toBeVisible();
+  expect(problems).toEqual([]);
 });

@@ -39,6 +39,9 @@ BACKEND = Path(__file__).resolve().parents[2]
 ANSWER_KEYS = {"correct", "misconceptions", "sample_reasoning", "rubric", "explanation"}
 CONTENT_KEY_FIELDS = ANSWER_KEYS | {"answer", "feedback"}
 LESSON_TABLES = (Lesson, LessonVersion, LessonProgress, LessonAttempt, LessonExperiment, LessonCommitment)
+# The sample lesson as the student course page lists it, and its required steps.
+_LINK = {"slug": "test-lesson", "title": "שיעור ניסוי"}
+_REQUIRED = sum(1 for step in sample_content()["steps"] if not step.get("optional"))
 
 
 def _ok(res, status=200):
@@ -317,7 +320,7 @@ def test_lessons_of_another_course_or_unpublished_are_not_found(env, course):
     _publish(env, course, course.lesson, course.lesson["active_version"]["id"])
     assert _ok(alice.lesson())["progress"]["viewed"] == ["intro"]  # progress was kept
     assert _ok(env.client.get(f"/api/r/{course.tokens['Alice']}"))["lessons"] == [
-        {"slug": "test-lesson", "title": "שיעור ניסוי"}
+        {**_LINK, "status": "in_progress", "required_done": 0, "required_total": _REQUIRED}
     ]
 
 
@@ -1006,7 +1009,18 @@ def test_course_page_lists_published_lessons(env):
     summary = _install(env, course)
     assert _ok(env.client.get(home))["lessons"] == []
     _publish(env, course, summary)
-    assert _ok(env.client.get(home))["lessons"] == [{"slug": "test-lesson", "title": "שיעור ניסוי"}]
+    assert _ok(env.client.get(home))["lessons"] == [
+        {**_LINK, "status": "not_started", "required_done": 0, "required_total": _REQUIRED}
+    ]
+    # The course page reports the same progress as the lesson list, so it can
+    # point a student at a lesson in progress.
+    alice = _browser(env, course, "Alice")
+    _ok(alice.progress({"expected_revision": 0, "viewed_add": ["intro"]}))
+    listed = _ok(alice.call("GET"))["lessons"][0]
+    assert _ok(env.client.get(home))["lessons"] == [
+        {k: listed[k] for k in ("slug", "title", "status", "required_done", "required_total")}
+    ]
+    assert listed["status"] == "in_progress"
 
 
 def test_course_page_survives_a_database_without_the_lesson_tables(env):
@@ -1022,7 +1036,8 @@ def test_course_page_survives_a_database_without_the_lesson_tables(env):
     page = _ok(env.client.get(f"/api/r/{course.tokens['Alice']}"))
     assert page["lessons"] == [] and page["student"]["name"] == "Alice"
     with env.Session() as db:
-        assert student_review._lesson_links(db, course.id) == []
+        enrollment = db.scalar(select(Enrollment).where(Enrollment.student_id == course.ids["Alice"]))
+        assert student_review._lesson_links(db, enrollment) == []
         assert db.scalar(select(func.count()).select_from(Student)) == 1  # the session is still usable
         db.add(Student(national_id="100000002", name="Bob"))
         db.commit()

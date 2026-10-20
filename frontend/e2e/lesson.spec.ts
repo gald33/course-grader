@@ -162,7 +162,8 @@ test('a student completes two steps, reloads, and resumes with answers and feedb
   await signIn(context, student);
   const problems = await watchForErrors(page);
   // The way in: the student's course page links to the published lesson.
-  await page.goto(`/r/${student.token}`);
+  // The course page lists lessons under its Course info tab.
+  await page.goto(`/r/${student.token}?tab=info`);
   const entry = page.locator('section').filter({ has: page.getByRole('heading', { name: 'למידה בשיעור' }) });
   await entry.getByRole('link', { name: new RegExp(seed.lesson.title) }).click();
   await expect(page).toHaveURL(new RegExp(`/r/${student.token}/lessons/${seed.lesson.slug}`));

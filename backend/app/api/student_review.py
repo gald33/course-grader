@@ -30,7 +30,15 @@ from app.models.entities import (
     Student,
     Team,
 )
-from app.schemas.api import StudentMaterialsIn, StudentReviewIn, StudentSessionChoice, StudentTeamIn, UploadedFileIn
+from app.schemas.api import (
+    StudentMaterialsIn,
+    StudentReviewIn,
+    StudentSessionChoice,
+    StudentTeamCreate,
+    StudentTeamIn,
+    StudentTeamJoin,
+    UploadedFileIn,
+)
 from app.services import peer_review as svc
 from app.services.peer_scoring import ScoredReview, compute_round_scores, review_scores, reviewer_shares
 
@@ -245,10 +253,29 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
         .order_by(ReviewRound.number)
     ).all()
     team = teams.get(team_id) if team_id else None
+    members = (
+        [s.name for s in db.scalars(select(Student).where(Student.id.in_(svc.active_members(db, team.id))).order_by(Student.name))]
+        if team
+        else []
+    )
     return {
         "student": {"name": student.name if student else ""},
         "course": {"name": course.name if course else "", "code": course.code if course else ""},
-        "team": {"id": team.id, "name": team.name, "project_title": team.project_title} if team else None,
+        "team": (
+            {
+                "id": team.id,
+                "name": team.name,
+                "project_title": team.project_title,
+                "join_code": team.join_code,
+                "members": members,
+            }
+            if team
+            else None
+        ),
+        "teams_policy": {
+            "open": bool(course and course.teams_open),
+            "max_size": course.max_team_size if course else None,
+        },
         "today": date.today().isoformat(),
         "rounds": [_round_view(db, r, enrollment, team_id, sessions, teams) for r in rounds],
     }
@@ -333,6 +360,36 @@ def slides_complete(token: str, presentation_id: int, payload: UploadedFileIn, d
     p = _own_presentation(db, enrollment, presentation_id)
     _require_own_team(db, enrollment, p)
     record_uploaded_slides(db, p, payload)
+    return _payload(db, enrollment)
+
+
+@router.post("/team")
+def create_team(token: str, payload: StudentTeamCreate, db: Session = Depends(get_db)) -> dict:
+    enrollment = _enrollment(db, token)
+    try:
+        svc.student_create_team(db, enrollment.course, enrollment.student_id, payload.name, payload.project_title)
+    except svc.PeerReviewError as exc:
+        raise_domain(exc)
+    return _payload(db, enrollment)
+
+
+@router.post("/team/join")
+def join_team(token: str, payload: StudentTeamJoin, db: Session = Depends(get_db)) -> dict:
+    enrollment = _enrollment(db, token)
+    try:
+        svc.student_join_team(db, enrollment.course, enrollment.student_id, payload.code)
+    except svc.PeerReviewError as exc:
+        raise_domain(exc)
+    return _payload(db, enrollment)
+
+
+@router.post("/team/leave")
+def leave_team(token: str, db: Session = Depends(get_db)) -> dict:
+    enrollment = _enrollment(db, token)
+    try:
+        svc.student_leave_team(db, enrollment.course, enrollment.student_id)
+    except svc.PeerReviewError as exc:
+        raise_domain(exc)
     return _payload(db, enrollment)
 
 

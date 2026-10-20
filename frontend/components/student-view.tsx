@@ -85,7 +85,8 @@ type RoundView = {
 export type Home = {
   student: { name: string };
   course: { name: string; code: string };
-  team: { id: number; name: string; project_title: string } | null;
+  team: { id: number; name: string; project_title: string; join_code: string | null; members: string[] } | null;
+  teams_policy: { open: boolean; max_size: number | null };
   today: string;
   rounds: RoundView[];
 };
@@ -108,7 +109,13 @@ const ERRORS: Record<string, string> = {
   invalid_link: 'הקישור אינו תקין. פנו למרצה לקבלת קישור חדש.',
   invalid_url: 'הקישור חייב להתחיל ב-http:// או https://',
   not_pdf: 'יש להעלות קובץ PDF.',
-  too_large: 'הקובץ גדול מדי (עד 20MB).'
+  too_large: 'הקובץ גדול מדי (עד 20MB).',
+  team_name_taken: 'כבר יש צוות בשם הזה. בחרו שם אחר.',
+  invalid_team: 'יש לתת לצוות שם.',
+  bad_code: 'לא נמצא צוות עם הקוד הזה. בדקו את הקוד עם חברי הצוות.',
+  team_full: 'הצוות הזה כבר מלא.',
+  already_in_team: 'כבר יש לך צוות. כדי לעבור צוות צריך קודם לעזוב אותו.',
+  teams_locked: 'הרכב הצוותים נעול. לשינוי צוות פנו למרצה.'
 };
 const NETWORK_ERROR = 'אין חיבור לשרת. מה שכתבת נשמר במכשיר – נסו שוב.';
 
@@ -262,11 +269,11 @@ export function StudentView({
               הצוות שלך: <strong className="font-semibold">{home.team.name}</strong>
               {home.team.project_title ? ` · ${home.team.project_title}` : ''}
             </>
-          ) : (
-            'עדיין לא שובצת לצוות.'
-          )}
+          ) : null}
         </div>
       </header>
+
+      <TeamCard token={token} home={home} onUpdate={setHome} />
 
       <AnonymityNote />
 
@@ -295,6 +302,150 @@ export function StudentView({
       )}
     </Shell>
     </PreviewCtx.Provider>
+  );
+}
+
+/* ---------------- Team: create, join with a code, leave ---------------- */
+
+function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpdate: (h: Home) => void }) {
+  const preview = useContext(PreviewCtx);
+  const [name, setName] = useState('');
+  const [title, setTitle] = useState('');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const { team, teams_policy: policy } = home;
+
+  const post = async (path: string, body?: object) => {
+    setBusy(true);
+    setError(null);
+    try {
+      onUpdate(
+        await call<Home>(`/api/r/${token}/team${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: body ? JSON.stringify(body) : undefined
+        })
+      );
+      setName('');
+      setTitle('');
+      setCode('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (team) {
+    return (
+      <details className="mb-3 rounded-lg border border-border bg-card px-4 py-3 text-[14px] shadow-soft">
+        <summary className="cursor-pointer text-ink-2">
+          חברי הצוות ({team.members.length}){policy.open && team.join_code ? ' · קוד הצטרפות' : ''}
+        </summary>
+        <ul className="mt-2 grid gap-0.5">
+          {team.members.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+        {policy.open ? (
+          <fieldset disabled={preview || busy} className="mt-3 grid gap-2">
+            {team.join_code ? (
+              <p>
+                קוד ההצטרפות לצוות:{' '}
+                <button
+                  type="button"
+                  dir="ltr"
+                  className="rounded bg-paper-2 px-2 py-0.5 font-mono text-[16px] font-semibold tracking-widest"
+                  onClick={() => navigator.clipboard?.writeText(team.join_code ?? '')}
+                  title="העתקה"
+                >
+                  {team.join_code}
+                </button>{' '}
+                <span className="text-ink-3">– שלחו אותו לחברי הצוות כדי שיצטרפו.</span>
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="justify-self-start text-[13px] text-bad hover:underline"
+              onClick={() => window.confirm('לעזוב את הצוות?') && post('/leave')}
+            >
+              עזיבת הצוות
+            </button>
+          </fieldset>
+        ) : (
+          <p className="mt-2 text-[13px] text-ink-3">הרכב הצוותים נעול. לשינוי צוות פנו למרצה.</p>
+        )}
+        {error ? <p className="mt-2 text-bad">{error}</p> : null}
+      </details>
+    );
+  }
+
+  if (!policy.open) {
+    return (
+      <div className="mb-3 rounded-lg border border-border bg-card px-4 py-3 text-[14px] text-ink-2">
+        עדיין לא שובצת לצוות. המרצה קובע/ת את הצוותים – פנו אליו/ה אם צריך.
+      </div>
+    );
+  }
+
+  return (
+    <section className="mb-3 rounded-lg border border-forest-soft bg-card p-4 shadow-soft">
+      <h2 className="font-hebrew text-[18px]">עדיין אין לך צוות</h2>
+      <p className="mt-1 text-[13px] text-ink-3">
+        פתחו צוות חדש ושלחו את קוד ההצטרפות לחברי הצוות, או הצטרפו לצוות קיים עם הקוד שקיבלתם
+        {policy.max_size ? ` (עד ${policy.max_size} חברים בצוות)` : ''}.
+      </p>
+      <fieldset disabled={preview || busy} className="mt-3 grid gap-4 sm:grid-cols-2">
+        <form
+          className="grid content-start gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (code.trim()) void post('/join', { code });
+          }}
+        >
+          <span className="text-[14px] font-semibold">הצטרפות לצוות קיים</span>
+          <input
+            dir="ltr"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="קוד הצטרפות"
+            maxLength={16}
+            className="h-11 rounded-md border border-border bg-white px-3 text-center font-mono tracking-widest"
+          />
+          <button type="submit" className="h-11 rounded-md bg-forest px-4 text-[15px] font-semibold text-paper">
+            הצטרפות
+          </button>
+        </form>
+        <form
+          className="grid content-start gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) void post('', { name, project_title: title });
+          }}
+        >
+          <span className="text-[14px] font-semibold">פתיחת צוות חדש</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="שם הצוות"
+            maxLength={255}
+            className="h-11 rounded-md border border-border bg-white px-3"
+          />
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="שם הפרויקט (אפשר גם אחר כך)"
+            maxLength={255}
+            className="h-11 rounded-md border border-border bg-white px-3"
+          />
+          <button type="submit" className="h-11 rounded-md border border-forest px-4 text-[15px] font-semibold text-forest">
+            פתיחת צוות
+          </button>
+        </form>
+      </fieldset>
+      {error ? <p className="mt-2 text-[14px] text-bad">{error}</p> : null}
+    </section>
   );
 }
 

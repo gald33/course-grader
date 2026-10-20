@@ -986,8 +986,9 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
 /* =============== Teams & links =============== */
 
 type TeamsData = {
-  teams: { id: number; name: string; project_title: string }[];
-  students: { student_id: number; name: string; national_id: string; team_id: number | null }[];
+  settings: { teams_open: boolean; max_team_size: number };
+  teams: { id: number; name: string; project_title: string; join_code: string | null }[];
+  students: { student_id: number; name: string; national_id: string; team_id: number | null; is_test?: boolean }[];
 };
 type LinkRow = { enrollment_id: number; student_id: number; name: string; national_id: string; team_name: string | null; token: string | null };
 
@@ -1047,6 +1048,39 @@ function TeamsTab({
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
         <Card className="grid content-start gap-3">
           <h3 className="font-display text-[20px]">Teams</h3>
+          <div className="grid gap-2 rounded-md border border-line-soft px-3 py-2 text-[13px]">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={data.settings.teams_open}
+                onChange={(e) =>
+                  act(
+                    () => apiPut(`${base}/team-settings`, { teams_open: e.target.checked }),
+                    e.target.checked ? 'Students can form teams' : 'Teams locked'
+                  )
+                }
+              />
+              Students can create, join and leave teams themselves
+            </label>
+            <label className="flex items-center gap-2">
+              Max team size
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                className="h-8 w-20"
+                defaultValue={data.settings.max_team_size}
+                onBlur={(e) =>
+                  Number(e.target.value) !== data.settings.max_team_size &&
+                  act(() => apiPut(`${base}/team-settings`, { max_team_size: Number(e.target.value) }), 'Max team size saved')
+                }
+              />
+            </label>
+            <p className="text-ink-3">
+              A student opens a team and shares its join code (below) with teammates. Lock this once teams are final;
+              you can still move students yourself.
+            </p>
+          </div>
           <form
             className="flex gap-2"
             onSubmit={(e) => {
@@ -1066,28 +1100,44 @@ function TeamsTab({
           </form>
           <div className="grid gap-1.5">
             {data.teams.map((t) => (
-              <div key={t.id} className="grid grid-cols-[1fr_1.4fr_40px_auto] items-center gap-2">
-                <Input
-                  className="h-9"
-                  defaultValue={t.name}
-                  onBlur={(e) => e.target.value !== t.name && act(() => apiPatch(`${base}/teams/${t.id}`, { name: e.target.value }))}
-                />
-                <Input
-                  className="h-9"
-                  defaultValue={t.project_title}
-                  placeholder="Project title"
-                  onBlur={(e) =>
-                    e.target.value !== t.project_title &&
-                    act(() => apiPatch(`${base}/teams/${t.id}`, { project_title: e.target.value }))
-                  }
-                />
-                <span className="tnum text-center text-[13px] text-ink-3">{counts[t.id] ?? 0}</span>
-                <button
-                  className="text-[12px] text-ink-3 hover:text-bad"
-                  onClick={() => window.confirm(`Delete ${t.name}?`) && act(() => apiDelete(`${base}/teams/${t.id}`), 'Team deleted')}
-                >
-                  ✕
-                </button>
+              <div key={t.id} className="grid gap-1 border-b border-line-soft pb-2 last:border-b-0">
+                <div className="grid grid-cols-[1fr_1.4fr] gap-2">
+                  <Input
+                    className="h-9"
+                    defaultValue={t.name}
+                    onBlur={(e) => e.target.value !== t.name && act(() => apiPatch(`${base}/teams/${t.id}`, { name: e.target.value }))}
+                  />
+                  <Input
+                    className="h-9"
+                    defaultValue={t.project_title}
+                    placeholder="Project title"
+                    onBlur={(e) =>
+                      e.target.value !== t.project_title &&
+                      act(() => apiPatch(`${base}/teams/${t.id}`, { project_title: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-3 text-[12px] text-ink-3">
+                  <span className="tnum">
+                    {counts[t.id] ?? 0} member{(counts[t.id] ?? 0) === 1 ? '' : 's'}
+                  </span>
+                  <span>
+                    join code{' '}
+                    <button
+                      className="font-mono tracking-wider text-ink-2 hover:text-forest"
+                      title="Click to copy"
+                      onClick={() => t.join_code && copy(t.join_code, 'Join code copied')}
+                    >
+                      {t.join_code ?? '—'}
+                    </button>
+                  </span>
+                  <button
+                    className="ml-auto hover:text-bad"
+                    onClick={() => window.confirm(`Delete ${t.name}?`) && act(() => apiDelete(`${base}/teams/${t.id}`), 'Team deleted')}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             ))}
             {!data.teams.length ? <p className="text-[13px] text-ink-3">No teams yet.</p> : null}
@@ -1099,11 +1149,18 @@ function TeamsTab({
         </Card>
 
         <Card className="grid content-start gap-3">
-          <h3 className="font-display text-[20px]">Students</h3>
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="font-display text-[20px]">Students</h3>
+            <span className="text-[13px] text-ink-3">
+              {data.students.filter((s) => !s.team_id && !s.is_test).length} without a team
+            </span>
+          </div>
           <div className="max-h-[520px] overflow-auto">
             <table className="w-full border-collapse text-[14px]">
               <tbody>
-                {data.students.map((s) => (
+                {[...data.students]
+                  .sort((a, b) => Number(!!a.team_id) - Number(!!b.team_id))
+                  .map((s) => (
                   <tr key={s.student_id} className="border-b border-line-soft last:border-b-0">
                     <td className="py-1.5 pr-2">
                       <BilingualName name={s.name} />

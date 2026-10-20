@@ -4,7 +4,7 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_db
@@ -13,6 +13,7 @@ from app.models.entities import (
     Assignment,
     ColabSnapshot,
     Course,
+    Enrollment,
     NotebookRun,
     RubricDimensionScore,
     Student,
@@ -31,6 +32,7 @@ from app.schemas.api import (
     SnapshotCreate,
     SnapshotRead,
     SubmissionDetail,
+    SubmissionMembersUpdate,
     SubmissionRead,
     SubmissionRequirements,
 )
@@ -346,6 +348,88 @@ def delete_all_snapshots(submission_id: int, db: Session = Depends(get_db)) -> d
         db.delete(snap)
     db.commit()
     return {"status": "ok", "deleted": len(snapshots)}
+
+
+@router.delete("/submissions/{submission_id}")
+def delete_submission(submission_id: int, db: Session = Depends(get_db)) -> dict:
+    """Delete a submission, every row hanging off it, and its stored files.
+
+    Rows go explicitly in dependency order rather than through ORM cascades:
+    runs point at both snapshots and artifacts, and the submission points back
+    at its pinned run, so the order matters on Postgres."""
+    submission = db.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    locations = set(db.scalars(select(Artifact.path).where(Artifact.submission_id == submission_id)).all())
+
+    db.execute(update(Submission).where(Submission.id == submission_id).values(pinned_run_id=None))
+    for model in (NotebookRun, ColabSnapshot, Artifact, RubricDimensionScore, StudentComponentOverride, SubmissionMember):
+        db.execute(delete(model).where(model.submission_id == submission_id))
+    db.execute(delete(Submission).where(Submission.id == submission_id))
+    db.commit()
+
+    # Files go after the commit: a failed storage call leaves an orphaned
+    # object, never a row pointing at a missing file. Skip any location
+    # another artifact row still uses.
+    if locations:
+        locations -= set(db.scalars(select(Artifact.path).where(Artifact.path.in_(locations))).all())
+    removed = 0
+    for location in locations:
+        try:
+            storage.delete(location)
+            removed += 1
+        except Exception:  # noqa: BLE001
+            logger.exception("Could not delete stored file %s of submission %s", location, submission_id)
+    return {"status": "ok", "files_deleted": removed, "files_failed": len(locations) - removed}
+
+
+@router.put("/submissions/{submission_id}/members", response_model=SubmissionRead)
+def set_submission_members(
+    submission_id: int, payload: SubmissionMembersUpdate, db: Session = Depends(get_db)
+) -> SubmissionRead:
+    """Replace the group behind a submission. Scores follow membership, so a
+    removed student stops getting this submission's grade; their overrides
+    tied to this submission go too."""
+    submission = db.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    wanted = set(payload.student_ids)
+    enrolled = set(
+        db.scalars(
+            select(Enrollment.student_id).where(
+                Enrollment.course_id == submission.course_id, Enrollment.student_id.in_(wanted)
+            )
+        ).all()
+    )
+    if wanted - enrolled:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not enrolled in this course: student ids {sorted(wanted - enrolled)}",
+        )
+
+    current = set(
+        db.scalars(select(SubmissionMember.student_id).where(SubmissionMember.submission_id == submission_id)).all()
+    )
+    removed = current - wanted
+    if removed:
+        db.execute(
+            delete(SubmissionMember).where(
+                SubmissionMember.submission_id == submission_id, SubmissionMember.student_id.in_(removed)
+            )
+        )
+        db.execute(
+            delete(StudentComponentOverride).where(
+                StudentComponentOverride.submission_id == submission_id,
+                StudentComponentOverride.student_id.in_(removed),
+            )
+        )
+    for student_id in sorted(wanted - current):
+        db.add(SubmissionMember(submission_id=submission_id, student_id=student_id))
+    db.commit()
+    db.refresh(submission)
+    return _submission_to_read(db, submission)
 
 
 @router.put("/submissions/{submission_id}/rubric")

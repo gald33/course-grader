@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GradeReleaseCard } from '@/components/grade-release-card';
 import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
+import { RosterCard } from '@/components/roster-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
@@ -922,6 +923,7 @@ function ImportsStep({
           <Button type="submit" size="sm">Upload roster</Button>
         </form>
       </ImportTile>
+      <RosterCard courseId={courseId} setToast={setToast} refresh={refresh} />
 
       {/* ZIP */}
       <ImportTile
@@ -1318,7 +1320,8 @@ function OverridesStep({
           Use overrides for one-off adjustments that don't fit the rubric — bonus for studio help, late penalties, IDF
           reserve exemption, etc. The <strong className="text-ink">delta</strong> is added to the chosen component{' '}
           <em>after</em> the curve. The <strong className="text-ink">reason</strong> is required and appears in your
-          audit log; it's never shown to the student.
+          audit log; it's never shown to the student. The gradebook's <strong className="text-ink">Bonus</strong> column
+          is the sum of all <code>bonus</code> overrides — this is the only way to give a project bonus.
         </div>
       </div>
       <div className="flex items-baseline justify-between">

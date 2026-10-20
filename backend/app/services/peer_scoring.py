@@ -327,10 +327,21 @@ def load_round_inputs(db: Session, rnd: ReviewRound) -> RoundInputs:
     test_ids = set(
         db.scalars(select(Enrollment.student_id).where(Enrollment.course_id == rnd.course_id, Enrollment.is_test.is_(True)))
     )
+    # Withdrawn students get no round score (their reviews of others still
+    # count), unless they left after the round was released.
+    left = {
+        sid
+        for sid, at in db.execute(
+            select(Enrollment.student_id, Enrollment.withdrawn_at).where(
+                Enrollment.course_id == rnd.course_id, Enrollment.withdrawn_at.is_not(None)
+            )
+        )
+        if rnd.released_at is None or at < rnd.released_at
+    }
     roster = {
         r.student_id: r.team_id
         for r in db.scalars(select(ReviewRoundRoster).where(ReviewRoundRoster.round_id == rnd.id)).all()
-        if r.student_id not in test_ids
+        if r.student_id not in test_ids and r.student_id not in left
     }
     reviews = [
         ScoredReview(
@@ -347,7 +358,7 @@ def load_round_inputs(db: Session, rnd: ReviewRound) -> RoundInputs:
     obligations = [
         Obligation(student_id=o.student_id, presentation_id=o.presentation_id, exempt=o.exempt)
         for o in db.scalars(select(ReviewObligation).where(ReviewObligation.round_id == rnd.id)).all()
-        if o.student_id not in test_ids
+        if o.student_id not in test_ids and o.student_id not in left
     ]
     bonuses: dict[int, float] = defaultdict(float)
     for o in db.scalars(

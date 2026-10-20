@@ -37,7 +37,12 @@ def _students(db: Session, course_id: int) -> list[Student]:
     if not db.get(Course, course_id):
         raise HTTPException(status_code=404, detail="Course not found")
     return list(
-        db.scalars(select(Student).join(Enrollment).where(Enrollment.course_id == course_id).order_by(Student.name))
+        db.scalars(
+            select(Student)
+            .join(Enrollment)
+            .where(Enrollment.course_id == course_id, Enrollment.withdrawn_at.is_(None))
+            .order_by(Student.name)
+        )
     )
 
 

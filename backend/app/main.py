@@ -17,6 +17,7 @@ from app.api import (
     imports,
     oauth,
     peer_review,
+    roster,
     runs,
     student_auth,
     student_review,
@@ -70,6 +71,7 @@ app.include_router(student_review.router)
 app.include_router(student_review.preview_router)
 app.include_router(student_auth.router)
 app.include_router(accounts.router)
+app.include_router(roster.router)
 
 
 @app.on_event("startup")

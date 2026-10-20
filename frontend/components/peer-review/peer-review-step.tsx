@@ -34,6 +34,8 @@ type PresentationRow = {
   status: string;
   review_open: boolean;
   demo_url: string;
+  link_status: 'ok' | 'warning' | 'broken' | '';
+  link_detail: string;
   materials_text: string;
   has_slides: boolean;
   slides_artifact_id: number | null;
@@ -238,6 +240,7 @@ type Run = (fn: () => Promise<unknown>, success?: string) => Promise<void>;
 /* =============== Schedule =============== */
 
 function ScheduleTab({ base, overview, round, run }: { base: string; overview: Overview; round: RoundRow; run: Run }) {
+  const [linkCheck, setLinkCheck] = useState<{ roundId: number; counts: Record<string, number> } | null>(null);
   const act = (action: string, msg: string, confirmText?: string) => {
     if (confirmText && !window.confirm(confirmText)) return;
     return run(() => apiPost(`${base}/rounds/${round.id}/actions/${action}`), msg);
@@ -270,6 +273,13 @@ function ScheduleTab({ base, overview, round, run }: { base: string; overview: O
               <span>
                 · Reviews {round.obligations.completed}/{round.obligations.expected}
               </span>
+              {linkCheck?.roundId === round.id ? (
+                <span>
+                  · Links re-checked: {linkCheck.counts.ok ?? 0} ok · {linkCheck.counts.broken ?? 0} broken
+                  {linkCheck.counts.warning ? ` · ${linkCheck.counts.warning} warning` : ''} ·{' '}
+                  {linkCheck.counts.missing ?? 0} missing
+                </span>
+              ) : null}
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -326,6 +336,18 @@ function ScheduleTab({ base, overview, round, run }: { base: string; overview: O
                 Unrelease
               </Button>
             ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                run(async () => {
+                  const res = await apiPost<{ counts: Record<string, number> }>(`${base}/rounds/${round.id}/check-links`);
+                  setLinkCheck({ roundId: round.id, counts: res.counts });
+                }, 'Links re-checked')
+              }
+            >
+              Re-check all links
+            </Button>
             <Button size="sm" variant="ghost" onClick={() => act('sync', 'Synced teams and roster')}>
               Sync teams/roster
             </Button>
@@ -565,6 +587,14 @@ function PresentationsTable({
                 ) : (
                   <span className="text-ink-4">no demo</span>
                 )}
+                {p.demo_url && p.link_status ? (
+                  <span
+                    className={`pill ml-1.5 ${p.link_status === 'ok' ? 'pill-ok' : p.link_status === 'warning' ? 'pill-warn' : 'pill-bad'}`}
+                    title={p.link_detail}
+                  >
+                    {p.link_status === 'ok' ? 'link ok' : p.link_status}
+                  </span>
+                ) : null}
                 {' · '}
                 {p.has_slides && p.slides_artifact_id ? (
                   <a

@@ -27,6 +27,9 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `peer-round-scores-never-reach-the-gradebook` — Peer-review round scores have to be copied into the gradebook by hand
 - `project-bonus-has-no-editor` — The per-student project bonus can't be edited directly
 - `readme-describes-a-localhost-only-app` — README still says "no login, localhost-only" and leaves out recent features
+- `retire-bonus-points-phase-2-drop-column` — enrollments.bonus_points is zeroed but still in the schema
 - `roster-cannot-be-edited-per-student` — Add, remove, withdraw or fix a single student without re-importing the roster
+- `roster-reimport-email-conflicts-are-not-shown` — Roster re-import reports email conflicts that the UI never shows
 - `students-cannot-see-their-own-grades` — Students cannot see their own grades, feedback or attendance status
 - `team-formation-closes-at-a-deadline` — Let students form their own teams until a deadline, then lock teams automatically
+- `unreleasing-a-peer-round-keeps-its-gradebook-scores` — Un-releasing a peer round leaves its applied scores in the gradebook

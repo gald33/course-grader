@@ -1,7 +1,8 @@
 id: readme-describes-a-localhost-only-app
 title: README still says "no login, localhost-only" and leaves out recent features
-status: ready
+status: done
 priority: later
+claim: null
 blocked_on: []
 refs:
 - 'README.md'
@@ -16,3 +17,5 @@ evidence: |
 
   Done when: the security section describes both the local and hosted setups,
   and the workflow covers what an instructor actually does this semester.
+
+  SHIPPED: #17, merged as 86bb5c4 and deployed 2026-10-20 (Vercel green, health 200).

@@ -1,7 +1,8 @@
 id: project-bonus-has-no-editor
 title: The per-student project bonus can't be edited directly
-status: ready
+status: done
 priority: next
+claim: null
 blocked_on: []
 related_to:
 - key: peer-round-scores-never-reach-the-gradebook
@@ -23,3 +24,5 @@ evidence: |
   Done when: either the gradebook's Bonus cell is editable, or
   `bonus_points` is retired in favour of overrides and the endpoint is
   removed. Pick one; don't keep both.
+
+  SHIPPED: #11, merged as dd03863 and deployed 2026-10-20 (Vercel green, health 200). Phase 1 only: the column is zeroed and kept; dropping it is retire-bonus-points-phase-2-drop-column.

@@ -1,0 +1,19 @@
+id: retire-bonus-points-phase-2-drop-column
+title: enrollments.bonus_points is zeroed but still in the schema
+status: ready
+priority: later
+blocked_on: []
+refs:
+- 'backend/alembic/versions/0022_retire_bonus_points.py'
+- 'backend/app/models/entities.py'
+evidence: |
+  Phase 1 (#11, 0022_retire_bonus_points) copied every non-zero
+  bonus_points into a tagged `bonus` component override, zeroed the column
+  and gave it server_default 0, and kept it so the migration could run
+  before the deploy. Code from before #11 could still write the column
+  between that migration and the deploy (bonus editor, roster import).
+
+  Done when: one migration first re-sweeps any non-zero bonus_points into
+  `bonus` overrides (the same tagged reason as phase 1), then drops the
+  column. No code reads or writes it. The downgrade restores it from the
+  tagged overrides. Safe to deploy code first, migrate right after.

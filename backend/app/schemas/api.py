@@ -314,6 +314,8 @@ class TeamUpdate(BaseModel):
 class TeamSettingsIn(BaseModel):
     teams_open: bool | None = None
     max_team_size: int | None = Field(default=None, ge=1, le=50)
+    teams_deadline: datetime | None = None
+    clear_teams_deadline: bool = False
 
 
 class StudentTeamCreate(BaseModel):

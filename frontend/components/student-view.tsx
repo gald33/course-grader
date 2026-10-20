@@ -2,6 +2,8 @@
 
 import { FormEvent, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { MyGradesCard, type Grades } from '@/components/my-grades';
+
 /* Student-facing peer review page (Hebrew, RTL, mobile-first). Rendered for
  * students at /r/<token> (talking to /api/r/<token> on the same origin), and
  * read-only for the instructor's "view as student" preview. */
@@ -86,9 +88,10 @@ export type Home = {
   student: { name: string };
   course: { name: string; code: string };
   team: { id: number; name: string; project_title: string; join_code: string | null; members: string[] } | null;
-  teams_policy: { open: boolean; max_size: number | null };
+  teams_policy: { open: boolean; max_size: number | null; deadline: string | null };
   today: string;
   rounds: RoundView[];
+  grades: Grades;
 };
 type Draft = { scores: Record<string, number>; responses: Record<string, string> };
 
@@ -195,6 +198,15 @@ function formatDeadline(iso: string | null) {
   if (!iso) return null;
   return new Date(iso).toLocaleString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+function countdown(ms: number) {
+  const mins = Math.max(0, Math.floor(ms / 60000));
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  const m = mins % 60;
+  if (d) return `${d} ימים ו-${h} שעות`;
+  if (h) return `${h} שעות ו-${m} דקות`;
+  return `${m} דקות`;
+}
 function pct(v: number | null | undefined, digits = 1) {
   return v == null ? '—' : `${(v * 100).toFixed(digits)}%`;
 }
@@ -273,6 +285,8 @@ export function StudentView({
         </div>
       </header>
 
+      <MyGradesCard grades={home.grades} />
+
       <TeamCard token={token} home={home} onUpdate={setHome} />
 
       <AnonymityNote />
@@ -314,7 +328,30 @@ function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpda
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const { team, teams_policy: policy } = home;
+  const { team } = home;
+  // Tick each minute so the countdown moves and the panel locks at the
+  // deadline; the server enforces the lock on its own clock regardless.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!home.teams_policy.deadline) return;
+    const id = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(id);
+  }, [home.teams_policy.deadline]);
+  const deadlineMs = home.teams_policy.deadline ? new Date(home.teams_policy.deadline).getTime() : null;
+  const policy = { ...home.teams_policy, open: home.teams_policy.open && (deadlineMs == null || now < deadlineMs) };
+  const deadlineNote =
+    deadlineMs != null ? (
+      policy.open ? (
+        <p className="mt-2 text-[13px] text-ink-2">
+          אפשר לשנות צוות עד {formatDeadline(home.teams_policy.deadline)} (עוד {countdown(deadlineMs - now)}). אחרי זה
+          הרכב הצוותים יינעל.
+        </p>
+      ) : now >= deadlineMs ? (
+        <p className="mt-2 text-[13px] text-ink-3">
+          הרכב הצוותים ננעל ב-{formatDeadline(home.teams_policy.deadline)}. לשינוי צוות פנו למרצה.
+        </p>
+      ) : null
+    ) : null;
 
   const post = async (path: string, body?: object) => {
     setBusy(true);
@@ -342,12 +379,14 @@ function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpda
       <details className="mb-3 rounded-lg border border-border bg-card px-4 py-3 text-[14px] shadow-soft">
         <summary className="cursor-pointer text-ink-2">
           חברי הצוות ({team.members.length}){policy.open && team.join_code ? ' · קוד הצטרפות' : ''}
+          {policy.open && deadlineMs != null ? ` · ננעל בעוד ${countdown(deadlineMs - now)}` : ''}
         </summary>
         <ul className="mt-2 grid gap-0.5">
           {team.members.map((m) => (
             <li key={m}>{m}</li>
           ))}
         </ul>
+        {policy.open ? deadlineNote : null}
         {policy.open ? (
           <fieldset disabled={preview || busy} className="mt-3 grid gap-2">
             {team.join_code ? (
@@ -374,7 +413,7 @@ function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpda
             </button>
           </fieldset>
         ) : (
-          <p className="mt-2 text-[13px] text-ink-3">הרכב הצוותים נעול. לשינוי צוות פנו למרצה.</p>
+          deadlineNote ?? <p className="mt-2 text-[13px] text-ink-3">הרכב הצוותים נעול. לשינוי צוות פנו למרצה.</p>
         )}
         {error ? <p className="mt-2 text-bad">{error}</p> : null}
       </details>
@@ -385,6 +424,7 @@ function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpda
     return (
       <div className="mb-3 rounded-lg border border-border bg-card px-4 py-3 text-[14px] text-ink-2">
         עדיין לא שובצת לצוות. המרצה קובע/ת את הצוותים – פנו אליו/ה אם צריך.
+        {deadlineNote}
       </div>
     );
   }
@@ -396,6 +436,7 @@ function TeamCard({ token, home, onUpdate }: { token: string; home: Home; onUpda
         פתחו צוות חדש ושלחו את קוד ההצטרפות לחברי הצוות, או הצטרפו לצוות קיים עם הקוד שקיבלתם
         {policy.max_size ? ` (עד ${policy.max_size} חברים בצוות)` : ''}.
       </p>
+      {deadlineNote}
       <fieldset disabled={preview || busy} className="mt-3 grid gap-4 sm:grid-cols-2">
         <form
           className="grid content-start gap-2"

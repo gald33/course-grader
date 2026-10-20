@@ -7,6 +7,7 @@ import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { BilingualName, isHebrew } from '@/components/ui/bilingual-name';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { GradeReleaseCard } from '@/components/grade-release-card';
 import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1521,6 +1522,8 @@ function GradebookStep({
           curve in step 3, or add an override in step 4. Export the CSV when you're ready to submit grades.
         </div>
       </div>
+
+      <GradeReleaseCard courseId={courseId} setToast={setToast} />
 
       <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
 

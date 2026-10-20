@@ -407,161 +407,179 @@ def compute_gradebook_rows(
         .order_by(Student.national_id)
     ).all()
 
-    output: list[dict] = []
-    for enrollment in enrollments:
-        student = enrollment.student
-        hw1_submission = _get_submission_for_student(db, course_id, student.id, "HW1")
-        hw2_submission = _get_submission_for_student(db, course_id, student.id, "HW2")
-        project_submission = _get_submission_for_student(db, course_id, student.id, "PROJECT")
+    return [
+        _gradebook_row(db, course, enrollment, shared_bonus, include_bonus, curve_override)
+        for enrollment in enrollments
+    ]
 
-        attendance_score = 100.0 if enrollment.attendance_exempt else (100.0 if (enrollment.attendance_percent or 0.0) >= course.attendance_threshold else 0.0)
 
-        hw1 = 100.0 if hw1_submission else 0.0
-        if hw1_submission and hw1_submission.manual_grade is not None:
-            hw1 = float(hw1_submission.manual_grade)
+def compute_student_grade_row(db: Session, enrollment: Enrollment) -> dict:
+    """One enrollment's gradebook row, identical to its row in
+    compute_gradebook_rows. Works for test students too, who are left out of
+    the course gradebook."""
+    course = db.get(Course, enrollment.course_id)
+    shared_bonus = parse_shared_bonus(get_active_curve(db, course.id))
+    return _gradebook_row(db, course, enrollment, shared_bonus, True, None)
 
-        hw2_penalty = _penalty_for_submission(db, hw2_submission)
-        hw2 = (
-            component_score_from_rubric(db, hw2_submission.id, "hw2_code", hw2_penalty, curve_override=curve_override)
-            if hw2_submission
-            else 0.0
+
+def _gradebook_row(
+    db: Session,
+    course: Course,
+    enrollment: Enrollment,
+    shared_bonus: float,
+    include_bonus: bool,
+    curve_override: dict[str, dict] | None,
+) -> dict:
+    course_id = course.id
+    student = enrollment.student
+    hw1_submission = _get_submission_for_student(db, course_id, student.id, "HW1")
+    hw2_submission = _get_submission_for_student(db, course_id, student.id, "HW2")
+    project_submission = _get_submission_for_student(db, course_id, student.id, "PROJECT")
+
+    attendance_score = 100.0 if enrollment.attendance_exempt else (100.0 if (enrollment.attendance_percent or 0.0) >= course.attendance_threshold else 0.0)
+
+    hw1 = 100.0 if hw1_submission else 0.0
+    if hw1_submission and hw1_submission.manual_grade is not None:
+        hw1 = float(hw1_submission.manual_grade)
+
+    hw2_penalty = _penalty_for_submission(db, hw2_submission)
+    hw2 = (
+        component_score_from_rubric(db, hw2_submission.id, "hw2_code", hw2_penalty, curve_override=curve_override)
+        if hw2_submission
+        else 0.0
+    )
+    hw2_uncurved = (
+        component_score_from_rubric(db, hw2_submission.id, "hw2_code", hw2_penalty, use_curve=False)
+        if hw2_submission
+        else 0.0
+    )
+    if hw2_submission and hw2_submission.manual_grade is not None:
+        hw2 = float(hw2_submission.manual_grade)
+        hw2_uncurved = float(hw2_submission.manual_grade)
+
+    project_penalty = _penalty_for_submission(db, project_submission)
+    project_code = (
+        component_score_from_rubric(db, project_submission.id, "project_code", project_penalty, curve_override=curve_override)
+        if project_submission
+        else 0.0
+    )
+    project_code_uncurved = (
+        component_score_from_rubric(db, project_submission.id, "project_code", project_penalty, use_curve=False)
+        if project_submission
+        else 0.0
+    )
+    project_report = (
+        component_score_from_rubric(db, project_submission.id, "project_report", 1.0, curve_override=curve_override)
+        if project_submission
+        else 0.0
+    )
+    project_report_uncurved = (
+        component_score_from_rubric(db, project_submission.id, "project_report", 1.0, use_curve=False)
+        if project_submission
+        else 0.0
+    )
+    if project_submission and _is_report_missing(db, project_submission):
+        project_report = 0.0
+        project_report_uncurved = 0.0
+
+    presentation_row = db.scalar(
+        select(PresentationScore).where(
+            PresentationScore.course_id == course_id,
+            PresentationScore.student_id == student.id,
+            PresentationScore.stage == "presentation",
         )
-        hw2_uncurved = (
-            component_score_from_rubric(db, hw2_submission.id, "hw2_code", hw2_penalty, use_curve=False)
-            if hw2_submission
-            else 0.0
+    )
+    final_row = db.scalar(
+        select(PresentationScore).where(
+            PresentationScore.course_id == course_id,
+            PresentationScore.student_id == student.id,
+            PresentationScore.stage == "final",
         )
-        if hw2_submission and hw2_submission.manual_grade is not None:
-            hw2 = float(hw2_submission.manual_grade)
-            hw2_uncurved = float(hw2_submission.manual_grade)
+    )
 
-        project_penalty = _penalty_for_submission(db, project_submission)
-        project_code = (
-            component_score_from_rubric(db, project_submission.id, "project_code", project_penalty, curve_override=curve_override)
-            if project_submission
-            else 0.0
-        )
-        project_code_uncurved = (
-            component_score_from_rubric(db, project_submission.id, "project_code", project_penalty, use_curve=False)
-            if project_submission
-            else 0.0
-        )
-        project_report = (
-            component_score_from_rubric(db, project_submission.id, "project_report", 1.0, curve_override=curve_override)
-            if project_submission
-            else 0.0
-        )
-        project_report_uncurved = (
-            component_score_from_rubric(db, project_submission.id, "project_report", 1.0, use_curve=False)
-            if project_submission
-            else 0.0
-        )
-        if project_submission and _is_report_missing(db, project_submission):
-            project_report = 0.0
-            project_report_uncurved = 0.0
+    presentation = _presentation_score_percent(presentation_row)
+    final_talk = _presentation_score_percent(final_row)
+    presentation_uncurved = presentation
+    final_talk_uncurved = final_talk
 
-        presentation_row = db.scalar(
-            select(PresentationScore).where(
-                PresentationScore.course_id == course_id,
-                PresentationScore.student_id == student.id,
-                PresentationScore.stage == "presentation",
-            )
+    if project_submission and presentation == 0:
+        presentation = component_score_from_rubric(
+            db, project_submission.id, "presentation", 1.0, curve_override=curve_override
         )
-        final_row = db.scalar(
-            select(PresentationScore).where(
-                PresentationScore.course_id == course_id,
-                PresentationScore.student_id == student.id,
-                PresentationScore.stage == "final",
-            )
+        presentation_uncurved = component_score_from_rubric(
+            db, project_submission.id, "presentation", 1.0, use_curve=False
         )
-
-        presentation = _presentation_score_percent(presentation_row)
-        final_talk = _presentation_score_percent(final_row)
-        presentation_uncurved = presentation
-        final_talk_uncurved = final_talk
-
-        if project_submission and presentation == 0:
-            presentation = component_score_from_rubric(
-                db, project_submission.id, "presentation", 1.0, curve_override=curve_override
-            )
-            presentation_uncurved = component_score_from_rubric(
-                db, project_submission.id, "presentation", 1.0, use_curve=False
-            )
-        if project_submission and final_talk == 0:
-            final_talk = component_score_from_rubric(
-                db, project_submission.id, "final_talk", 1.0, curve_override=curve_override
-            )
-            final_talk_uncurved = component_score_from_rubric(
-                db, project_submission.id, "final_talk", 1.0, use_curve=False
-            )
-
-        overrides = _overrides_for_student(db, course_id, student.id)
-
-        hw1 += overrides.get("hw1", 0.0)
-        hw2 += overrides.get("hw2", 0.0)
-        hw2_uncurved += overrides.get("hw2", 0.0)
-        project_code += overrides.get("project_code", 0.0)
-        project_code_uncurved += overrides.get("project_code", 0.0)
-        project_report += overrides.get("project_report", 0.0)
-        project_report_uncurved += overrides.get("project_report", 0.0)
-        presentation += overrides.get("presentation", 0.0)
-        presentation_uncurved += overrides.get("presentation", 0.0)
-        final_talk += overrides.get("final_talk", 0.0)
-        final_talk_uncurved += overrides.get("final_talk", 0.0)
-        attendance_score += overrides.get("attendance", 0.0)
-
-        project_base = (0.60 * project_code) + (0.20 * project_report) + (0.20 * presentation)
-        project_base_uncurved = (
-            (0.60 * project_code_uncurved)
-            + (0.20 * project_report_uncurved)
-            + (0.20 * presentation_uncurved)
+    if project_submission and final_talk == 0:
+        final_talk = component_score_from_rubric(
+            db, project_submission.id, "final_talk", 1.0, curve_override=curve_override
         )
-        if project_submission and project_submission.manual_grade is not None:
-            project_base = float(project_submission.manual_grade)
-            project_base_uncurved = float(project_submission.manual_grade)
-        bonus_points = overrides.get("bonus", 0.0)
-        if not include_bonus:
-            bonus_points = 0.0
-        project_with_bonus = project_base + bonus_points
-        project_with_bonus_uncurved = project_base_uncurved + bonus_points
-
-        final_score = _finite(
-            (0.10 * hw1) + (0.10 * hw2) + (0.70 * project_with_bonus) + (0.10 * attendance_score)
-        )
-        if shared_bonus:
-            final_score = clamp(final_score + shared_bonus, 0.0, 100.0)
-        final_score_uncurved = _finite(
-            (0.10 * hw1)
-            + (0.10 * hw2_uncurved)
-            + (0.70 * project_with_bonus_uncurved)
-            + (0.10 * attendance_score)
+        final_talk_uncurved = component_score_from_rubric(
+            db, project_submission.id, "final_talk", 1.0, use_curve=False
         )
 
-        output.append(
-            {
-                "enrollment_id": enrollment.id,
-                "student_id": student.id,
-                "national_id": student.national_id,
-                "name": student.name,
-                "attendance_exempt": enrollment.attendance_exempt,
-                "attendance_percent": enrollment.attendance_percent,
-                "attendance_score": round(_finite(attendance_score), 2),
-                "hw1": round(_finite(hw1), 2),
-                "hw2": round(_finite(hw2), 2),
-                "project_code": round(_finite(project_code), 2),
-                "project_report": round(_finite(project_report), 2),
-                "presentation": round(_finite(presentation), 2),
-                "final_talk": round(_finite(final_talk), 2),
-                "project_base": round(_finite(project_base), 2),
-                "bonus_points": round(_finite(bonus_points), 2),
-                "project_with_bonus": round(_finite(project_with_bonus), 2),
-                "final": round(final_score),
-                "final_uncurved": round(final_score_uncurved),
-                "overrides": overrides,
-            }
-        )
+    overrides = _overrides_for_student(db, course_id, student.id)
 
-    return output
+    hw1 += overrides.get("hw1", 0.0)
+    hw2 += overrides.get("hw2", 0.0)
+    hw2_uncurved += overrides.get("hw2", 0.0)
+    project_code += overrides.get("project_code", 0.0)
+    project_code_uncurved += overrides.get("project_code", 0.0)
+    project_report += overrides.get("project_report", 0.0)
+    project_report_uncurved += overrides.get("project_report", 0.0)
+    presentation += overrides.get("presentation", 0.0)
+    presentation_uncurved += overrides.get("presentation", 0.0)
+    final_talk += overrides.get("final_talk", 0.0)
+    final_talk_uncurved += overrides.get("final_talk", 0.0)
+    attendance_score += overrides.get("attendance", 0.0)
+
+    project_base = (0.60 * project_code) + (0.20 * project_report) + (0.20 * presentation)
+    project_base_uncurved = (
+        (0.60 * project_code_uncurved)
+        + (0.20 * project_report_uncurved)
+        + (0.20 * presentation_uncurved)
+    )
+    if project_submission and project_submission.manual_grade is not None:
+        project_base = float(project_submission.manual_grade)
+        project_base_uncurved = float(project_submission.manual_grade)
+    bonus_points = overrides.get("bonus", 0.0)
+    if not include_bonus:
+        bonus_points = 0.0
+    project_with_bonus = project_base + bonus_points
+    project_with_bonus_uncurved = project_base_uncurved + bonus_points
+
+    final_score = _finite(
+        (0.10 * hw1) + (0.10 * hw2) + (0.70 * project_with_bonus) + (0.10 * attendance_score)
+    )
+    if shared_bonus:
+        final_score = clamp(final_score + shared_bonus, 0.0, 100.0)
+    final_score_uncurved = _finite(
+        (0.10 * hw1)
+        + (0.10 * hw2_uncurved)
+        + (0.70 * project_with_bonus_uncurved)
+        + (0.10 * attendance_score)
+    )
+
+    return {
+        "enrollment_id": enrollment.id,
+        "student_id": student.id,
+        "national_id": student.national_id,
+        "name": student.name,
+        "attendance_exempt": enrollment.attendance_exempt,
+        "attendance_percent": enrollment.attendance_percent,
+        "attendance_score": round(_finite(attendance_score), 2),
+        "hw1": round(_finite(hw1), 2),
+        "hw2": round(_finite(hw2), 2),
+        "project_code": round(_finite(project_code), 2),
+        "project_report": round(_finite(project_report), 2),
+        "presentation": round(_finite(presentation), 2),
+        "final_talk": round(_finite(final_talk), 2),
+        "project_base": round(_finite(project_base), 2),
+        "bonus_points": round(_finite(bonus_points), 2),
+        "project_with_bonus": round(_finite(project_with_bonus), 2),
+        "final": round(final_score),
+        "final_uncurved": round(final_score_uncurved),
+        "overrides": overrides,
+    }
 
 
 def _constant_delta_slope_curve(first_slope: float) -> list[float]:

@@ -28,11 +28,25 @@ Top MCP Servers:
 
 ## Team Tips
 
-_TODO_
+- **Migrate before you deploy.** Pushes to `main` deploy the API and frontend to Vercel automatically, but
+  nothing migrates the hosted Supabase database. If your change adds an Alembic migration, run
+  `make migrate-hosted` (reads `SUPABASE_POOL_URL` from `.env`) *before* the code that needs it reaches `main`
+  or before `make deploy`.
+- **The hosted app needs a worker you run.** Notebook runs, snapshot fetches, and report exports queued in the
+  hosted app sit in the `jobs` table until a worker picks them up. Start one on your machine (Docker Desktop
+  running) with `make worker-hosted`; follow it with `make worker-hosted-logs`, stop it with
+  `make worker-hosted-stop`.
+- **Run what CI runs before pushing:** `cd backend && pytest -q`, `alembic upgrade head` against a fresh
+  database, and `cd frontend && npx tsc --noEmit` (see `.github/workflows/ci.yml`).
 
 ## Get Started
 
-_TODO_
+1. Run `make start` from the repo root. It starts Docker Desktop, builds and starts the stack, and prints the
+   URLs (frontend http://localhost:3000, API http://localhost:8000). `make status` checks it's healthy.
+2. Run the backend tests: `make backend-test` (or `cd backend && pytest -q`).
+3. Pick a first task. If the roadmap tooling is available on your branch (`roadmap/` plus
+   `pip install "roadmap-core[files]"`), `ROADMAP_SOURCE=local roadmap push && roadmap ready` lists items
+   ready to build; otherwise ask a teammate for one.
 
 <!-- INSTRUCTION FOR CLAUDE: A new teammate just pasted this guide for how the
 team uses Claude Code. You're their onboarding buddy — warm, conversational,

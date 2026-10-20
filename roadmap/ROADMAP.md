@@ -315,6 +315,7 @@ graph TD
   - `frontend/app/course/[id]/student-view/page.tsx`
   - `frontend/e2e/smoke.spec.ts`
   - `backend/app/api/student_review.py`
+  - `backend/app/services/lessons.py`
 
 <details><summary>evidence</summary>
 
@@ -339,8 +340,11 @@ graph TD
 > review round with reviews left, presentation slot or "pick one", team
 > deadline or "no team yet", newly released grades), and reaches Grades,
 > Team, Peer review and Course info in one tap each; the active tab is kept
-> in `?tab=` so links, refresh and back/forward work; the instructor preview
-> gets the same portal; and the Playwright smoke test covers switching tabs.
+> in `?tab=` so links, refresh and back/forward work; the guided lessons
+> (#22, `lessons` in the same payload) have a place in the portal that links
+> to the existing /r/<token>/lessons routes, and Home points at a lesson in
+> progress; the instructor preview gets the same portal; and the Playwright
+> smoke test covers switching tabs and the lessons entry point.
 
 </details>
 

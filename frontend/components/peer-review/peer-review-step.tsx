@@ -1862,13 +1862,21 @@ function ScoresTab({
       () =>
         apiPost(`/api/courses/${courseId}/overrides`, {
           student_id: s.student_id,
-          component: `peer_round_${round.number}`,
+          component: `peer_round_${round.number}_bonus`,
           delta: Number(points),
           reason
         }),
       'Bonus added (see Overrides to remove)'
     );
     await load();
+  };
+
+  const applyToGradebook = async () => {
+    if (!window.confirm(`Write each student's round ${round.number} final score to the gradebook as an override (peer_round_${round.number})? Running it again updates those overrides.`)) return;
+    await run(async () => {
+      const res = await apiPost<{ created: number; updated: number; removed: number }>(`${base}/rounds/${round.id}/apply-to-gradebook`);
+      setToast(`Applied to gradebook: ${res.created} added, ${res.updated} updated, ${res.removed} removed`);
+    });
   };
 
   return (
@@ -1944,6 +1952,17 @@ function ScoresTab({
           >
             ⬇ Export round (xlsx)
           </a>
+          {round.counts_toward_grade ? (
+            <Button
+              size="sm"
+              variant="soft"
+              disabled={!round.released_at}
+              title={round.released_at ? undefined : 'Release the results first'}
+              onClick={applyToGradebook}
+            >
+              Apply to gradebook
+            </Button>
+          ) : null}
           <span className="self-center text-[12px] text-ink-3">
             Sheets: team scores, student scores, participation, and reviews with reviewers pseudonymised.
           </span>
@@ -2051,9 +2070,10 @@ function ScoresTab({
             </tbody>
           </TableCard>
           <p className="text-[12px] text-ink-3">
-            This round’s final score is reported on its own here and in the export; it is not added to the course
-            gradebook formula automatically. Bonus points are stored as overrides with component{' '}
-            <code>peer_round_{round.number}</code>.
+            This round’s final score is reported on its own here and in the export. <strong>Apply to gradebook</strong>{' '}
+            (after release) writes it as one override per student with component <code>peer_round_{round.number}</code>;
+            it is not part of the course formula. Bonus points are stored as overrides with component{' '}
+            <code>peer_round_{round.number}_bonus</code>.
           </p>
         </>
       )}

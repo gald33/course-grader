@@ -388,7 +388,7 @@ def test_exclusion_participation_exemptions_and_scores(env, course):
     assert c.post(f"{base}/rounds/{course.round_id}/exemptions", json={"student_id": course.students["b2"], "exempt": True, "reason": ""}).status_code == 400
 
     # Bonus via the existing override mechanism lands on the round's final score
-    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": course.students["a1"], "component": "peer_round_1", "delta": 3, "reason": "Great feedback"}))
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": course.students["a1"], "component": "peer_round_1_bonus", "delta": 3, "reason": "Great feedback"}))
     scores = _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))
     students = {s["student_id"]: s for s in scores["students"]}
     a1 = students[course.students["a1"]]
@@ -727,3 +727,46 @@ def test_students_create_join_and_leave_teams(env):
     _ok(r(3, json={"name": "Solo"}))
     assert _ok(r(3, "/leave"))["team"] is None
     assert "Solo" not in {t["name"] for t in _ok(c.get(f"/api/courses/{course_id}/peer/teams"))["teams"]}
+
+
+def test_released_round_applies_to_gradebook_once_per_student(env, course):
+    _schedule_and_open(env, course)
+    c = env.client
+    base = _base(course)
+    for who in ("c1", "c2", "b1"):
+        _ok(_review(env, course, who, "A"))
+    for who in ("c1", "a1", "a2"):
+        _ok(_review(env, course, who, "B", scores={k: 5 for k in GOOD}))
+    a1 = course.students["a1"]
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": a1, "component": "peer_round_1_bonus", "delta": 3, "reason": "Great feedback"}))
+
+    res = c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook")
+    assert res.status_code == 409  # not released yet
+    _ok(c.post(f"{base}/rounds/{course.round_id}/actions/close"))
+    _ok(c.post(f"{base}/rounds/{course.round_id}/actions/release"))
+
+    def applied():
+        rows = _ok(c.get(f"/api/courses/{course.id}/overrides"))
+        return [o for o in rows if o["component"] == "peer_round_1"]
+
+    assert _ok(c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook")) == {"status": "ok", "created": 4, "updated": 0, "removed": 0}
+    scores = {s["student_id"]: s for s in _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))["students"]}
+    assert scores[a1]["bonus"] == 3  # applying doesn't feed back into the round's bonus
+    rows = applied()
+    assert len(rows) == 4  # Team C isn't scored, so c1/c2 get nothing
+    assert all("round 1" in o["reason"] for o in rows)
+    by_student = {o["student_id"]: o["delta"] for o in rows}
+    assert by_student[a1] == pytest.approx(round(scores[a1]["final"], 2))
+
+    # Again, after the bonus changes and a stray duplicate: updates, never duplicates.
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": a1, "component": "peer_round_1_bonus", "delta": 2, "reason": "More"}))
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": a1, "component": "peer_round_1", "delta": 1, "reason": "by hand"}))
+    assert _ok(c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook")) == {"status": "ok", "created": 0, "updated": 4, "removed": 1}
+    rows = applied()
+    assert len(rows) == 4
+    assert {o["student_id"]: o["delta"] for o in rows}[a1] == pytest.approx(by_student[a1] + 2)
+
+    with env.Session() as db:
+        db.get(ReviewRound, course.round_id).counts_toward_grade = False
+        db.commit()
+    assert c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook").status_code == 409

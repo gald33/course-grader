@@ -168,7 +168,7 @@ TeamScore[p] = share of all normalised score given to p     (Σ_p TeamScore = 1)
 Review[s]    = Σ_p TeamScore[p] · n[s,p]                    (× completion rate of required reviews, optional)
 Raw[s]       = Review[s] · TeamScore[team(s)], normalised so Σ_s Raw = 1
 Normalised   = rescaled to the round's target mean (80) and SD (10), clamped to 0–100
-Final        = Normalised + bonus (override component peer_round_<n>)
+Final        = Normalised + bonus (override component peer_round_<n>_bonus)
 ```
 
 The AI grader is one more reviewer (one call per round with every team's materials, using the frozen rubric; needs
@@ -176,6 +176,9 @@ The AI grader is one more reviewer (one call per round with every team's materia
 actually received, so a larger team (fewer eligible reviewers) or an absent reviewer doesn't lower it; switch the round to
 "literal share" to count missing reviews as zero instead. Presentations with no valid reviews are "not yet scored".
 Round scores are reported and exported on their own; they are not added to the gradebook formula automatically.
+Once a graded round is released, **Scores & export → Apply to gradebook** writes each scored student's round Final as one
+override with component `peer_round_<n>` (reason names the round). Running it again updates those overrides in place and
+removes them for students who no longer have a score; it never duplicates them.
 
 **Letting students in.** The app is localhost-only by default. To reach students' phones, set `INSTRUCTOR_TOKEN` in `.env`
 (instructor API routes then require it; the instructor UI asks for it once and keeps a cookie), restart, and expose the

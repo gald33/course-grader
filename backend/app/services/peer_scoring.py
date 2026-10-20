@@ -53,6 +53,12 @@ LLM_REVIEWER = "llm"
 
 def bonus_component(round_number: int) -> str:
     """StudentComponentOverride.component used for a round's bonus points."""
+    return f"peer_round_{round_number}_bonus"
+
+
+def score_component(round_number: int) -> str:
+    """StudentComponentOverride.component a round's final scores are applied
+    to the gradebook under (see apply_round_to_gradebook)."""
     return f"peer_round_{round_number}"
 
 
@@ -367,3 +373,43 @@ def load_round_inputs(db: Session, rnd: ReviewRound) -> RoundInputs:
 
 def compute_round_scores(db: Session, rnd: ReviewRound) -> RoundResult:
     return compute_round(load_round_inputs(db, rnd))
+
+
+def apply_round_to_gradebook(db: Session, rnd: ReviewRound) -> dict[str, int]:
+    """Write each scored student's round final (normalised + bonus) as one
+    override with component peer_round_<n>. Running it again updates those
+    rows in place; students who no longer have a score lose theirs."""
+    result = compute_round_scores(db, rnd)
+    finals = {s.student_id: round(s.final, 2) for s in result.students if s.final is not None}
+    component = score_component(rnd.number)
+    reason = f"Peer review round {rnd.number}" + (f" ({rnd.title})" if rnd.title else "") + " final score"
+
+    existing: dict[int, list[StudentComponentOverride]] = defaultdict(list)
+    for o in db.scalars(
+        select(StudentComponentOverride)
+        .where(StudentComponentOverride.course_id == rnd.course_id, StudentComponentOverride.component == component)
+        .order_by(StudentComponentOverride.id)
+    ).all():
+        existing[o.student_id].append(o)
+
+    counts = {"created": 0, "updated": 0, "removed": 0}
+    for sid, rows in existing.items():
+        keep = rows[0] if sid in finals else None
+        for o in rows:
+            if o is not keep:
+                db.delete(o)
+                counts["removed"] += 1
+        if keep is not None:
+            keep.delta = finals[sid]
+            keep.reason = reason
+            counts["updated"] += 1
+    for sid, final in finals.items():
+        if sid not in existing:
+            db.add(
+                StudentComponentOverride(
+                    course_id=rnd.course_id, student_id=sid, component=component, delta=final, reason=reason
+                )
+            )
+            counts["created"] += 1
+    db.commit()
+    return counts

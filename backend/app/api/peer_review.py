@@ -52,7 +52,7 @@ from app.services import peer_review as svc
 from app.services.llm_peer_review import run_llm_round_review
 from app.services import storage
 from app.services.peer_export import export_round_xlsx
-from app.services.peer_scoring import compute_round_scores, review_scores, weighted_total
+from app.services.peer_scoring import apply_round_to_gradebook, compute_round_scores, review_scores, weighted_total
 
 router = APIRouter(prefix="/api/courses/{course_id}/peer", tags=["peer-review"])
 
@@ -807,6 +807,16 @@ def round_scores_payload(db: Session, rnd: ReviewRound) -> dict:
 @router.get("/rounds/{round_id}/scores")
 def round_scores(course_id: int, round_id: int, db: Session = Depends(get_db)) -> dict:
     return round_scores_payload(db, _round(db, course_id, round_id))
+
+
+@router.post("/rounds/{round_id}/apply-to-gradebook")
+def apply_to_gradebook(course_id: int, round_id: int, db: Session = Depends(get_db)) -> dict:
+    rnd = _round(db, course_id, round_id)
+    if not rnd.counts_toward_grade:
+        raise_domain(svc.PeerReviewError("invalid_state", "Practice rounds never count toward a grade", 409))
+    if rnd.released_at is None:
+        raise_domain(svc.PeerReviewError("invalid_state", "Release the round's results before applying them", 409))
+    return {"status": "ok", **apply_round_to_gradebook(db, rnd)}
 
 
 @router.post("/rounds/{round_id}/llm-review")

@@ -523,13 +523,18 @@ def active_members(db: Session, team_id: int) -> list[int]:
 # Assignment rule (deterministic for a given seed and state):
 #   1. The eligible students (enrolled, not test, not withdrawn, no active team)
 #      are sorted by id, then shuffled with random.Random(seed).
-#   2. Fill: each student in turn joins the existing team with the fewest
-#      active members that is still below max_team_size (ties: lowest team id).
-#   3. New teams: the k = ceil(n / max_team_size) fewest teams that fit the n
-#      students left, with sizes as equal as possible (they differ by at most 1).
-#   4. No lone student: if exactly one student is left for a new team and the
-#      fill step placed someone, the last student it placed moves into the new
-#      team instead, making it a pair (only when max_team_size >= 2).
+#   2. Fill: each student in turn joins the existing team with at least one
+#      member, below max_team_size, that has the fewest active members (ties:
+#      lowest team id). Empty existing teams are never filled one by one, so
+#      the fill step can't create a team of one.
+#   3. Group the n students left: k = ceil(n / max_team_size) groups with sizes
+#      as equal as possible (they differ by at most 1). Groups go to the empty
+#      existing teams first (lowest id first), then to new teams.
+#   4. No lone student: if step 3 would make a group of one (n == 1, or an odd
+#      n with max_team_size == 2) and the fill step placed someone, the last
+#      student it placed moves back into the pool so the groups pair up. A
+#      group of one is left only when it can't be avoided (nothing was filled,
+#      or max_team_size == 1).
 
 
 def team_state_fingerprint(db: Session, course: Course) -> str:
@@ -587,7 +592,7 @@ def propose_assignment(db: Session, course: Course, seed: int | None = None) -> 
     added: dict[int, list[int]] = {t.id: [] for t in teams}
     placed: list[tuple[int, int]] = []  # (team_id, student_id) in fill order
     while pool:
-        open_teams = [t.id for t in teams if size[t.id] < max_size]
+        open_teams = [t.id for t in teams if 0 < size[t.id] < max_size]
         if not open_teams:
             break
         team_id = min(open_teams, key=lambda tid: (size[tid], tid))
@@ -596,7 +601,10 @@ def propose_assignment(db: Session, course: Course, seed: int | None = None) -> 
         size[team_id] += 1
         placed.append((team_id, student_id))
 
-    if len(pool) == 1 and placed and max_size >= 2:
+    def makes_lone_student(n: int) -> bool:
+        return n > 0 and n // math.ceil(n / max_size) == 1 and max_size >= 2
+
+    if makes_lone_student(len(pool)) and placed:
         team_id, student_id = placed.pop()
         added[team_id].remove(student_id)
         pool.insert(0, student_id)
@@ -610,6 +618,10 @@ def propose_assignment(db: Session, course: Course, seed: int | None = None) -> 
             end = start + base + (1 if i < extra else 0)
             groups.append(pool[start:end])
             start = end
+    empty_teams = [t.id for t in teams if size[t.id] == 0]
+    for team_id, group in zip(empty_teams, groups):
+        added[team_id] = group
+    groups = groups[len(empty_teams) :]
     names = _new_team_names(db, course.id, len(groups))
     return {
         "seed": seed,
@@ -632,8 +644,9 @@ def approve_assignment(
     eligible unteamed student of this course, and no team may end up above
     max_team_size.
     """
-    # Serialises concurrent approvals on Postgres (SQLite locks on write anyway).
-    course = db.get(Course, course_id, with_for_update=True)
+    # Serialises concurrent approvals on Postgres. SQLite (local dev only) has no
+    # row lock; overlapping students still fail on the unique index below.
+    course = db.get(Course, course_id, with_for_update=True, populate_existing=True)
     if course is None:
         raise PeerReviewError("not_found", "Course not found", 404)
     _require_teams_locked(course)

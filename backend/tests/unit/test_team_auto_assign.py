@@ -148,6 +148,18 @@ def test_proposal_is_deterministic_for_a_seed(env):
         (5, [5], 1, [], [1]),  # nothing has room and nobody else: a team of 1 is unavoidable
         (1, [], 3, [], [1, 1, 1]),
         (4, [1, 3], 2, [2], []),  # room for everyone: no new team
+        # Empty existing teams are never filled one by one (no teams of one) ...
+        (4, [3, 0, 0, 0], 3, [1, 2], []),  # team of 3 gets one, the pair goes to an empty team
+        (4, [0, 0], 6, [3, 3], []),  # ... they take whole balanced groups instead
+        (3, [0], 7, [3], [2, 2]),  # more groups than empty teams: the rest are new teams
+        (4, [0, 2, 0], 5, [2, 3], []),  # mixed: fill the partial team, group the rest
+        # max_team_size 2: an odd remainder pulls back a filled student to pair up.
+        (2, [1], 4, [], [2, 2]),
+        (2, [], 3, [], [1, 2]),  # nothing filled: one lone student is unavoidable
+        (1, [1, 0], 2, [1], [1]),  # max 1: everyone alone, empty team used first
+        (3, [2], 0, [], []),  # nobody to place
+        (4, [], 8, [], [4, 4]),  # exact division
+        (5, [], 203, [], [4, 4] + [5] * 39),
     ],
 )
 def test_assignment_rule(env, max_size, team_sizes, unteamed, expect_existing, expect_new):
@@ -215,6 +227,46 @@ def test_approve_refuses_a_stale_proposal(env):
         db.commit()
     body = {k: proposal[k] for k in ("fingerprint", "existing", "new_teams")}
     assert _code(c.post(f"{course.base}/teams/auto-assign/approve", json=body), 409) == "stale_proposal"
+
+
+def _stale_after(env, course, change):
+    proposal = _ok(env.client.post(f"{course.base}/teams/auto-assign/propose", json={}))
+    change()
+    body = {k: proposal[k] for k in ("fingerprint", "existing", "new_teams")}
+    before = _state(env, course.id)
+    assert _code(env.client.post(f"{course.base}/teams/auto-assign/approve", json=body), 409) == "stale_proposal"
+    assert _state(env, course.id) == before
+
+
+def test_team_delete_withdrawal_and_new_enrollment_make_a_proposal_stale(env):
+    course = _course(env, "St2", max_size=4, team_sizes=[1, 0], unteamed=4)
+    c = env.client
+    _stale_after(env, course, lambda: _ok(c.delete(f"{course.base}/teams/{course.teams[1]}")))
+    _stale_after(
+        env, course, lambda: _ok(c.post(f"/api/courses/{course.id}/students/{course.ids['free'][0]}/withdraw"))
+    )
+    _stale_after(
+        env,
+        course,
+        lambda: _ok(c.post(f"/api/courses/{course.id}/students", json={"national_id": "123456782", "name": "Late"})),
+    )
+
+
+def test_approve_refreshes_open_practice_rounds(env):
+    from app.models.entities import ReviewRoundRoster
+
+    course = _course(env, "Pr", max_size=3, team_sizes=[2], unteamed=1)
+    c = env.client
+    round_id = _ok(c.post(f"{course.base}/rounds/practice", json={"open_now": True}))["round_id"]
+    proposal = _ok(c.post(f"{course.base}/teams/auto-assign/propose", json={}))
+    _ok(c.post(f"{course.base}/teams/auto-assign/approve", json={k: proposal[k] for k in ("fingerprint", "existing", "new_teams")}))
+    with env.Session() as db:
+        row = db.scalar(
+            select(ReviewRoundRoster).where(
+                ReviewRoundRoster.round_id == round_id, ReviewRoundRoster.student_id == course.ids["free"][0]
+            )
+        )
+        assert row is not None and row.team_id == course.teams[0]
 
 
 def test_approve_validates_every_placement(env):

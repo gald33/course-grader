@@ -33,9 +33,14 @@ test('instructor proposes, reviews and approves team placements', async ({ page,
   expect(before.unassigned).toHaveLength(4);
   expect(before.teams).toHaveLength(0);
 
+  // Edit before approving: leave one student out; they stay without a team.
+  await page.getByRole('button', { name: 'השמט' }).first().click();
+  await expect(page.getByText('יישארו בלי צוות:')).toBeVisible();
+  await expect(page.getByText('1/3')).toHaveCount(1);
+
   await page.getByRole('button', { name: 'אשר ושמור' }).click();
   await expect(page.getByText('השיבוץ אושר ונשמר')).toBeVisible();
   const after = await (await request.get(`${API}${base}/teams`)).json();
-  expect(after.unassigned).toEqual([]);
+  expect(after.unassigned).toHaveLength(1);
   expect(after.teams).toHaveLength(2);
 });

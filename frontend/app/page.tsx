@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
-import { apiGet, apiPost } from '@/lib/api';
+import { apiGet, apiPost, errorMessage } from '@/lib/api';
 
 type Course = {
   id: number;
@@ -17,6 +17,7 @@ type Course = {
   year: number;
   semester: string;
   attendance_threshold: number;
+  archived_at: string | null;
 };
 
 type CourseStats = Course & {
@@ -39,6 +40,8 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [archived, setArchived] = useState<Course[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
 
   const [form, setForm] = useState({
     code: '',
@@ -51,7 +54,9 @@ export default function HomePage() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const data = await apiGet<Course[]>('/api/courses');
+      const all = await apiGet<Course[]>('/api/courses?include_archived=true');
+      const data = all.filter((c) => !c.archived_at);
+      setArchived(all.filter((c) => c.archived_at));
       // Hydrate per-course stats best-effort; falls back to zeros if endpoints unreachable.
       const enriched: CourseStats[] = await Promise.all(
         data.map(async (c) => {
@@ -93,6 +98,18 @@ export default function HomePage() {
     setForm({ ...form, code: '', name: '' });
     setShowNew(false);
     await refresh();
+  };
+
+  const setArchivedState = async (course: Course, archive: boolean) => {
+    if (archive && !window.confirm(`Archive ${course.code} · ${course.name}? It leaves the home page; you can restore it below.`)) {
+      return;
+    }
+    try {
+      await apiPost(`/api/courses/${course.id}/${archive ? 'archive' : 'restore'}`);
+      await refresh();
+    } catch (e) {
+      setError(errorMessage(e));
+    }
   };
 
   return (
@@ -142,7 +159,7 @@ export default function HomePage() {
 
       <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
         {courses.map((course) => (
-          <CourseCard key={course.id} course={course} />
+          <CourseCard key={course.id} course={course} onArchive={() => void setArchivedState(course, true)} />
         ))}
         {showNew ? (
           <NewCourseCard form={form} setForm={setForm} onSubmit={submit} onCancel={() => setShowNew(false)} />
@@ -157,11 +174,36 @@ export default function HomePage() {
           </button>
         ) : null}
       </div>
+
+      {archived.length > 0 ? (
+        <section className="mt-10">
+          <button onClick={() => setShowArchived((v) => !v)} className="label-eyebrow hover:text-ink">
+            {showArchived ? '▾' : '▸'} Archived ({archived.length})
+          </button>
+          {showArchived ? (
+            <ul className="mt-3 divide-y divide-border rounded-lg border border-border bg-card">
+              {archived.map((course) => (
+                <li key={course.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <Link href={`/course/${course.id}`} className="min-w-0 text-ink no-underline hover:underline">
+                    <span className="text-[12px] uppercase tracking-wider text-ink-3">
+                      {course.code} · {course.year} · Sem {course.semester}
+                    </span>{' '}
+                    <span className="font-display">{course.name}</span>
+                  </Link>
+                  <Button size="sm" variant="soft" onClick={() => void setArchivedState(course, false)}>
+                    Restore
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
     </main>
   );
 }
 
-function CourseCard({ course }: { course: CourseStats }) {
+function CourseCard({ course, onArchive }: { course: CourseStats; onArchive: () => void }) {
   const remaining = course.submissions_total - course.submissions_graded;
   return (
     <Link
@@ -194,13 +236,24 @@ function CourseCard({ course }: { course: CourseStats }) {
         value={course.submissions_total > 0 ? (course.submissions_graded / course.submissions_total) * 100 : 0}
       />
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <span className="pill">{course.student_count} students</span>
         {remaining > 0 ? (
           <span className="pill pill-terra">{remaining} to grade</span>
         ) : (
           <span className="pill pill-ok">All graded</span>
         )}
+        <button
+          onClick={(e) => {
+            // The card is a link; keep the click from navigating.
+            e.preventDefault();
+            e.stopPropagation();
+            onArchive();
+          }}
+          className="ml-auto text-xs text-ink-3 hover:text-ink hover:underline"
+        >
+          Archive
+        </button>
       </div>
     </Link>
   );

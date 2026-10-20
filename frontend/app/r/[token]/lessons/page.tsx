@@ -52,6 +52,14 @@ export default function StudentLessonsPage({ params }: { params: { token: string
               >
                 כניסה לחשבון
               </a>
+            ) : error.code === 'wrong_account' ? (
+              // Plain /login (no next): a signed-in student is sent on to their own course page.
+              <a
+                href="/login"
+                className="mt-3 inline-flex h-11 items-center rounded-md border border-forest px-5 text-[15px] font-semibold text-forest"
+              >
+                לעמוד הקורס שלי
+              </a>
             ) : error.code === 'network' || error.code === 'error' ? (
               <button type="button" onClick={load} className="mt-3 text-[14px] text-forest underline">
                 נסו שוב
@@ -80,7 +88,7 @@ export default function StudentLessonsPage({ params }: { params: { token: string
                     <span className={`pill ${l.status === 'completed' ? 'pill-ok' : l.status === 'in_progress' ? 'pill-forest' : ''}`}>
                       {STATUS[l.status]}
                     </span>
-                    <span className="text-ink-3">
+                    <span className="text-ink-2">
                       <Ltr>{l.required_done}</Ltr> מתוך <Ltr>{l.required_total}</Ltr> שלבי חובה
                     </span>
                     <span className="ms-auto font-semibold text-forest">

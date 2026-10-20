@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { BlockList } from '@/components/lessons/blocks';
+import { BlockList, TERRA_PILL } from '@/components/lessons/blocks';
 import { ruleDone } from '@/components/lessons/completion';
 import { InlineText, Ltr, plainInline } from '@/components/lessons/inline';
+import { newUuid } from '@/components/lessons/student-backend';
 import {
   LessonApiError,
   type AttemptInput,
@@ -34,11 +35,12 @@ import {
  *
  * Progress (position, viewed steps, self-reported acks, drafts) is saved with
  * revision checks. Unsent changes are kept in a local outbox, mirrored to
- * localStorage (cg-lesson-draft:<token>:<slug>) until the server acknowledges
- * them, so they survive a reload, a lost network or a sign-in redirect. A 409
- * stale answer is rebased: the server's state is taken and the unsent local
- * changes are re-applied on top, then sent once more automatically. "Saved" is
- * shown only after the server answered. The preview never touches storage. */
+ * localStorage (cg-lesson-draft:<token>:<slug>:<tab id>, one entry per open
+ * tab) until the server acknowledges them, so they survive a reload, a lost
+ * network or a sign-in redirect. A 409 stale answer is rebased: the server's
+ * state is taken and the unsent local changes are re-applied on top, then sent
+ * once more automatically. "Saved" is shown only after the server answered.
+ * The preview never touches storage. */
 
 type BlockedCode = 'not_signed_in' | 'wrong_account' | 'withdrawn';
 const BLOCKING: string[] = ['not_signed_in', 'wrong_account', 'withdrawn'];
@@ -46,6 +48,10 @@ const BLOCKING: string[] = ['not_signed_in', 'wrong_account', 'withdrawn'];
 type SaveState = { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string };
 
 export type DraftStatus = 'saving' | 'saved' | 'error' | null;
+
+/** Unsent per-question state for this visit (never saved): an option picked
+ * but not sent, and the request id of a send that may be retried. */
+export type PendingUi = { choice?: string | null; request?: { id: string; sig: string } };
 
 /** What blocks, questions, the experiment log etc. can read and do. */
 export type LessonApi = {
@@ -76,6 +82,8 @@ export type LessonApi = {
   commit(body: CommitmentInput): Promise<CommitmentsResult>;
   recordFinal(commitmentId: number, body: FinalInput): Promise<CommitmentsResult>;
   goToStep(key: string): void;
+  /** Kept by the player, so it survives leaving a step and coming back. */
+  pending(key: string): PendingUi;
 };
 
 /* ---------------- Outbox of unsent progress changes ---------------- */
@@ -125,32 +133,112 @@ function toPatch(p: Pending, revision: number): ProgressPatch {
   return body;
 }
 
-function readMirror(key: string): Pending | null {
+/* The device mirror: one entry per open tab (<prefix>:<tab id>), so one tab's
+ * save never erases another tab's unsent text. An entry records the server
+ * revision it was written against and, for each unsent draft or tick, the
+ * server values it may be replacing (what the server had, and what was on its
+ * way there). On the next load every entry of this lesson is taken over, oldest
+ * first: an entry still at the server's revision is restored as is; from an
+ * older one only the changes the server hasn't moved past since are kept (and
+ * never its position), so a device that was offline can't overwrite newer work
+ * saved elsewhere. Entries from before this format (v1, a single key) have no
+ * base and are restored as they always were. */
+
+type MirrorBase = { drafts: Record<string, (string | null)[]>; acks: Record<string, boolean[]> };
+type MirrorEntry = { key: string; savedAt: number; rev: number | null; base: MirrorBase | null; pending: Pending };
+
+const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+const record = <T,>(v: unknown, ok: (x: unknown) => x is T): Record<string, T> =>
+  v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([, x]) => ok(x))) : {};
+const isDraftValue = (x: unknown): x is string | null => typeof x === 'string' || x === null;
+
+function parsePending(parsed: unknown): Pending | null {
+  if (!parsed || typeof parsed !== 'object') return null;
+  const p = parsed as Record<string, unknown>;
+  return {
+    step: typeof p.step === 'string' ? p.step : undefined,
+    viewed: strings(p.viewed),
+    acks: record(p.acks, (x): x is boolean => typeof x === 'boolean'),
+    drafts: record(p.drafts, isDraftValue)
+  };
+}
+
+function parseBase(raw: unknown): MirrorBase {
+  const b = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return {
+    drafts: record(b.drafts, (x): x is (string | null)[] => Array.isArray(x) && x.every(isDraftValue)),
+    acks: record(b.acks, (x): x is boolean[] => Array.isArray(x) && x.every((y) => typeof y === 'boolean'))
+  };
+}
+
+/** Every mirror entry of this lesson on this device, oldest first. */
+function readMirrors(prefix: string): MirrorEntry[] {
+  const out: MirrorEntry[] = [];
   try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw)?.pending;
-    if (!parsed || typeof parsed !== 'object') return null;
-    const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
-    const record = <T,>(v: unknown, ok: (x: unknown) => x is T): Record<string, T> =>
-      v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([, x]) => ok(x))) : {};
-    return {
-      step: typeof parsed.step === 'string' ? parsed.step : undefined,
-      viewed: strings(parsed.viewed),
-      acks: record(parsed.acks, (x): x is boolean => typeof x === 'boolean'),
-      drafts: record(parsed.drafts, (x): x is string | null => typeof x === 'string' || x === null)
-    };
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || (key !== prefix && !key.startsWith(`${prefix}:`))) continue;
+      let parsed: Record<string, unknown> | null = null;
+      try {
+        parsed = JSON.parse(localStorage.getItem(key) ?? 'null');
+      } catch {
+        parsed = null;
+      }
+      const v2 = parsed?.v === 2;
+      out.push({
+        key,
+        savedAt: typeof parsed?.saved_at === 'number' ? parsed.saved_at : 0,
+        rev: v2 && typeof parsed?.rev === 'number' ? parsed.rev : null,
+        base: v2 ? parseBase(parsed?.base) : null,
+        pending: parsePending(parsed?.pending) ?? EMPTY // unreadable: still taken over (removed)
+      });
+    }
   } catch {
-    return null;
+    /* storage unavailable */
+  }
+  return out.sort((a, b) => a.savedAt - b.savedAt);
+}
+
+/** What is still worth restoring from the entries (later ones win). */
+function fromMirrors(entries: MirrorEntry[], server: Progress | null): Pending {
+  const revision = server?.revision ?? 0;
+  let out: Pending = EMPTY;
+  for (const e of entries) {
+    if (e.rev == null || e.rev === revision) {
+      out = merge(out, e.pending);
+      continue;
+    }
+    // The server saved something since: keep a change only where the server
+    // still has what this entry was based on, and never the old position.
+    const base = e.base ?? { drafts: {}, acks: {} };
+    out = merge(out, {
+      viewed: e.pending.viewed,
+      acks: Object.fromEntries(
+        Object.entries(e.pending.acks).filter(([k]) => base.acks[k]?.includes(server?.acks.includes(k) ?? false))
+      ),
+      drafts: Object.fromEntries(
+        Object.entries(e.pending.drafts).filter(([k]) => base.drafts[k]?.includes(server?.drafts[k] ?? null))
+      )
+    });
+  }
+  return out;
+}
+
+function writeMirror(key: string, unsent: Pending, rev: number, base: MirrorBase) {
+  try {
+    if (!isEmpty(unsent)) {
+      localStorage.setItem(key, JSON.stringify({ v: 2, saved_at: Date.now(), rev, base, pending: unsent }));
+    } else localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable — saving still works, just without the safety net */
   }
 }
 
-function writeMirror(key: string, unsent: Pending | null) {
+function removeMirrors(keys: string[]) {
   try {
-    if (unsent && !isEmpty(unsent)) localStorage.setItem(key, JSON.stringify({ v: 1, pending: unsent }));
-    else localStorage.removeItem(key);
+    for (const k of keys) localStorage.removeItem(k);
   } catch {
-    /* storage unavailable — saving still works, just without the safety net */
+    /* storage unavailable */
   }
 }
 
@@ -196,7 +284,23 @@ class ProgressSaver {
   }
 
   private persist() {
-    if (this.hooks.storageKey) writeMirror(this.hooks.storageKey, this.unsent());
+    const key = this.hooks.storageKey;
+    if (!key) return;
+    const unsent = this.unsent();
+    // For each unsent value: the server values it may be replacing — what the
+    // server has now, and what is on its way there (in flight).
+    const base: MirrorBase = { drafts: {}, acks: {} };
+    for (const k of Object.keys(unsent.drafts)) {
+      const now = this.server?.drafts[k] ?? null;
+      const sending = this.inflight && k in this.inflight.drafts ? this.inflight.drafts[k] : now;
+      base.drafts[k] = sending === now ? [now] : [now, sending];
+    }
+    for (const k of Object.keys(unsent.acks)) {
+      const now = !!this.server?.acks.includes(k);
+      const sending = this.inflight && k in this.inflight.acks ? this.inflight.acks[k] : now;
+      base.acks[k] = sending === now ? [now] : [now, sending];
+    }
+    writeMirror(key, unsent, this.server?.revision ?? 0, base);
   }
 
   private setState(s: SaveState) {
@@ -267,9 +371,11 @@ class ProgressSaver {
     const batch = prune(this.pending, this.server);
     this.pending = EMPTY;
     if (isEmpty(batch)) {
+      // Everything is in sync (blocked and failed batches return earlier or are
+      // merged back): an earlier "not saved" no longer applies either.
       this.firstUnsentAt = null;
       this.persist();
-      if (this.state.kind === 'saving') this.setState({ kind: 'saved' });
+      if (this.state.kind === 'saving' || this.state.kind === 'error') this.setState({ kind: this.server ? 'saved' : 'idle' });
       else this.hooks.changed();
       return;
     }
@@ -358,15 +464,12 @@ function findAck(blocks: Block[], key: string): Extract<Block, { type: 'ack' }> 
   return null;
 }
 
-function shorten(text: string, max = 90) {
-  const t = text.replace(/\s+/g, ' ').trim();
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-}
-
 function loginHref() {
   const next = `${window.location.pathname}${window.location.hash}`;
   return `/login?next=${encodeURIComponent(next)}`;
 }
+
+const BLOCKED_CARD_ID = 'lesson-blocked-card';
 
 /* ---------------- Player ---------------- */
 
@@ -400,6 +503,8 @@ export function LessonPlayer({
   const saverRef = useRef<ProgressSaver | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const moved = useRef(false); // focus the step heading only after the student navigates
+  const tabId = useRef(newUuid()); // this tab's own entry in the device mirror
+  const pendingUi = useRef(new Map<string, PendingUi>());
 
   useEffect(() => {
     let cancelled = false;
@@ -409,7 +514,8 @@ export function LessonPlayer({
     be.load()
       .then((data) => {
         if (cancelled) return;
-        const storageKey = be.mode !== 'preview' && tk ? `cg-lesson-draft:${tk}:${data.lesson.slug}` : null;
+        const prefix = be.mode !== 'preview' && tk ? `cg-lesson-draft:${tk}:${data.lesson.slug}` : null;
+        const storageKey = prefix ? `${prefix}:${tabId.current}` : null;
         const saver = new ProgressSaver(
           {
             patch: (body) => be.patchProgress(body),
@@ -425,8 +531,12 @@ export function LessonPlayer({
         );
         saverRef.current?.dispose();
         saverRef.current = saver;
-        const stored = storageKey ? readMirror(storageKey) : null;
+        // Take over what this device kept for the lesson (earlier visits, closed
+        // or blocked tabs): it is now this tab's to send, under this tab's entry.
+        const entries = prefix ? readMirrors(prefix) : [];
+        const stored = entries.length ? fromMirrors(entries, data.progress) : null;
         if (stored) saver.restore(stored);
+        removeMirrors(entries.map((e) => e.key).filter((k) => k !== storageKey));
 
         setPayload(data);
         setSteps(data.steps);
@@ -507,10 +617,10 @@ export function LessonPlayer({
   }, [stepKey]);
 
   const loginCard = (
-    <Card tone="warn">
+    <Card tone="warn" id={BLOCKED_CARD_ID}>
       <h2 className="font-hebrew text-[20px]">צריך להתחבר</h2>
       <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
-        כדי לראות את השיעור ולשמור את ההתקדמות צריך להיות מחוברים לחשבון שלך. מה שכבר כתבת ולא נשמר נשאר במכשיר הזה, ויישלח
+        כדי לראות את השיעור ולשמור את ההתקדמות צריך להיות מחוברים לחשבון שלכם. מה שכבר כתבתם ולא נשמר נשאר במכשיר הזה, ויישלח
         אחרי ההתחברות.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -537,25 +647,35 @@ export function LessonPlayer({
   );
 
   const wrongAccountCard = (
-    <Card tone="warn">
+    <Card tone="warn" id={BLOCKED_CARD_ID}>
       <h2 className="font-hebrew text-[20px]">הקישור שייך לחשבון אחר</h2>
       <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
         נראה שהמכשיר הזה מחובר לחשבון של סטודנט/ית אחר/ת מזה שהקישור הזה שייך לו. הקישור לשיעור אישי, והתשובות נשמרות לבעל/ת
-        הקישור בלבד. אם זה הקישור שלך – התנתקו והיכנסו עם החשבון שלך. אם לא – פתחו את הקישור האישי שלכם מעמוד הכניסה.
+        הקישור בלבד. אם זה לא הקישור שלכם – עברו לעמוד הקורס שלכם ופתחו משם את השיעור. אם זה הקישור שלכם – התנתקו והיכנסו עם
+        החשבון שלכם.
       </p>
-      <button
-        type="button"
-        onClick={async () => {
-          try {
-            await fetch('/api/student-auth/logout', { method: 'POST', credentials: 'same-origin' });
-          } finally {
-            window.location.assign(loginHref());
-          }
-        }}
-        className="mt-3 inline-flex h-11 items-center rounded-md border border-forest px-5 text-[15px] font-semibold text-forest"
-      >
-        התנתקות וכניסה מחדש
-      </button>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        {/* Plain /login (no next): a signed-in student goes on to their own course page. */}
+        <a
+          href="/login"
+          className="inline-flex h-11 items-center rounded-md bg-forest px-5 text-[15px] font-semibold text-paper"
+        >
+          לעמוד הקורס שלי
+        </a>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await fetch('/api/student-auth/logout', { method: 'POST', credentials: 'same-origin' });
+            } finally {
+              window.location.assign(loginHref());
+            }
+          }}
+          className="inline-flex h-11 items-center rounded-md border border-forest px-5 text-[15px] font-semibold text-forest"
+        >
+          התנתקות וכניסה מחדש
+        </button>
+      </div>
     </Card>
   );
 
@@ -617,17 +737,17 @@ export function LessonPlayer({
     attempt: (r: AttemptResult) => {
       setQuestions((q) => ({ ...q, [r.question_key]: r.question }));
       setSteps(r.steps);
-      if (r.completed_at) setCompletedAt(r.completed_at);
+      setCompletedAt(r.completed_at ?? null);
     },
     experiments: (r: ExperimentsResult) => {
       setExperiments(r.experiments);
       setSteps(r.steps);
-      if (r.completed_at) setCompletedAt(r.completed_at);
+      setCompletedAt(r.completed_at ?? null);
     },
     commitments: (r: CommitmentsResult) => {
       setCommitments(r.commitments);
       setSteps(r.steps);
-      if (r.completed_at) setCompletedAt(r.completed_at);
+      setCompletedAt(r.completed_at ?? null);
     }
   };
   const write = async <T,>(fn: () => Promise<T>, done: (r: T) => void): Promise<T> => {
@@ -669,7 +789,15 @@ export function LessonPlayer({
       }),
     commit: (body) => write(() => be.commit(body), apply.commitments),
     recordFinal: (id, body) => write(() => be.recordFinal(id, body), apply.commitments),
-    goToStep
+    goToStep,
+    pending: (key) => {
+      let entry = pendingUi.current.get(key);
+      if (!entry) {
+        entry = {};
+        pendingUi.current.set(key, entry);
+      }
+      return entry;
+    }
   };
 
   return (
@@ -683,33 +811,44 @@ export function LessonPlayer({
           setBlocked(null);
           saver.retry();
         }}
+        onShowBlocked={() => {
+          const card = document.getElementById(BLOCKED_CARD_ID);
+          card?.scrollIntoView({ block: 'start' });
+          card?.focus({ preventScroll: true });
+        }}
       />
       <main className="mx-auto w-full max-w-[640px] px-4 pb-24 pt-4">
         <header className="pb-2">
           {token ? (
-            <nav aria-label="קישורים" className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[14px]">
-              <a href={`/r/${token}`} className="text-forest hover:underline">
+            <nav aria-label="קישורים" className="mb-1 flex flex-wrap gap-x-4 text-[14px]">
+              <a href={`/r/${token}`} className="inline-flex min-h-[40px] items-center text-forest hover:underline">
                 → לעמוד הקורס
               </a>
-              <a href={`/r/${token}/lessons`} className="text-forest hover:underline">
+              <a href={`/r/${token}/lessons`} className="inline-flex min-h-[40px] items-center text-forest hover:underline">
                 כל השיעורים
               </a>
             </nav>
           ) : null}
-          <div className="text-[12px] tracking-wide text-ink-3">
-            {payload.course.name}
-            {payload.course.code ? (
-              <>
-                {' '}
-                · <Ltr>{payload.course.code}</Ltr>
-              </>
-            ) : null}
-          </div>
-          <h1 className="font-hebrew text-[26px] leading-tight">{content.title}</h1>
-          <p className="mt-1 text-[15px] text-ink-2">
-            <InlineText text={content.guiding_question} />
-          </p>
-          {completedAt ? (
+          {/* The course line and the guiding question open the lesson (step A); later steps keep a smaller title. */}
+          {index === 0 ? (
+            <div className="text-[12px] tracking-wide text-ink-2">
+              {payload.course.name}
+              {payload.course.code ? (
+                <>
+                  {' '}
+                  · <Ltr>{payload.course.code}</Ltr>
+                </>
+              ) : null}
+            </div>
+          ) : null}
+          <h1 className={`font-hebrew leading-tight ${index === 0 ? 'text-[26px]' : 'text-[18px] text-ink-2'}`}>{content.title}</h1>
+          {index === 0 ? (
+            <p className="mt-1 text-[15px] text-ink-2">
+              <InlineText text={content.guiding_question} />
+            </p>
+          ) : null}
+          {/* completed_at is when the student first finished; the banner follows the current evidence. */}
+          {completedAt && required.length > 0 && requiredDone === required.length ? (
             <p className="mt-2 text-[14px] text-ok">✓ השלמת את כל שלבי החובה. השלמה אינה ציון – אפשר לחזור לכל שלב.</p>
           ) : null}
         </header>
@@ -737,9 +876,9 @@ export function LessonPlayer({
 
         <article key={step.key} aria-labelledby="lesson-step-title" className="mt-5 grid grid-cols-1 gap-4">
           <header>
-            <div className="text-[13px] text-ink-3">
+            <div className="text-[13px] text-ink-2">
               {step.optional ? (
-                <span className="pill pill-terra">הרחבה לבחירה</span>
+                <span className={TERRA_PILL}>הרחבה לבחירה</span>
               ) : (
                 <>
                   שלב <Ltr>{step.letter}</Ltr> · {required.findIndex((s) => s.key === step.key) + 1} מתוך {required.length}
@@ -844,27 +983,42 @@ function Shell({ children, banner }: { children: React.ReactNode; banner?: React
   );
 }
 
-function Card({ tone, children }: { tone: 'warn' | 'bad'; children: React.ReactNode }) {
+function Card({ tone, id, children }: { tone: 'warn' | 'bad'; id?: string; children: React.ReactNode }) {
   return (
-    <section className={`mt-3 rounded-lg border bg-card p-5 shadow-card ${tone === 'bad' ? 'border-bad-soft' : 'border-warn-soft'}`}>
+    <section
+      id={id}
+      tabIndex={id ? -1 : undefined}
+      className={`mt-3 scroll-mt-16 rounded-lg border bg-card p-5 shadow-card outline-none ${tone === 'bad' ? 'border-bad-soft' : 'border-warn-soft'}`}
+    >
       {children}
     </section>
   );
 }
+
+// What the sticky bar says when saving is blocked (also when a write, not the
+// autosave, was the one that found out).
+const BLOCKED_TEXT: Record<BlockedCode, string> = {
+  not_signed_in: 'צריך להתחבר כדי לשמור. מה שכתבתם נשאר במכשיר הזה ויישלח אחרי ההתחברות.',
+  wrong_account: 'המכשיר מחובר לחשבון אחר מזה שהקישור שייך לו.',
+  withdrawn: 'ההרשמה לקורס בוטלה, ולכן אי אפשר לשמור שינויים.'
+};
 
 function StatusBar({
   preview,
   step,
   state,
   blocked,
-  onRetry
+  onRetry,
+  onShowBlocked
 }: {
   preview: boolean;
   step: LessonStep;
   state: SaveState;
   blocked: BlockedCode | null;
   onRetry: () => void;
+  onShowBlocked: () => void;
 }) {
+  const message = blocked ? BLOCKED_TEXT[blocked] : state.kind === 'error' ? state.message : null;
   return (
     <div
       className={`${preview ? '' : 'sticky top-0 z-30'} border-b border-line-soft bg-paper/95 backdrop-blur`}
@@ -875,7 +1029,21 @@ function StatusBar({
         </span>
         <span role="status" aria-live="polite" className="flex shrink-0 items-center gap-2">
           {preview ? (
-            <span className="font-semibold text-terracotta">תצוגה מקדימה – שום דבר לא נשמר</span>
+            <span className="font-semibold text-[#9a5533]">תצוגה מקדימה – שום דבר לא נשמר</span>
+          ) : blocked ? (
+            // Blocked: the action that unblocks it, right here (the card is at the top of the page).
+            <>
+              <span className="font-semibold text-bad">⚠ לא נשמר</span>
+              {blocked === 'not_signed_in' ? (
+                <a href={loginHref()} className="rounded border border-bad px-2 py-0.5 text-bad">
+                  כניסה לחשבון
+                </a>
+              ) : blocked === 'wrong_account' ? (
+                <button type="button" onClick={onShowBlocked} className="rounded border border-bad px-2 py-0.5 text-bad">
+                  מה עושים?
+                </button>
+              ) : null}
+            </>
           ) : state.kind === 'saving' ? (
             <span className="text-ink-2">שומר…</span>
           ) : state.kind === 'saved' ? (
@@ -885,20 +1053,16 @@ function StatusBar({
               <span className="font-semibold text-bad" title={state.message}>
                 ⚠ לא נשמר – נסו שוב
               </span>
-              {blocked !== 'not_signed_in' && blocked !== 'wrong_account' && blocked !== 'withdrawn' ? (
-                <button type="button" onClick={onRetry} className="rounded border border-bad px-2 py-0.5 text-bad">
-                  ניסיון חוזר
-                </button>
-              ) : null}
+              <button type="button" onClick={onRetry} className="rounded border border-bad px-2 py-0.5 text-bad">
+                ניסיון חוזר
+              </button>
             </>
           ) : (
-            <span className="text-ink-3">שמירה אוטומטית</span>
+            <span className="text-ink-2">שמירה אוטומטית</span>
           )}
         </span>
       </div>
-      {!preview && state.kind === 'error' ? (
-        <p className="mx-auto w-full max-w-[640px] px-4 pb-1.5 text-[12px] text-ink-2">{state.message}</p>
-      ) : null}
+      {!preview && message ? <p className="mx-auto w-full max-w-[640px] px-4 pb-1.5 text-[12px] text-ink-2">{message}</p> : null}
     </div>
   );
 }
@@ -943,7 +1107,7 @@ function LessonMap({
           aria-expanded={open}
           aria-controls="lesson-map-list"
           onClick={() => setOpen(!open)}
-          className="shrink-0 rounded px-1 text-[13px] text-forest underline"
+          className="inline-flex min-h-[40px] shrink-0 items-center rounded px-1 text-[13px] text-forest underline"
         >
           {open ? 'תצוגה מקוצרת' : 'כל השלבים'}
         </button>
@@ -968,14 +1132,14 @@ function LessonMap({
                 >
                   <span
                     className={`grid h-7 min-w-7 place-items-center rounded px-1 text-[13px] font-semibold ${
-                      s.optional ? 'border border-dashed border-terracotta text-terracotta' : 'bg-paper-2 text-ink'
+                      s.optional ? 'border border-dashed border-terracotta text-[#9a5533]' : 'bg-paper-2 text-ink'
                     }`}
                   >
                     {s.letter}
                   </span>
                   <span className="min-w-0 flex-1">
                     <InlineText text={s.title} />
-                    {s.optional ? <span className="pill pill-terra ms-2">הרחבה לבחירה</span> : null}
+                    {s.optional ? <span className={`${TERRA_PILL} ms-2`}>הרחבה לבחירה</span> : null}
                     {here ? <span className="sr-only"> (השלב הנוכחי)</span> : null}
                   </span>
                   <span className={`shrink-0 text-[12px] ${status[s.key]?.completed ? 'text-ok' : 'text-ink-3'}`}>
@@ -1003,7 +1167,7 @@ function LessonMap({
                     here
                       ? 'bg-forest text-paper'
                       : s.optional
-                        ? 'border border-dashed border-terracotta bg-card text-terracotta'
+                        ? 'border border-dashed border-terracotta bg-card text-[#9a5533]'
                         : 'border border-border bg-paper text-ink'
                   }`}
                 >
@@ -1025,7 +1189,12 @@ function ruleLabel(rule: CompletionRule, step: LessonStep, api: LessonApi): Reac
   switch (rule.type) {
     case 'answered': {
       const q = api.content.questions[rule.question];
-      return <>לענות על השאלה: {q ? `״${shorten(plainInline(q.prompt))}״` : rule.question}</>;
+      // Clamped, not cut: a formula like `<= 5` keeps its LTR isolation.
+      return (
+        <span className="line-clamp-3">
+          לענות על השאלה: {q ? <>״<InlineText text={q.prompt} />״</> : rule.question}
+        </span>
+      );
     }
     case 'ack': {
       const ack = findAck(step.blocks, rule.key);
@@ -1059,7 +1228,7 @@ function StepChecklist({ step, status, api }: { step: LessonStep; status: StepSt
           const done = ruleDone(rule, api);
           return (
             <li key={i} className="flex items-start gap-2 text-[14px] leading-relaxed">
-              <span aria-hidden className={`mt-0.5 shrink-0 ${done ? 'text-ok' : 'text-ink-4'}`}>
+              <span aria-hidden className={`mt-0.5 shrink-0 ${done ? 'text-ok' : 'text-ink-3'}`}>
                 {done ? '✓' : '○'}
               </span>
               <span className="min-w-0 flex-1">{ruleLabel(rule, step, api)}</span>
@@ -1074,7 +1243,7 @@ function StepChecklist({ step, status, api }: { step: LessonStep; status: StepSt
         {status?.completed
           ? '✓ השלב הושלם.'
           : 'אפשר להמשיך לשלב הבא גם לפני שהכול מסומן – תמיד אפשר לחזור.'}{' '}
-        <span className="text-ink-3">השלמה פירושה שעשיתם את הפעולות; היא לא ציון ולא הוכחה להבנה.</span>
+        <span className="text-ink-2">השלמה פירושה שעשיתם את הפעולות; היא לא ציון ולא הוכחה להבנה.</span>
       </p>
     </section>
   );

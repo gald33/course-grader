@@ -9,7 +9,7 @@
  * attempt. Feedback appears only from the server's answer, and each send keeps
  * one request_id across retries so a lost answer is never recorded twice. */
 
-import { useId, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 
 import { InlineText, Ltr } from '@/components/lessons/inline';
 import type { DraftStatus, LessonApi } from '@/components/lessons/lesson-player';
@@ -39,16 +39,19 @@ function errorOf(e: unknown): { message: string; fields: Record<string, string>;
   return { message: e instanceof Error ? e.message : String(e), fields: {}, retry: false };
 }
 
-/** One request id per submission, reused when the same submission is retried. */
-export function useRequestId() {
-  const ref = useRef<{ id: string; sig: string } | null>(null);
+/** One request id per submission, reused when the same submission is retried.
+ * Kept by the player under `key` (not in this component), so a retry after
+ * leaving the step and coming back still reuses it: an answer whose reply got
+ * lost is never recorded twice. */
+export function useRequestId(api: Pick<LessonApi, 'pending'>, key: string) {
   return {
     take(sig: string) {
-      if (!ref.current || ref.current.sig !== sig) ref.current = { id: newUuid(), sig };
-      return ref.current.id;
+      const entry = api.pending(key);
+      if (!entry.request || entry.request.sig !== sig) entry.request = { id: newUuid(), sig };
+      return entry.request.id;
     },
     done() {
-      ref.current = null;
+      delete api.pending(key).request;
     }
   };
 }
@@ -135,13 +138,14 @@ function SingleChoice({ question, state, api }: { question: SingleChoiceQuestion
   const key = question.key;
   const draftKey = `q:${key}`;
   const explain = question.explain ?? 'none';
-  const [choice, setChoice] = useState<string | null>(state.latest?.answer.choice ?? null);
+  // An unsent pick survives a step change (the player keeps it, nothing is saved).
+  const [choice, setChoice] = useState<string | null>(api.pending(draftKey).choice ?? state.latest?.answer.choice ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; retry: boolean } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [confirmReveal, setConfirmReveal] = useState(false);
-  const submission = useRequestId();
-  const revealId = useRequestId();
+  const submission = useRequestId(api, draftKey);
+  const revealId = useRequestId(api, `reveal:${key}`);
   const textId = useId();
 
   const text = explain === 'none' ? '' : api.draft(draftKey) ?? state.latest?.answer.text ?? '';
@@ -170,6 +174,7 @@ function SingleChoice({ question, state, api }: { question: SingleChoiceQuestion
       const requestId = submission.take(JSON.stringify(answer));
       await api.submitAttempt({ request_id: requestId, question_key: key, answer });
       submission.done();
+      delete api.pending(draftKey).choice;
       if (api.draft(draftKey) !== undefined) api.setDraft(draftKey, null);
       setConfirmReveal(false);
     } catch (e) {
@@ -209,11 +214,12 @@ function SingleChoice({ question, state, api }: { question: SingleChoiceQuestion
             const selected = choice === o.id;
             const isCorrect = correctIds.has(o.id);
             const wasLatest = latestChoice === o.id;
+            const wrongPick = selected && wasLatest && state.latest?.correct === false;
             return (
               <label
                 key={o.id}
                 className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-[15px] leading-relaxed ${
-                  selected ? 'border-forest bg-forest-tint' : 'border-border bg-card'
+                  wrongPick ? 'border-bad bg-bad-soft/40' : selected ? 'border-forest bg-forest-tint' : 'border-border bg-card'
                 }`}
               >
                 <input
@@ -223,6 +229,7 @@ function SingleChoice({ question, state, api }: { question: SingleChoiceQuestion
                   checked={selected}
                   onChange={() => {
                     setChoice(o.id);
+                    api.pending(draftKey).choice = o.id;
                     setFieldErrors({});
                   }}
                   className="mt-1 h-4 w-4 shrink-0 accent-forest"
@@ -382,7 +389,7 @@ function ChoiceFeedback({ question, state }: { question: SingleChoiceQuestion; s
       ) : null}
       {state.revealed ? (
         <p className="text-[12px] text-ink-3">
-          {state.attempts === 0 ? 'ההסבר הוצג לפני שענית.' : 'ביקשת לראות את ההסבר.'} מה שחשוב הוא שתוכלו להסביר את זה במילים שלכם.
+          {state.attempts === 0 ? 'ההסבר הוצג לפני שעניתם.' : 'ביקשתם לראות את ההסבר.'} מה שחשוב הוא שתוכלו להסביר את זה במילים שלכם.
         </p>
       ) : null}
     </section>
@@ -398,7 +405,7 @@ function FreeText({ question, state, api }: { question: FreeTextQuestion; state:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; retry: boolean } | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
-  const submission = useRequestId();
+  const submission = useRequestId(api, draftKey);
   const id = useId();
 
   const text = api.draft(draftKey) ?? state.latest?.answer.text ?? '';
@@ -497,13 +504,23 @@ function FreeText({ question, state, api }: { question: FreeTextQuestion; state:
             {fb.sample_reasoning?.length ? (
               <div>
                 <p className="font-semibold">דוגמה לנימוק — לא ציון</p>
-                <ul className="mt-1 grid grid-cols-1 list-disc gap-1 ps-6">
-                  {fb.sample_reasoning.map((s, i) => (
-                    <li key={i}>
-                      <InlineText text={s} />
-                    </li>
-                  ))}
-                </ul>
+                <p className="mt-1">
+                  <InlineText text={fb.sample_reasoning[0]} />
+                </p>
+                {fb.sample_reasoning.length > 1 ? (
+                  <details className="mt-2 rounded-md border border-line-soft bg-card/60">
+                    <summary className="cursor-pointer px-3 py-2.5 text-[14px] font-semibold text-forest">
+                      עוד דוגמאות (<Ltr>{fb.sample_reasoning.length - 1}</Ltr>)
+                    </summary>
+                    <ul className="grid grid-cols-1 list-disc gap-1 px-3 pb-2.5 ps-8">
+                      {fb.sample_reasoning.slice(1).map((s, i) => (
+                        <li key={i}>
+                          <InlineText text={s} />
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
               </div>
             ) : null}
             {fb.rubric?.length ? (

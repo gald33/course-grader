@@ -124,6 +124,8 @@ def upgrade() -> None:
         sa.Column("validation_accuracy", sa.Float(), nullable=True),
         sa.Column("baseline_validation", sa.Float(), nullable=True),
         sa.Column("hypothesis", sa.Text(), nullable=False, server_default=""),
+        sa.Column("first_hypothesis", sa.Text(), nullable=True),
+        sa.Column("first_hypothesis_at", sa.DateTime(), nullable=True),
         sa.Column("observation", sa.Text(), nullable=False, server_default=""),
         sa.Column("explanation", sa.Text(), nullable=False, server_default=""),
         sa.Column("provenance", sa.String(length=32), nullable=False, server_default="student_entered"),

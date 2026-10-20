@@ -52,6 +52,7 @@ LESSON_STUDENTS = [
     ("navigation", "900000013", "Omer Lesson"),
     ("insights", "900000014", "Tal Lesson"),
     ("resilience", "900000015", "Yael Lesson"),
+    ("access", "900000016", "Rina Lesson"),
 ]
 
 

@@ -10,11 +10,6 @@ import { InlineText, Ltr, plainInline } from '@/components/lessons/inline';
 import type { LessonApi } from '@/components/lessons/lesson-player';
 import type { LessonStep, Question } from '@/components/lessons/types';
 
-function shorten(text: string, max = 110) {
-  const t = text.replace(/\s+/g, ' ').trim();
-  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-}
-
 export function LessonSummary({ api }: { api: LessonApi }) {
   const steps = api.content.steps;
   const required = steps.filter((s) => !s.optional);
@@ -41,7 +36,7 @@ export function LessonSummary({ api }: { api: LessonApi }) {
         <h4 className="font-hebrew text-[16px]">
           שלבי החובה: {done.length} מתוך {required.length} הושלמו
         </h4>
-        {api.completedAt ? <p className="mt-1 text-ok">✓ כל שלבי החובה הושלמו.</p> : null}
+        {required.length > 0 && remaining.length === 0 ? <p className="mt-1 text-ok">✓ כל שלבי החובה הושלמו.</p> : null}
         <ul className="mt-2 grid grid-cols-1 gap-1.5">
           {required.map((s) => (
             <StepRow key={s.key} step={s} done={!!api.steps[s.key]?.completed} api={api} />
@@ -75,60 +70,29 @@ export function LessonSummary({ api }: { api: LessonApi }) {
       <div>
         <h4 className="font-hebrew text-[16px]">הניסויים שלי</h4>
         {api.experiments.length ? (
-          <div className="mt-2 overflow-x-auto rounded-md border border-border" role="region" tabIndex={0} aria-label="הניסויים שלי">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="bg-paper-2">
-                  <th scope="col" className="px-2 py-1.5 text-start font-semibold">
-                    ריצה
-                  </th>
-                  <th scope="col" className="px-2 py-1.5 text-start font-semibold">
-                    עומק
-                  </th>
-                  <th scope="col" className="px-2 py-1.5 text-start font-semibold">
-                    דוגמאות
-                  </th>
-                  <th scope="col" className="px-2 py-1.5 text-start font-semibold">
-                    אימון
-                  </th>
-                  <th scope="col" className="px-2 py-1.5 text-start font-semibold">
-                    אימות
-                  </th>
-                  <th scope="col" className="px-2 py-1.5 text-start font-semibold">
-                    קו בסיס
-                  </th>
-                  <th scope="col" className="px-2 py-1.5 text-start font-semibold">
-                    מלאה?
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {api.experiments.map((e, i) => (
-                  <tr key={e.run_uuid} className="border-t border-line-soft">
-                    <td className="px-2 py-1.5">{i + 1}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5">{depthLabel(e.depth_kind, e.depth)}</td>
-                    <td className="px-2 py-1.5">
-                      <Ltr>{e.training_examples ?? '—'}</Ltr>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Ltr>{pctText(e.train_accuracy)}</Ltr>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Ltr>{pctText(e.validation_accuracy)}</Ltr>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Ltr>{pctText(e.baseline_validation)}</Ltr>
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-1.5">{e.complete ? '✓ כן' : 'חלקית'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ul className="mt-2 grid grid-cols-1 gap-1.5" aria-label="הניסויים שלי">
+            {api.experiments.map((e, i) => (
+              <li key={e.run_uuid} className="rounded-md border border-border bg-paper px-3 py-2 leading-relaxed">
+                <span className="font-semibold">ריצה {i + 1}</span> · עומק{' '}
+                {e.depth_kind === 'unlimited' ? 'ללא הגבלה' : depthLabel(e.depth_kind, e.depth)} ·{' '}
+                <Ltr>{e.training_examples ?? '—'}</Ltr> דוגמאות{' '}
+                <span className="whitespace-nowrap">
+                  — אימות <Ltr>{pctText(e.validation_accuracy)}</Ltr>
+                </span>{' '}
+                <span className="whitespace-nowrap">
+                  · קו בסיס <Ltr>{pctText(e.baseline_validation)}</Ltr>
+                </span>{' '}
+                <span className="whitespace-nowrap">
+                  · אימון <Ltr>{pctText(e.train_accuracy)}</Ltr>
+                </span>
+                {!e.complete ? <span className="pill pill-warn ms-2">חלקית</span> : null}
+              </li>
+            ))}
+          </ul>
         ) : (
           <p className="mt-1 text-ink-2">עוד לא שמרת ניסויים ביומן (שלב E).</p>
         )}
-        <p className="mt-1 text-[12px] text-ink-3">נתונים שהוזנו ידנית — לא נבדקו מול קולאב.</p>
+        <p className="mt-1 text-[12px] text-ink-2">נתונים שהוזנו ידנית — לא נבדקו מול קולאב.</p>
       </div>
 
       <div>
@@ -166,7 +130,9 @@ export function LessonSummary({ api }: { api: LessonApi }) {
               const step = stepOf(q);
               return (
                 <li key={q.key} className="rounded-md border border-border bg-paper px-3 py-2">
-                  <p className="font-semibold">{shorten(plainInline(q.prompt))}</p>
+                  <p className="line-clamp-2 font-semibold">
+                    <InlineText text={q.prompt} />
+                  </p>
                   <p className="mt-0.5 text-[12px] text-ink-2">
                     {state?.first?.correct === false ? 'התשובה הראשונה לא הייתה נכונה' : null}
                     {state?.first?.correct === false && state?.revealed ? ' · ' : null}
@@ -174,8 +140,14 @@ export function LessonSummary({ api }: { api: LessonApi }) {
                     {state?.latest?.correct === true ? ' · בניסיון האחרון ענית נכון' : null}
                   </p>
                   {step ? (
-                    <button type="button" onClick={() => api.goToStep(step.key)} className="mt-1 text-[13px] text-forest underline">
-                      לשלב <Ltr>{step.letter}</Ltr>: {plainInline(step.title)}
+                    <button
+                      type="button"
+                      onClick={() => api.goToStep(step.key)}
+                      className="inline-flex min-h-[40px] items-center text-[13px] text-forest underline"
+                    >
+                      <span>
+                        לשלב <Ltr>{step.letter}</Ltr>: {plainInline(step.title)}
+                      </span>
                     </button>
                   ) : null}
                 </li>
@@ -193,11 +165,17 @@ export function LessonSummary({ api }: { api: LessonApi }) {
 function StepRow({ step, done, api }: { step: LessonStep; done: boolean; api: LessonApi }) {
   return (
     <li className="flex items-center gap-2">
-      <span aria-hidden className={done ? 'text-ok' : 'text-ink-4'}>
+      <span aria-hidden className={done ? 'text-ok' : 'text-ink-3'}>
         {done ? '✓' : '○'}
       </span>
-      <button type="button" onClick={() => api.goToStep(step.key)} className="min-w-0 flex-1 text-right hover:underline">
-        <Ltr className="font-semibold">{step.letter}</Ltr> · <InlineText text={step.title} />
+      <button
+        type="button"
+        onClick={() => api.goToStep(step.key)}
+        className="flex min-h-[40px] min-w-0 flex-1 items-center text-right hover:underline"
+      >
+        <span className="min-w-0">
+          <Ltr className="font-semibold">{step.letter}</Ltr> · <InlineText text={step.title} />
+        </span>
       </button>
       <span className={`shrink-0 text-[12px] ${done ? 'text-ok' : 'text-ink-3'}`}>{done ? 'הושלם' : 'עוד לא'}</span>
     </li>

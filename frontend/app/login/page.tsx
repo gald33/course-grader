@@ -44,8 +44,12 @@ export default function StudentLoginPage() {
   const [choices, setChoices] = useState<Destinations['courses'] | null>(null);
 
   const go = (d: Destinations) => {
+    // Follow ?next= only into this student's own links: a link someone else
+    // shared would only answer "this link belongs to another account" again.
     const next = safeNext();
-    if (next) window.location.assign(next);
+    // (SAFE_NEXT already limits next to /r/<token> or /r/<token>/…)
+    const own = next !== null && d.courses.some((c) => next === c.url || next.startsWith(`${c.url}/`));
+    if (next && own) window.location.assign(next);
     else if (d.redirect) window.location.assign(d.redirect);
     else setChoices(d.courses);
   };

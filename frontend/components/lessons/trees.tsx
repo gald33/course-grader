@@ -52,7 +52,8 @@ export function traceTree(nodes: TreeNode[], root: number, sample: Record<string
 
 /* ---------------- Layout + diagram (shared by both trees) ---------------- */
 
-const SLOT = 150; // horizontal room per leaf
+const SLOT = 150; // horizontal room per leaf, at most
+const MIN_SLOT = 140; // never narrower: a box is 136px wide (days_since_purchase fills it)
 const ROW = 118; // vertical distance between levels
 const BOX_W = 136;
 const BOX_H = 84;
@@ -63,9 +64,10 @@ type Layout = {
   width: number;
   height: number;
   depth: number; // max questions on one path
+  leaves: number;
 };
 
-function layoutTree(nodes: TreeNode[], root: number): Layout {
+function layoutTree(nodes: TreeNode[], root: number, slot = SLOT): Layout {
   const byId = new Map(nodes.map((n) => [n.id, n]));
   const pos = new Map<number, { x: number; y: number }>();
   let leaves = 0;
@@ -76,7 +78,7 @@ function layoutTree(nodes: TreeNode[], root: number): Layout {
     depth = Math.max(depth, level);
     let x: number;
     if (node.is_leaf) {
-      x = leaves * SLOT + SLOT / 2;
+      x = leaves * slot + slot / 2;
       leaves += 1;
     } else {
       if (node.left == null || node.right == null) throw new Error(`tree node ${id} is not a complete split`);
@@ -88,7 +90,7 @@ function layoutTree(nodes: TreeNode[], root: number): Layout {
     return x;
   };
   visit(root, 0);
-  return { byId, pos, width: leaves * SLOT, height: depth * ROW + BOX_H, depth };
+  return { byId, pos, width: leaves * slot, height: depth * ROW + BOX_H, depth, leaves };
 }
 
 type FeatureNames = (feature: string) => { he: string; en: string };
@@ -106,7 +108,8 @@ function TreeDiagram({
   current,
   reached,
   showCounts,
-  label
+  label,
+  onOverflow
 }: {
   nodes: TreeNode[];
   root: number;
@@ -117,9 +120,29 @@ function TreeDiagram({
   reached: number | null; // the leaf reached, once revealed
   showCounts: boolean;
   label: string;
+  onOverflow?: (wider: boolean) => void; // the picture is wider than its box
 }) {
   const scroller = useRef<HTMLDivElement>(null);
-  const layout = useMemo(() => layoutTree(nodes, root), [nodes, root]);
+  const [boxWidth, setBoxWidth] = useState<number | null>(null);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const measure = () => setBoxWidth(el.clientWidth);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  // Narrow the leaf slots to fit the box (a projector's 572px fits all four
+  // leaves of the learned tree), but never below one box per leaf.
+  const leafCount = useMemo(() => layoutTree(nodes, root).leaves, [nodes, root]);
+  const slot = boxWidth ? Math.max(MIN_SLOT, Math.min(SLOT, Math.floor(boxWidth / Math.max(1, leafCount)))) : SLOT;
+  const layout = useMemo(() => layoutTree(nodes, root, slot), [nodes, root, slot]);
+  const wider = boxWidth != null && layout.width > boxWidth;
+  useEffect(() => {
+    onOverflow?.(wider);
+  }, [wider, onOverflow]);
 
   // When the picture is wider than the screen, keep the node that matters in
   // view: the root at first, then the question being asked or the leaf reached.
@@ -144,114 +167,122 @@ function TreeDiagram({
   });
 
   return (
-    <div
-      ref={scroller}
-      dir="ltr"
-      role="region"
-      aria-label={`${label} (אפשר לגלול לצדדים)`}
-      tabIndex={0}
-      className="overflow-x-auto rounded-md border border-line-soft bg-paper py-3"
-    >
-      <div className="relative mx-auto" style={{ width: layout.width, height: layout.height + 12 }} aria-hidden>
-        <svg className="absolute inset-0" width={layout.width} height={layout.height + 12}>
+    <div className="grid min-w-0 grid-cols-1 gap-1">
+      {/* relative: offsetLeft below is measured from this box, not from the page. */}
+      <div
+        ref={scroller}
+        dir="ltr"
+        role="region"
+        aria-label={`${label} (אפשר לגלול לצדדים)`}
+        tabIndex={0}
+        className="relative overflow-x-auto rounded-md border border-line-soft bg-paper py-3"
+      >
+        <div className="relative mx-auto" style={{ width: layout.width, height: layout.height + 12 }} aria-hidden>
+          <svg className="absolute inset-0" width={layout.width} height={layout.height + 12}>
+            {edges.map((e) => {
+              const a = layout.pos.get(e.from.id)!;
+              const b = layout.pos.get(e.to)!;
+              const lit = onPath.has(e.from.id) && onPath.has(e.to);
+              return (
+                <line
+                  key={`${e.from.id}-${e.to}`}
+                  x1={a.x}
+                  y1={a.y + BOX_H + 6}
+                  x2={b.x}
+                  y2={b.y + 6}
+                  className={lit ? 'stroke-forest' : 'stroke-ink-4'}
+                  strokeWidth={lit ? 3.5 : 1.5}
+                  strokeDasharray={lit ? undefined : '5 4'}
+                />
+              );
+            })}
+          </svg>
           {edges.map((e) => {
             const a = layout.pos.get(e.from.id)!;
             const b = layout.pos.get(e.to)!;
             const lit = onPath.has(e.from.id) && onPath.has(e.to);
             return (
-              <line
-                key={`${e.from.id}-${e.to}`}
-                x1={a.x}
-                y1={a.y + BOX_H + 6}
-                x2={b.x}
-                y2={b.y + 6}
-                className={lit ? 'stroke-forest' : 'stroke-ink-4'}
-                strokeWidth={lit ? 3.5 : 1.5}
-                strokeDasharray={lit ? undefined : '5 4'}
-              />
+              <span
+                key={`label-${e.from.id}-${e.to}`}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border px-1.5 text-[11px] ${
+                  lit ? 'border-forest bg-forest text-paper' : 'border-border bg-card text-ink-2'
+                }`}
+                style={{ left: (a.x + b.x) / 2, top: (a.y + BOX_H + b.y) / 2 + 12 }}
+              >
+                <span dir="rtl">{e.left ? 'כן' : 'לא'}</span> {e.left ? '<=' : '>'}
+              </span>
             );
           })}
-        </svg>
-        {edges.map((e) => {
-          const a = layout.pos.get(e.from.id)!;
-          const b = layout.pos.get(e.to)!;
-          const lit = onPath.has(e.from.id) && onPath.has(e.to);
-          return (
-            <span
-              key={`label-${e.from.id}-${e.to}`}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full border px-1.5 text-[11px] ${
-                lit ? 'border-forest bg-forest text-paper' : 'border-border bg-card text-ink-2'
-              }`}
-              style={{ left: (a.x + b.x) / 2, top: (a.y + BOX_H + b.y) / 2 + 12 }}
-            >
-              <span dir="rtl">{e.left ? 'כן' : 'לא'}</span> {e.left ? '<=' : '>'}
-            </span>
-          );
-        })}
-        {nodes.map((n) => {
-          const p = layout.pos.get(n.id);
-          if (!p) return null;
-          const isCurrent = current === n.id;
-          const isReached = reached === n.id;
-          const lit = onPath.has(n.id);
-          const marker = isReached ? 'הגעתם לכאן' : isCurrent ? 'השאלה עכשיו' : lit ? 'במסלול' : null;
-          return (
-            <div
-              key={n.id}
-              dir="rtl"
-              className={`absolute grid content-center rounded-md px-1.5 text-center text-[12px] leading-snug ${
-                isCurrent
-                  ? 'border-2 border-terracotta bg-terracotta-tint'
-                  : lit
-                    ? 'border-2 border-forest bg-forest-tint'
-                    : 'border border-border bg-card'
-              }`}
-              style={{ left: p.x - BOX_W / 2, top: p.y + 6, width: BOX_W, height: BOX_H }}
-            >
-              {marker ? (
-                <span
-                  className={`absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 text-[10px] font-semibold text-paper ${
-                    isCurrent ? 'bg-terracotta' : 'bg-forest'
-                  }`}
-                >
-                  {marker}
-                </span>
-              ) : null}
-              {n.is_leaf ? (
-                <>
-                  <span className="font-semibold text-ink">תחזית: {classLabel(n.prediction)}</span>
-                  {showCounts && n.training_examples != null ? (
-                    <span className="text-ink-2">
-                      <Ltr>n={n.training_examples}</Ltr> דוגמאות
-                    </span>
-                  ) : null}
-                  {showCounts && n.class_counts ? (
-                    <span className="text-ink-2">
-                      לא קנו <Ltr>{n.class_counts[0]}</Ltr> · קנו <Ltr>{n.class_counts[1]}</Ltr>
-                    </span>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <span className="text-ink-2">
-                    <InlineText text={names(n.feature ?? '').he} />
+          {nodes.map((n) => {
+            const p = layout.pos.get(n.id);
+            if (!p) return null;
+            const isCurrent = current === n.id;
+            const isReached = reached === n.id;
+            const lit = onPath.has(n.id);
+            const marker = isReached ? 'הגעתם לכאן' : isCurrent ? 'השאלה עכשיו' : lit ? 'במסלול' : null;
+            return (
+              <div
+                key={n.id}
+                dir="rtl"
+                className={`absolute grid content-center rounded-md px-1.5 text-center text-[12px] leading-snug ${
+                  isCurrent
+                    ? 'border-2 border-terracotta bg-terracotta-tint'
+                    : lit
+                      ? 'border-2 border-forest bg-forest-tint'
+                      : 'border border-border bg-card'
+                }`}
+                style={{ left: p.x - BOX_W / 2, top: p.y + 6, width: BOX_W, height: BOX_H }}
+              >
+                {marker ? (
+                  <span
+                    className={`absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-1.5 text-[10px] font-semibold text-paper ${
+                      isCurrent ? 'bg-terracotta' : 'bg-forest'
+                    }`}
+                  >
+                    {marker}
                   </span>
-                  {/* Breaks only between the feature and its test, never inside "<= 13.5". */}
-                  <span dir="ltr" className="font-mono text-[12px] font-semibold text-ink">
-                    <span className="whitespace-nowrap">{n.feature}</span>{' '}
-                    <span className="whitespace-nowrap">&lt;= {thresholdText(n.threshold)}</span>
-                  </span>
-                  {showCounts && n.training_examples != null ? (
-                    <span className="text-[11px] text-ink-3">
-                      <Ltr>n={n.training_examples}</Ltr>
+                ) : null}
+                {n.is_leaf ? (
+                  <>
+                    <span className="font-semibold text-ink">תחזית: {classLabel(n.prediction)}</span>
+                    {showCounts && n.training_examples != null ? (
+                      <span className="text-ink-2">
+                        <Ltr>n={n.training_examples}</Ltr> דוגמאות
+                      </span>
+                    ) : null}
+                    {showCounts && n.class_counts ? (
+                      <span className="text-ink-2">
+                        לא קנו <Ltr>{n.class_counts[0]}</Ltr> · קנו <Ltr>{n.class_counts[1]}</Ltr>
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <span className="text-ink-2">
+                      <InlineText text={names(n.feature ?? '').he} />
                     </span>
-                  ) : null}
-                </>
-              )}
-            </div>
-          );
-        })}
+                    {/* Breaks only between the feature and its test, never inside "<= 13.5". */}
+                    <span dir="ltr" className="font-mono text-[12px] font-semibold text-ink">
+                      <span className="whitespace-nowrap">{n.feature}</span>{' '}
+                      <span className="whitespace-nowrap">&lt;= {thresholdText(n.threshold)}</span>
+                    </span>
+                    {showCounts && n.training_examples != null ? (
+                      <span className="text-[11px] text-ink-3">
+                        <Ltr>n={n.training_examples}</Ltr>
+                      </span>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
+      {wider ? (
+        <p className="text-[13px] text-ink-2">
+          <span aria-hidden>⇆ </span>העץ רחב מהמסך – גוללים לצדדים, או פותחים ״העץ במילים״.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -262,13 +293,15 @@ function TreeOutline({
   root,
   names,
   classLabel,
-  showCounts
+  showCounts,
+  defaultOpen = false
 }: {
   nodes: TreeNode[];
   root: number;
   names: FeatureNames;
   classLabel: (prediction: 0 | 1) => string;
   showCounts: boolean;
+  defaultOpen?: boolean;
 }) {
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
   const render = (id: number, level: number): React.ReactNode => {
@@ -312,14 +345,14 @@ function TreeOutline({
     );
   };
   return (
-    <details className="rounded-md border border-line-soft bg-card px-3 py-2 text-[14px]">
-      <summary className="cursor-pointer text-ink-2">העץ במילים</summary>
-      <div className="mt-2 leading-relaxed">{render(root, 0)}</div>
+    <details open={defaultOpen || undefined} className="rounded-md border border-line-soft bg-card text-[14px]">
+      <summary className="cursor-pointer px-3 py-2.5 text-ink-2">העץ במילים</summary>
+      <div className="px-3 pb-2.5 leading-relaxed">{render(root, 0)}</div>
     </details>
   );
 }
 
-/** "שאלה 1: visits_30d ≤ 13.5? הערך 14 ← לא ← ימינה" */
+/** "שאלה 1: visits_30d ≤ 13.5? הערך 14: לא – ממשיכים ימינה" */
 function PathList({ steps, names }: { steps: TraceStep[]; names: FeatureNames }) {
   if (!steps.length) return null;
   return (
@@ -330,7 +363,7 @@ function PathList({ steps, names }: { steps: TraceStep[]; names: FeatureNames })
           <Ltr className="font-mono text-[13px]">
             {s.feature} ≤ {thresholdText(s.threshold)}
           </Ltr>
-          ? הערך <Ltr className="font-semibold">{s.value}</Ltr> ← {s.goLeft ? 'כן' : 'לא'} ← {s.goLeft ? 'שמאלה' : 'ימינה'}
+          ? הערך <Ltr className="font-semibold">{s.value}</Ltr>: {s.goLeft ? 'כן – ממשיכים שמאלה' : 'לא – ממשיכים ימינה'}
         </li>
       ))}
     </ol>
@@ -355,6 +388,7 @@ export function ManualTree({ block }: { block: ManualTreeBlock }) {
   const [wrong, setWrong] = useState<'left' | 'right' | null>(null);
   const [guess, setGuess] = useState<0 | 1 | null>(null);
   const [message, setMessage] = useState('');
+  const leafRef = useRef<HTMLParagraphElement>(null);
 
   const names: FeatureNames = (f) => ({ he: block.feature_labels[f] ?? f, en: f });
   const customer = block.customers.find((c) => c.id === customerId) ?? null;
@@ -373,6 +407,13 @@ export function ManualTree({ block }: { block: ManualTreeBlock }) {
     }
   }, [block.nodes, block.root, customer]);
 
+  const atLeaf = !!trace && answered >= trace.steps.length;
+  // The branch buttons just went away (the focused one with them): continue
+  // from the leaf question instead of the top of the page.
+  useEffect(() => {
+    if (atLeaf && guess == null && document.activeElement === document.body) leafRef.current?.focus();
+  }, [atLeaf, guess]);
+
   if (broken) return <p className="text-[14px] text-bad">אי אפשר להציג את העץ הזה.</p>;
 
   const pick = (id: string) => {
@@ -384,7 +425,6 @@ export function ManualTree({ block }: { block: ManualTreeBlock }) {
   };
 
   const step = trace && answered < trace.steps.length ? trace.steps[answered] : null;
-  const atLeaf = !!trace && answered >= trace.steps.length;
   const onPath = new Set<number>([block.root]);
   if (trace) trace.steps.slice(0, answered).forEach((s) => onPath.add(s.next));
 
@@ -508,7 +548,9 @@ export function ManualTree({ block }: { block: ManualTreeBlock }) {
             </>
           ) : (
             <>
-              <p className="text-[15px] font-semibold">הגענו לעלה. מה התחזית?</p>
+              <p ref={leafRef} tabIndex={-1} className="text-[15px] font-semibold outline-none">
+                הגענו לעלה. מה התחזית?
+              </p>
               <div className="flex flex-wrap gap-2">
                 {([1, 0] as const).map((p) => (
                   <button
@@ -598,6 +640,8 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
   const [days, setDays] = useState(first ? String(first.days_since_purchase) : '');
   const [shown, setShown] = useState(0); // path steps revealed so far
   const [tracing, setTracing] = useState(false);
+  const [narrow, setNarrow] = useState(false); // the diagram doesn't fit: open the text version
+  const restartRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!path) return;
@@ -644,6 +688,12 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
     setShown(0);
   };
 
+  const done = tracing && trace != null && shown >= trace.steps.length;
+  // "כל המסלול" disappears once the leaf is reached: keep the keyboard on the next control.
+  useEffect(() => {
+    if (done && document.activeElement === document.body) restartRef.current?.focus();
+  }, [done]);
+
   if (!path) return <p className="text-[14px] text-bad">קובץ העץ חסר בשיעור.</p>;
   if (loadError) {
     return (
@@ -659,7 +709,6 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
 
   const cfg = tree.configuration ?? {};
   const steps = trace ? trace.steps : [];
-  const done = tracing && trace != null && shown >= steps.length;
   const onPath = new Set<number>();
   if (tracing && trace) {
     onPath.add(tree.root);
@@ -687,13 +736,6 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
           <dd>
             <Ltr>{String(cfg.training_examples ?? '—')}</Ltr> (<Ltr>training_examples</Ltr>)
           </dd>
-          <dt>זרעי אקראיות</dt>
-          <dd>
-            <Ltr>
-              data_seed={String(cfg.data_seed ?? '—')}, split_seed={String(cfg.split_seed ?? '—')}, model_seed=
-              {String(cfg.model_seed ?? '—')}
-            </Ltr>
-          </dd>
           {tree.metrics ? (
             <>
               <dt>תוצאות הריצה</dt>
@@ -701,24 +743,6 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
                 אימון <Ltr>{snapshotPct(tree.metrics.train_accuracy)}</Ltr> · אימות{' '}
                 <Ltr>{snapshotPct(tree.metrics.validation_accuracy)}</Ltr> · קו בסיס{' '}
                 <Ltr>{snapshotPct(tree.metrics.baseline_validation)}</Ltr>
-                <span className="block text-[12px] text-ink-3">
-                  בקולאב:{' '}
-                  <Ltr>
-                    {snapshotFraction(tree.metrics.train_accuracy)}, {snapshotFraction(tree.metrics.validation_accuracy)},{' '}
-                    {snapshotFraction(tree.metrics.baseline_validation)}
-                  </Ltr>
-                </span>
-              </dd>
-            </>
-          ) : null}
-          {tree.model ? (
-            <>
-              <dt>מודל</dt>
-              <dd>
-                <Ltr>
-                  {tree.model}
-                  {tree.sklearn_version ? ` · scikit-learn ${tree.sklearn_version}` : ''}
-                </Ltr>
               </dd>
             </>
           ) : null}
@@ -727,6 +751,40 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
           התמונה הזו נשמרה מהמודל שאומן בהגדרות האלה. <strong className="font-semibold">שינוי הגדרות בקולאב לא משנה אותה</strong> – כדי
           לראות עץ אחר מריצים את המחברת.
         </p>
+        <details className="mt-2 rounded-md border border-line-soft bg-paper text-[13px]">
+          <summary className="cursor-pointer px-3 py-2.5 text-ink-2">פרטי הריצה</summary>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 px-3 pb-2.5 text-ink-2">
+            <dt>זרעי אקראיות</dt>
+            <dd>
+              <Ltr>
+                data_seed={String(cfg.data_seed ?? '—')}, split_seed={String(cfg.split_seed ?? '—')}, model_seed=
+                {String(cfg.model_seed ?? '—')}
+              </Ltr>
+            </dd>
+            {tree.metrics ? (
+              <>
+                <dt>התוצאות בקולאב</dt>
+                <dd>
+                  <Ltr>
+                    {snapshotFraction(tree.metrics.train_accuracy)}, {snapshotFraction(tree.metrics.validation_accuracy)},{' '}
+                    {snapshotFraction(tree.metrics.baseline_validation)}
+                  </Ltr>
+                </dd>
+              </>
+            ) : null}
+            {tree.model ? (
+              <>
+                <dt>מודל</dt>
+                <dd>
+                  <Ltr>
+                    {tree.model}
+                    {tree.sklearn_version ? ` · scikit-learn ${tree.sklearn_version}` : ''}
+                  </Ltr>
+                </dd>
+              </>
+            ) : null}
+          </dl>
+        </details>
       </div>
 
       <TreeDiagram
@@ -739,6 +797,7 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
         reached={done && trace ? trace.leaf.id : null}
         showCounts
         label={assetLabel ? plainInline(assetLabel) : 'העץ שנלמד'}
+        onOverflow={setNarrow}
       />
       <p className="text-[13px] text-ink-3">
         בכל עלה: התחזית, מספר דוגמאות האימון שהגיעו אליו (<Ltr>n</Ltr>), וכמה מהן לא קנו וכמה קנו.
@@ -828,7 +887,7 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
               </button>
             </>
           ) : (
-            <button type="button" onClick={restart} className="h-11 rounded-md border border-border px-4 text-[15px]">
+            <button ref={restartRef} type="button" onClick={restart} className="h-11 rounded-md border border-border px-4 text-[15px]">
               לקוח אחר / מההתחלה
             </button>
           )}
@@ -864,7 +923,7 @@ export function ActualTree({ block, path, assetLabel }: { block: ActualTreeBlock
         </div>
       </section>
 
-      <TreeOutline nodes={tree.nodes} root={tree.root} names={names} classLabel={classLabel} showCounts />
+      <TreeOutline nodes={tree.nodes} root={tree.root} names={names} classLabel={classLabel} showCounts defaultOpen={narrow} />
     </figure>
   );
 }
@@ -892,7 +951,7 @@ function TracerInput({
         <InlineText text={label} />
       </label>
       {/* The identifier and the range on their own line, each kept whole. */}
-      <span id={`${id}-hint`} className="text-[12px] text-ink-3">
+      <span id={`${id}-hint`} className="text-[12px] text-ink-2">
         <Ltr className="whitespace-nowrap font-mono">{code}</Ltr> · טווח{' '}
         <Ltr className="whitespace-nowrap">
           {range[0]}–{range[1]}
@@ -936,11 +995,23 @@ function sideSummary(points: { value: number; label: 0 | 1 }[]) {
 
 export function SplitIllustration({ block }: { block: SplitBlock }) {
   const [threshold, setThreshold] = useState<number | null>(null);
+  const region = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(520);
+  useEffect(() => {
+    const el = region.current;
+    if (!el) return;
+    const measure = () => setW(Math.max(280, Math.min(520, el.clientWidth)));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const values = block.points.map((p) => p.value);
   const lo = Math.floor(Math.min(...values, ...block.candidate_thresholds)) - 1;
   const hi = Math.ceil(Math.max(...values, ...block.candidate_thresholds)) + 1;
-  const W = 520;
   const PAD = 24;
+  const R = W < 360 ? 7 : 8; // neighbours one apart (4 and 5) never touch
   const x = (v: number) => PAD + ((v - lo) / (hi - lo)) * (W - 2 * PAD);
   const left = threshold == null ? [] : block.points.filter((p) => p.value <= threshold);
   const right = threshold == null ? [] : block.points.filter((p) => p.value > threshold);
@@ -956,7 +1027,7 @@ export function SplitIllustration({ block }: { block: SplitBlock }) {
       <p className="text-[13px] text-ink-3">
         <InlineText text={block.feature_label} /> · ● קנה · ○ לא קנה
       </p>
-      <div dir="ltr" className="overflow-x-auto rounded-md border border-line-soft bg-paper" role="region" tabIndex={0} aria-label="ציר הערכים">
+      <div ref={region} dir="ltr" className="overflow-x-auto rounded-md border border-line-soft bg-paper" role="region" tabIndex={0} aria-label="ציר הערכים">
         <svg width={W} height={92} className="mx-auto block" aria-hidden>
           <line x1={PAD} y1={52} x2={W - PAD} y2={52} className="stroke-ink-4" strokeWidth={1.5} />
           {threshold != null ? (
@@ -973,7 +1044,7 @@ export function SplitIllustration({ block }: { block: SplitBlock }) {
               <circle
                 cx={x(p.value)}
                 cy={38}
-                r={8}
+                r={R}
                 className={p.label === 1 ? 'fill-forest stroke-forest' : 'fill-card stroke-forest'}
                 strokeWidth={2}
               />

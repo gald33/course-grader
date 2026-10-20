@@ -65,6 +65,13 @@ from app.models.entities import (
 from app.services.peer_review import utcnow
 
 MAX_EXPERIMENTS = 30
+# Per student and lesson, so one student can't flood the instructor's
+# insights: rows ever created (deleted experiments included), answers and
+# reveals per question, commitments.
+MAX_EXPERIMENT_ROWS = 100
+MAX_ANSWERS_PER_QUESTION = 20
+MAX_REVEALS_PER_QUESTION = 20
+MAX_COMMITMENTS = 20
 MAX_TEXT = 5000
 MIN_EXPLANATION = 10
 MIN_JUSTIFICATION = 10
@@ -116,6 +123,9 @@ MSG = {
     "pct_required": "הזינו את הדיוק באחוזים (0–100)",
     "empty_run": "כתבו לפחות השערה או הגדרות ריצה לפני השמירה",
     "too_many_experiments": f"אפשר לשמור עד {MAX_EXPERIMENTS} ריצות בשיעור",
+    "too_many_experiment_rows": f"אפשר ליצור עד {MAX_EXPERIMENT_ROWS} ריצות בשיעור, כולל ריצות שנמחקו",
+    "too_many_attempts": f"אפשר לשלוח עד {MAX_ANSWERS_PER_QUESTION} תשובות לשאלה הזו",
+    "too_many_commitments": f"אפשר לשמור עד {MAX_COMMITMENTS} בחירות בשיעור",
     "run_reused": "מזהה הריצה כבר שימש בשיעור אחר",
     "experiment_not_found": "הריצה לא נמצאה",
     "justification": f"כתבו נימוק של {MIN_JUSTIFICATION} תווים לפחות",
@@ -251,8 +261,12 @@ def experiment_view(row: LessonExperiment, include_deleted: bool = False) -> dic
         "created_at": iso(row.created_at),
         "updated_at": iso(row.updated_at),
     }
-    if include_deleted:
+    if include_deleted:  # the instructor's view
         view["deleted_at"] = iso(row.deleted_at)
+        # The prediction as first saved: a later edit (e.g. together with the
+        # results) changes `hypothesis` but never this.
+        view["first_hypothesis"] = row.first_hypothesis
+        view["first_hypothesis_at"] = iso(row.first_hypothesis_at)
     return view
 
 
@@ -893,7 +907,9 @@ def _evidence(db: Session, enrollment_id: int, lesson_id: int, progress: LessonP
 def _steps_and_completion(
     db: Session, enrollment_id: int, lesson_id: int, progress: LessonProgress | None, content: dict
 ) -> dict[str, dict]:
-    """Step statuses; sets completed_at (once) when every required step is done."""
+    """Step statuses; sets completed_at (once) when every required step is done.
+    completed_at is history ("first completed at") and is never cleared; a
+    status label comes from the current evidence instead (lesson_status)."""
     steps = compute_steps(content, _evidence(db, enrollment_id, lesson_id, progress))
     done, total = required_progress(content, steps)
     if progress is not None and progress.completed_at is None and done == total:
@@ -932,6 +948,15 @@ def ensure_progress(db: Session, enrollment: Enrollment, lesson: Lesson) -> Less
     return progress
 
 
+def lesson_status(progress: LessonProgress | None, done: int, total: int) -> str:
+    """not_started / in_progress / completed, from the current evidence: a
+    student who finished and later removed evidence (un-ticked an ack,
+    deleted a run) is in progress again, although completed_at stays set."""
+    if progress is None:
+        return "not_started"
+    return "completed" if done == total else "in_progress"
+
+
 def student_lessons(db: Session, enrollment: Enrollment) -> list[dict]:
     out = []
     for lesson in published_lessons(db, enrollment.course_id):
@@ -939,9 +964,7 @@ def student_lessons(db: Session, enrollment: Enrollment) -> list[dict]:
         content = content_of(_version_for(db, lesson, progress))
         steps = compute_steps(content, _evidence(db, enrollment.id, lesson.id, progress))
         done, total = required_progress(content, steps)
-        status = "not_started"
-        if progress is not None:
-            status = "completed" if progress.completed_at is not None else "in_progress"
+        status = lesson_status(progress, done, total)
         out.append(
             {
                 "slug": lesson.slug,
@@ -1145,6 +1168,9 @@ def submit_attempt(db: Session, enrollment: Enrollment, lesson: Lesson, payload:
     question = _question(db, enrollment, lesson, payload.question_key)
     clean = clean_answer(question, payload.answer)
     prior = _attempts(db, enrollment.id, lesson.id, payload.question_key)
+    answers = sum(1 for r in prior if r.kind == "answer")
+    if answers >= MAX_ANSWERS_PER_QUESTION:
+        raise LessonError("too_many_attempts", MSG["too_many_attempts"], 409)
     row = LessonAttempt(
         enrollment_id=enrollment.id,
         lesson_id=lesson.id,
@@ -1152,7 +1178,7 @@ def submit_attempt(db: Session, enrollment: Enrollment, lesson: Lesson, payload:
         question_key=question["key"],
         question_hash=question_hash(question),
         request_id=payload.request_id,
-        attempt_number=sum(1 for r in prior if r.kind == "answer") + 1,
+        attempt_number=answers + 1,
         kind="answer",
         answer_json=json.dumps(clean, ensure_ascii=False),
         correct=is_correct(question, clean),
@@ -1175,6 +1201,12 @@ def reveal(db: Session, enrollment: Enrollment, lesson: Lesson, question_key: st
     answers = sum(1 for r in prior if r.kind == "answer")
     if question["mode"] == "check" and answers == 0:
         raise LessonError("answer_first", MSG["answer_first"], 409)
+    if sum(1 for r in prior if r.kind == "reveal") >= MAX_REVEALS_PER_QUESTION:
+        # Plenty of reveals on record: show the reasoning again, record nothing.
+        result = _attempt_result(db, enrollment, lesson, question_key, write=False)
+        latest = next((r for r in reversed(prior) if r.kind == "answer"), None)
+        result["question"]["feedback"] = feedback_for(question, _answer(latest) if latest else None, reveal=True)
+        return result
     row = LessonAttempt(
         enrollment_id=enrollment.id,
         lesson_id=lesson.id,
@@ -1321,20 +1353,20 @@ def save_experiment(db: Session, enrollment: Enrollment, lesson: Lesson, run_uui
     if row is not None and row.lesson_id != lesson.id:
         raise LessonError("run_reused", MSG["run_reused"], 409)
     now = utcnow()
+    # The first prediction saved for this run is kept as it was.
+    first = {"first_hypothesis": values["hypothesis"], "first_hypothesis_at": now} if values["hypothesis"] else {}
     if row is None:
         if payload.expected_revision is not None:
             raise _stale_experiment(db, enrollment, run)
-        count = db.scalar(
-            select(func.count())
-            .select_from(LessonExperiment)
-            .where(
-                LessonExperiment.enrollment_id == enrollment.id,
-                LessonExperiment.lesson_id == lesson.id,
-                LessonExperiment.deleted_at.is_(None),
+        total, deleted = db.execute(
+            select(func.count(), func.count(LessonExperiment.deleted_at)).where(
+                LessonExperiment.enrollment_id == enrollment.id, LessonExperiment.lesson_id == lesson.id
             )
-        )
-        if count >= MAX_EXPERIMENTS:
+        ).one()
+        if total - deleted >= MAX_EXPERIMENTS:
             raise LessonError("too_many_experiments", MSG["too_many_experiments"], 409)
+        if total >= MAX_EXPERIMENT_ROWS:
+            raise LessonError("too_many_experiments", MSG["too_many_experiment_rows"], 409)
         progress = ensure_progress(db, enrollment, lesson)
         db.add(
             LessonExperiment(
@@ -1347,6 +1379,7 @@ def save_experiment(db: Session, enrollment: Enrollment, lesson: Lesson, run_uui
                 created_at=now,
                 updated_at=now,
                 **values,
+                **first,
             )
         )
         try:
@@ -1364,7 +1397,12 @@ def save_experiment(db: Session, enrollment: Enrollment, lesson: Lesson, run_uui
                 LessonExperiment.revision == payload.expected_revision,
                 LessonExperiment.deleted_at.is_(None),
             )
-            .values(revision=payload.expected_revision + 1, updated_at=now, **values)
+            .values(
+                revision=payload.expected_revision + 1,
+                updated_at=now,
+                **values,
+                **(first if row.first_hypothesis is None else {}),
+            )
         )
         if result.rowcount != 1:
             db.rollback()
@@ -1433,6 +1471,13 @@ def commit(db: Session, enrollment: Enrollment, lesson: Lesson, payload: Commitm
         if existing.lesson_id != lesson.id:
             raise LessonError("request_reused", MSG["request_reused"], 409)
         return _commitments_result(db, enrollment, lesson)
+    count = db.scalar(
+        select(func.count())
+        .select_from(LessonCommitment)
+        .where(LessonCommitment.enrollment_id == enrollment.id, LessonCommitment.lesson_id == lesson.id)
+    )
+    if count >= MAX_COMMITMENTS:
+        raise LessonError("too_many_commitments", MSG["too_many_commitments"], 409)
     fields: dict[str, str] = {}
     kind, depth, examples = _clean_settings(
         fields, payload.depth_kind, payload.depth, payload.training_examples, required=True
@@ -1616,26 +1661,34 @@ def _student_progress(activity: _Activity, contents: _Contents, reference: Lesso
     return _StudentProgress(steps, content, done, total)
 
 
-def _status(activity: _Activity) -> str:
-    if activity.progress is None:
-        return "not_started"
-    return "completed" if activity.progress.completed_at is not None else "in_progress"
+def _status(activity: _Activity, mine: _StudentProgress) -> str:
+    return lesson_status(activity.progress, mine.done, mine.total)
 
 
 def _first_correct_count(activity: _Activity) -> int:
+    """Questions whose first answer was right before any feedback: a question
+    the student revealed before answering never counts."""
     firsts: dict[str, LessonAttempt] = {}
-    for a in activity.attempts:
-        if a.kind == "answer":
-            firsts.setdefault(a.question_key, a)
-    return sum(1 for a in firsts.values() if a.correct is True)
+    for a in activity.attempts:  # oldest first
+        firsts.setdefault(a.question_key, a)
+    return sum(1 for a in firsts.values() if a.kind == "answer" and a.correct is True)
 
 
 def _question_stats(content: dict, students: list[_Activity]) -> list[dict]:
-    """First-attempt evidence per question, keyed by question key so attempts
-    made against any version count."""
+    """First-attempt evidence per question. answered / first_correct /
+    first_incorrect count by question key over every version (correctness is
+    stored per attempt). A first answer given after revealing the reasoning
+    is not independent evidence: it counts in answered and
+    answered_after_reveal only. The option bars count only answers given to
+    this exact question (same question hash), so an option id that changed
+    meaning in another version is never shown under this version's text;
+    the rest are other_version_answers. Written text is listed for each
+    student's first and latest answer (and any flagged one); the drilldown
+    has every attempt."""
     out = []
     for q in ordered_questions(content):
         key = q["key"]
+        digest = question_hash(q)
         stats = {
             "key": key,
             "step": q["step"],
@@ -1648,7 +1701,9 @@ def _question_stats(content: dict, students: list[_Activity]) -> list[dict]:
             "first_incorrect": 0,
             "attempts_after_feedback": 0,
             "revealed_before_answer": 0,
+            "answered_after_reveal": 0,
             "eventually_correct_after_wrong_first": 0,
+            "other_version_answers": 0,
         }
         first_counts: dict[str, int] = defaultdict(int)
         all_counts: dict[str, int] = defaultdict(int)
@@ -1656,27 +1711,33 @@ def _question_stats(content: dict, students: list[_Activity]) -> list[dict]:
         for activity in students:
             rows = [a for a in activity.attempts if a.question_key == key]
             answers = [a for a in rows if a.kind == "answer"]
-            if rows and rows[0].kind == "reveal":
+            revealed_first = bool(rows) and rows[0].kind == "reveal"
+            if revealed_first:
                 stats["revealed_before_answer"] += 1
             if not answers:
                 stats["unanswered"] += 1
                 continue
             stats["answered"] += 1
+            stats["attempts_after_feedback"] += sum(1 for a in answers if a.after_feedback)
             first = answers[0]
-            if first.correct is True:
+            if revealed_first:
+                stats["answered_after_reveal"] += 1
+            elif first.correct is True:
                 stats["first_correct"] += 1
             elif first.correct is False:
                 stats["first_incorrect"] += 1
                 if any(a.correct for a in answers[1:]):
                     stats["eventually_correct_after_wrong_first"] += 1
-            stats["attempts_after_feedback"] += sum(1 for a in answers if a.after_feedback)
             for i, a in enumerate(answers):
                 answer = _answer(a) or {}
                 if answer.get("choice") is not None:
-                    all_counts[answer["choice"]] += 1
-                    if i == 0:
-                        first_counts[answer["choice"]] += 1
-                if answer.get("text"):
+                    if a.question_hash != digest:
+                        stats["other_version_answers"] += 1
+                    else:
+                        all_counts[answer["choice"]] += 1
+                        if i == 0 and not revealed_first:
+                            first_counts[answer["choice"]] += 1
+                if answer.get("text") and (i in (0, len(answers) - 1) or a.review_flag):
                     texts.append(
                         {
                             "attempt_id": a.id,
@@ -1710,13 +1771,12 @@ def insights(db: Session, lesson: Lesson, include_test: bool = False) -> dict:
     """Where the class is and where understanding breaks down. Aggregates
     leave out withdrawn students and (unless include_test) test students;
     every enrolled student is listed, by name (never ranked by time). Steps
-    and questions are those of the latest published version; question stats
-    match attempts by key, whatever version they were made against."""
+    and questions are those of the live version (what a student starting now
+    gets: the active published one, or the latest draft before any publish);
+    see _question_stats for how attempts on other versions count."""
     reference = _reference_version(db, lesson)  # what a student starting now gets
-    published = [v for v in _versions(db, lesson.id) if v.status == "published"]
-    shown = published[-1] if published else reference
     contents = _Contents(db)
-    ref_content = contents.get(shown.id) if shown else {"steps": [], "questions": {}}
+    ref_content = contents.get(reference.id) if reference else {"steps": [], "questions": {}}
     activities = _course_activity(db, lesson)
     totals = {"enrolled": 0, "not_started": 0, "in_progress": 0, "completed": 0, "excluded_test": 0, "withdrawn": 0}
     step_counts = {s["key"]: {"viewed": 0, "completed": 0} for s in ref_content["steps"]}
@@ -1726,7 +1786,7 @@ def insights(db: Session, lesson: Lesson, include_test: bool = False) -> dict:
         enrollment = activity.enrollment
         mine = _student_progress(activity, contents, reference)
         steps, content = mine.steps, mine.content or ref_content
-        status = _status(activity)
+        status = _status(activity, mine)
         if enrollment.withdrawn_at is not None:
             totals["withdrawn"] += 1
         elif enrollment.is_test and not include_test:
@@ -1787,7 +1847,11 @@ def insights(db: Session, lesson: Lesson, include_test: bool = False) -> dict:
 
 def student_detail(db: Session, lesson: Lesson, student_id: int) -> dict:
     """One student's path through the lesson: every attempt, experiment
-    (deleted ones too) and commitment, oldest first."""
+    (deleted ones too) and commitment, oldest first. status is from the
+    current evidence (lesson_status). question_changed marks an attempt made
+    against a different definition of the question than the live version's
+    (the one insights shows), so its choice must not be read with the live
+    option texts and misconception tags."""
     enrollment = db.scalar(
         select(Enrollment).where(Enrollment.course_id == lesson.course_id, Enrollment.student_id == student_id)
     )
@@ -1795,14 +1859,22 @@ def student_detail(db: Session, lesson: Lesson, student_id: int) -> dict:
         raise LessonError("not_enrolled", "Student is not enrolled in this course", 404)
     student = db.get(Student, student_id)
     progress = _progress(db, enrollment.id, lesson.id)
-    version = db.get(LessonVersion, progress.version_id) if progress else _reference_version(db, lesson)
+    reference = _reference_version(db, lesson)
+    version = db.get(LessonVersion, progress.version_id) if progress else reference
     attempts = _attempts(db, enrollment.id, lesson.id)
     experiments = _experiments(db, enrollment.id, lesson.id, include_deleted=True)
     commitments = _commitments(db, enrollment.id, lesson.id)
+    contents = _Contents(db)
     steps = None
+    status = "not_started"
     if version is not None:
+        content = contents.get(version.id)
         live = [e for e in experiments if e.deleted_at is None]
-        steps = compute_steps(content_of(version), evidence_from(progress, attempts, live, commitments))
+        steps = compute_steps(content, evidence_from(progress, attempts, live, commitments))
+        status = lesson_status(progress, *required_progress(content, steps))
+    live_hashes = (
+        {k: question_hash(q) for k, q in contents.get(reference.id)["questions"].items()} if reference else {}
+    )
     return {
         "student": {
             "id": student.id,
@@ -1810,6 +1882,7 @@ def student_detail(db: Session, lesson: Lesson, student_id: int) -> dict:
             "is_test": enrollment.is_test,
             "withdrawn": enrollment.withdrawn_at is not None,
         },
+        "status": status,
         "progress": progress_view(progress),
         "version_number": version.number if progress and version else None,
         "steps": steps,
@@ -1825,6 +1898,7 @@ def student_detail(db: Session, lesson: Lesson, student_id: int) -> dict:
                 "after_feedback": a.after_feedback,
                 "submitted_at": iso(a.submitted_at),
                 "review_flag": a.review_flag,
+                "question_changed": live_hashes.get(a.question_key) != a.question_hash,
             }
             for a in attempts
         ],
@@ -1874,7 +1948,7 @@ def export_csv(db: Session, lesson: Lesson) -> str:
         writer.writerow(
             [
                 _csv_cell(activity.student.name),
-                _status(activity),
+                _status(activity, mine),
                 mine.done,
                 mine.total,
                 sum(1 for e in activity.experiments if e.deleted_at is None),

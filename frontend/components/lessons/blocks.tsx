@@ -36,11 +36,11 @@ function BlockView({ block, api }: { block: Block; api: LessonApi }) {
       return <CalloutBlock block={block} />;
     case 'expander':
       return (
-        <details className="rounded-lg border border-line-soft bg-paper-2 px-4 py-3">
-          <summary className="cursor-pointer text-[15px] font-semibold text-forest">
+        <details className="rounded-lg border border-line-soft bg-paper-2">
+          <summary className="cursor-pointer px-4 py-3 text-[15px] font-semibold text-forest">
             <InlineText text={block.title} />
           </summary>
-          <div className="mt-3">
+          <div className="px-4 pb-3">
             <BlockList blocks={block.blocks} api={api} />
           </div>
         </details>
@@ -96,19 +96,27 @@ function BlockView({ block, api }: { block: Block; api: LessonApi }) {
 
 /* ---------------- Structure ---------------- */
 
-const SECTION: Record<SectionLabel, { text: string; pill: string; border: string }> = {
-  understand: { text: 'מבינים', pill: 'pill-forest', border: 'border-forest-soft' },
-  try: { text: 'מנסים', pill: 'pill-terra', border: 'border-terracotta-soft' },
-  check: { text: 'בודקים', pill: 'pill-info', border: 'border-info-soft' }
+// Each kind has its own weight: an explanation is plain text with a rail, the
+// action is a tinted card, the check is a card around its question cards.
+// (The terracotta pill text is darkened for contrast: 4.8:1 on its tint.)
+export const TERRA_PILL = 'pill pill-terra !text-[#9a5533]';
+const SECTION: Record<SectionLabel, { text: string; pill: string; box: string }> = {
+  understand: { text: 'מבינים', pill: 'pill pill-forest', box: 'border-s-4 border-forest-soft py-1 ps-4' },
+  try: {
+    text: 'מנסים',
+    pill: TERRA_PILL,
+    box: 'rounded-lg border border-terracotta-soft border-s-4 border-s-terracotta bg-terracotta-tint/50 p-4'
+  },
+  check: { text: 'בודקים', pill: 'pill pill-info', box: 'rounded-lg border border-info-soft border-s-4 border-s-info bg-card p-4 shadow-soft' }
 };
 
 function SectionBlock({ block, api }: { block: Extract<Block, { type: 'section' }>; api: LessonApi }) {
   const id = useId();
   const s = SECTION[block.label] ?? SECTION.understand;
   return (
-    <section aria-labelledby={id} className={`rounded-lg border bg-card p-4 shadow-soft ${s.border}`}>
+    <section aria-labelledby={id} className={s.box}>
       <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className={`pill ${s.pill} font-semibold`}>{s.text}</span>
+        <span className={`${s.pill} font-semibold`}>{s.text}</span>
         <h3 id={id} className="font-hebrew text-[19px] leading-snug">
           {block.title ? <InlineText text={block.title} /> : <span className="sr-only">{s.text}</span>}
         </h3>
@@ -118,17 +126,22 @@ function SectionBlock({ block, api }: { block: Extract<Block, { type: 'section' 
   );
 }
 
+// A side note, not the main thing: a rail in its tone, no fill.
 const CALLOUT = {
-  info: { icon: 'i', box: 'border-info-soft bg-info-soft/40', icon_bg: 'bg-info', label: 'מידע' },
-  warn: { icon: '!', box: 'border-warn-soft bg-warn-soft/40', icon_bg: 'bg-warn', label: 'שימו לב' },
-  note: { icon: '✎', box: 'border-terracotta-soft bg-terracotta-tint', icon_bg: 'bg-terracotta', label: 'הערה' }
+  info: { icon: 'i', box: 'border-s-info', icon_bg: 'bg-info', label: 'מידע' },
+  warn: { icon: '!', box: 'border-s-warn', icon_bg: 'bg-warn', label: 'שימו לב' },
+  note: { icon: '✎', box: 'border-s-terracotta', icon_bg: 'bg-terracotta', label: 'הערה' }
 } as const;
 
 function CalloutBlock({ block }: { block: Extract<Block, { type: 'callout' }> }) {
   const c = CALLOUT[block.tone] ?? CALLOUT.info;
   return (
-    <aside role="note" aria-label={block.title ? plainInline(block.title) : c.label} className={`flex gap-3 rounded-lg border p-4 ${c.box}`}>
-      <span aria-hidden className={`grid h-7 w-7 shrink-0 place-items-center rounded-full font-display text-[15px] text-paper ${c.icon_bg}`}>
+    <aside
+      role="note"
+      aria-label={block.title ? plainInline(block.title) : c.label}
+      className={`flex gap-2.5 border-s-4 bg-transparent py-1 ps-3 ${c.box}`}
+    >
+      <span aria-hidden className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full font-display text-[12px] text-paper ${c.icon_bg}`}>
         {c.icon}
       </span>
       <div className="min-w-0 text-[15px]">
@@ -143,10 +156,33 @@ function CalloutBlock({ block }: { block: Extract<Block, { type: 'callout' }> })
   );
 }
 
+/** A header that is one code identifier, e.g. `days_since_purchase`. */
+const CODE_LABEL = /^`([^`]+)`$/;
+
+/** The identifier may break after each "_" (days_ / since_ / purchase), so
+ * four of them fit side by side on a phone. */
+function CodeHeader({ code }: { code: string }) {
+  const parts = code.split('_').map((p, i, all) => (i < all.length - 1 ? `${p}_` : p));
+  return (
+    <bdi dir="ltr">
+      <code className="rounded bg-paper px-1 py-px font-mono text-[0.9em]">
+        {parts.map((p, i) => (
+          <span key={i}>
+            {p}
+            {i < parts.length - 1 ? <wbr /> : null}
+          </span>
+        ))}
+      </code>
+    </bdi>
+  );
+}
+
 function TableBlock({ block }: { block: Extract<Block, { type: 'table' }> }) {
   const id = useId();
   // A table of identifiers and numbers only reads in the file's own order.
   const allLtr = block.columns.length > 0 && block.columns.every((c) => c.ltr);
+  const wide = block.columns.length >= 4;
+  const cell = wide ? 'px-2' : 'px-3';
   return (
     <figure className="grid grid-cols-1 gap-1.5">
       {block.caption ? (
@@ -161,19 +197,26 @@ function TableBlock({ block }: { block: Extract<Block, { type: 'table' }> }) {
         tabIndex={0}
         aria-label={block.caption ? plainInline(block.caption) : 'טבלה'}
       >
-        <table dir={allLtr ? 'ltr' : undefined} aria-labelledby={block.caption ? id : undefined} className="w-full border-collapse text-[14px]">
+        <table
+          dir={allLtr ? 'ltr' : undefined}
+          aria-labelledby={block.caption ? id : undefined}
+          className={`w-full border-collapse ${wide ? 'text-[13px]' : 'text-[14px]'}`}
+        >
           <thead>
             <tr>
-              {block.columns.map((c, i) => (
-                <th
-                  key={i}
-                  scope="col"
-                  dir={c.ltr && !allLtr ? 'ltr' : undefined}
-                  className="whitespace-nowrap bg-paper-2 px-3 py-2 text-start font-semibold"
-                >
-                  <InlineText text={c.label} />
-                </th>
-              ))}
+              {block.columns.map((c, i) => {
+                const code = CODE_LABEL.exec(c.label)?.[1];
+                return (
+                  <th
+                    key={i}
+                    scope="col"
+                    dir={c.ltr && !allLtr ? 'ltr' : undefined}
+                    className={`bg-paper-2 ${cell} py-2 text-start align-bottom font-semibold ${code ? '' : 'whitespace-nowrap'}`}
+                  >
+                    {code ? <CodeHeader code={code} /> : <InlineText text={c.label} />}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -183,7 +226,7 @@ function TableBlock({ block }: { block: Extract<Block, { type: 'table' }> }) {
                   <td
                     key={j}
                     dir={block.columns[j]?.ltr && !allLtr ? 'ltr' : undefined}
-                    className={`px-3 py-2 align-top leading-relaxed ${block.columns[j]?.ltr ? 'tnum whitespace-nowrap' : ''}`}
+                    className={`${cell} py-2 align-top leading-relaxed ${block.columns[j]?.ltr ? 'tnum whitespace-nowrap' : ''}`}
                   >
                     <InlineText text={cell} />
                   </td>
@@ -501,7 +544,7 @@ function AckBlock({ block, api }: { block: Extract<Block, { type: 'ack' }>; api:
           <label htmlFor={id} className="cursor-pointer text-[15px] font-semibold">
             <InlineText text={block.label} />
           </label>
-          <span className="ms-1 text-[12px] text-ink-3">(סימון עצמי)</span>
+          <span className="ms-1 text-[12px] text-ink-2">(סימון עצמי)</span>
           {block.description ? (
             <p id={`${id}-desc`} className="text-[13px] text-ink-2">
               <InlineText text={block.description} />

@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
@@ -45,6 +47,7 @@ from app.services import student_grades
 from app.services.peer_scoring import ScoredReview, compute_round_scores, review_scores, reviewer_shares
 
 router = APIRouter(prefix="/api/r/{token}", tags=["student-review"])
+logger = logging.getLogger(__name__)
 
 
 def _enrollment(db: Session, token: str, read_only: bool = False) -> Enrollment:
@@ -244,6 +247,20 @@ def _round_view(
     return view
 
 
+def _lesson_links(db: Session, course_id: int) -> list[dict]:
+    """The course page's lesson entry points. They are optional: on a database
+    the lessons migration (0021) hasn't reached, the page shows none instead of
+    failing as a whole (peer review, teams, grades). The savepoint keeps the
+    session usable after the failed query. The lesson routes themselves still
+    fail loudly."""
+    try:
+        with db.begin_nested():
+            return lessons_svc.lesson_links(db, course_id)
+    except (OperationalError, ProgrammingError):
+        logger.warning("Lesson links unavailable (is migration 0021_lessons applied?)", exc_info=True)
+        return []
+
+
 def _payload(db: Session, enrollment: Enrollment) -> dict:
     course = db.get(Course, enrollment.course_id)
     student = db.get(Student, enrollment.student_id)
@@ -285,7 +302,7 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
         "today": date.today().isoformat(),
         "rounds": [_round_view(db, r, enrollment, team_id, sessions, teams) for r in rounds],
         "grades": student_grades.grades_view(db, enrollment),
-        "lessons": lessons_svc.lesson_links(db, enrollment.course_id),
+        "lessons": _lesson_links(db, enrollment.course_id),
     }
 
 

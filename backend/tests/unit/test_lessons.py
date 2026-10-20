@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from lesson_samples import sample_content, write_assets
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import sessionmaker
 
 from app.api.deps import get_db
@@ -535,6 +535,45 @@ def test_reveal_and_check_mode_rules(env, course):
     ]
 
 
+def test_answers_after_a_reveal_are_not_first_try_evidence(env, course):
+    alice, bob, wendy = (_browser(env, course, n) for n in ("Alice", "Bob", "Wendy"))
+    _ok(alice.answer("q_pick", {"choice": "a"}))  # right, on her own
+    _ok(bob.reveal("q_pick"))  # sees the correct option, then picks it
+    _ok(bob.answer("q_pick", {"choice": "a"}))
+    _ok(wendy.reveal("q_pick"))
+    _ok(wendy.answer("q_pick", {"choice": "b"}))
+    _ok(wendy.answer("q_pick", {"choice": "a"}))
+
+    base = f"{_base(course)}/{course.lesson['id']}"
+    pick = next(q for q in _ok(env.client.get(f"{base}/insights"))["questions"] if q["key"] == "q_pick")
+    assert (pick["answered"], pick["answered_after_reveal"], pick["revealed_before_answer"]) == (3, 2, 2)
+    assert (pick["first_correct"], pick["first_incorrect"], pick["eventually_correct_after_wrong_first"]) == (1, 0, 0)
+    assert pick["attempts_after_feedback"] == 3  # every answer after a reveal or an earlier answer
+    counts = {o["id"]: (o["first_count"], o["all_count"]) for o in pick["options"]}
+    assert counts == {"a": (1, 3), "b": (0, 1), "c": (0, 0)}
+
+    rows = env.client.get(f"{base}/export.csv").content.decode("utf-8").lstrip("\ufeff").splitlines()
+    first_correct = {r.split(",")[0]: r.split(",")[6] for r in rows[1:]}
+    assert (first_correct["Alice"], first_correct["Bob"], first_correct["Wendy"]) == ("1", "0", "0")
+
+
+def test_written_answers_list_each_students_first_and_latest(env, course):
+    alice = _browser(env, course, "Alice")
+    for body in ("First try at a finding.", "Second, middle version.", "Third and latest version."):
+        _ok(alice.answer("q_free", {"text": body}))
+    base = f"{_base(course)}/{course.lesson['id']}"
+
+    def written():
+        stats = _ok(env.client.get(f"{base}/insights"))["questions"]
+        return [(t["attempt_number"], t["text"]) for t in next(q for q in stats if q["key"] == "q_free")["free_text"]]
+
+    assert written() == [(1, "First try at a finding."), (3, "Third and latest version.")]
+    middle = _ok(env.client.get(f"{base}/students/{course.ids['Alice']}"))["attempts"][1]
+    assert middle["answer"]["text"] == "Second, middle version."  # every attempt in the drilldown
+    _ok(env.client.post(f"{base}/attempts/{middle['id']}/flag", json={"flagged": True}))
+    assert [n for n, _ in written()] == [1, 2, 3]  # a flagged one stays listed
+
+
 # ---------------------------------------------------------------------------
 # Experiments
 # ---------------------------------------------------------------------------
@@ -615,11 +654,77 @@ def test_experiments_validate_units_and_revisions(env, course):
     assert _ok(alice.lesson())["experiments"][0]["hypothesis"] == "h"
 
 
-def test_experiment_limit(env, course):
+def test_first_prediction_is_kept_for_the_instructor(env, course):
+    alice = _browser(env, course, "Alice")
+    run, later = _rid(), _rid()
+    _ok(alice.experiment(run, {"hypothesis": "Deeper is better."}))
+    _ok(alice.experiment(run, {"expected_revision": 1, "depth_kind": "unlimited", "training_examples": 100,
+                               "train_accuracy_pct": 100, "validation_accuracy_pct": 66.25,
+                               "baseline_validation_pct": 54.2, "hypothesis": "Deeper overfits (rewritten after).",
+                               "observation": "Training 100%, validation 66%."}))
+    _ok(alice.experiment(later, {"depth_kind": "limited", "depth": 3, "training_examples": 100}))  # no prediction yet
+    _ok(alice.experiment(later, {"expected_revision": 1, "depth_kind": "limited", "depth": 3,
+                                 "training_examples": 100, "hypothesis": "Depth 3 helps a little."}))
+    _ok(alice.experiment(later, {"expected_revision": 2, "depth_kind": "limited", "depth": 3,
+                                 "training_examples": 100, "hypothesis": "Changed again."}))
+
+    detail = _ok(env.client.get(f"{_base(course)}/{course.lesson['id']}/students/{course.ids['Alice']}"))
+    by_run = {e["run_uuid"]: e for e in detail["experiments"]}
+    assert by_run[run]["hypothesis"] == "Deeper overfits (rewritten after)."
+    assert by_run[run]["first_hypothesis"] == "Deeper is better." and by_run[run]["first_hypothesis_at"]
+    assert by_run[run]["first_hypothesis_at"] < by_run[run]["updated_at"]
+    assert by_run[later]["first_hypothesis"] == "Depth 3 helps a little."
+    assert "first_hypothesis" not in _ok(alice.lesson())["experiments"][0]  # instructor view only
+
+
+def test_experiment_limit(env, course, monkeypatch):
     alice = _browser(env, course, "Alice")
     for _ in range(lessons_svc.MAX_EXPERIMENTS):
         _ok(alice.experiment(_rid(), {"hypothesis": "h"}))
     assert _code(alice.experiment(_rid(), {"hypothesis": "h"}), 409) == "too_many_experiments"
+
+    # Deleted records count toward a higher cap on every record ever created.
+    bob = _browser(env, course, "Bob")
+    monkeypatch.setattr(lessons_svc, "MAX_EXPERIMENT_ROWS", 4)
+    for _ in range(3):
+        run = _rid()
+        _ok(bob.experiment(run, {"hypothesis": "h"}))
+        _ok(bob.call("DELETE", f"/test-lesson/experiments/{run}", params={"expected_revision": 1}))
+    kept = _rid()
+    _ok(bob.experiment(kept, {"hypothesis": "h"}))
+    res = bob.experiment(_rid(), {"hypothesis": "h"})
+    assert _code(res, 409) == "too_many_experiments" and "שנמחקו" in res.json()["detail"]["message"]
+    edited = _ok(bob.experiment(kept, {"expected_revision": 1, "hypothesis": "edits still work"}))
+    assert [e["hypothesis"] for e in edited["experiments"]] == ["edits still work"]
+
+
+def test_answers_reveals_and_commitments_are_capped(env, course):
+    alice = _browser(env, course, "Alice")
+    first_rid = _rid()
+    first = _ok(alice.answer("q_pick", {"choice": "c"}, request_id=first_rid))
+    for _ in range(lessons_svc.MAX_ANSWERS_PER_QUESTION - 1):
+        _ok(alice.answer("q_pick", {"choice": "b"}))
+    res = alice.answer("q_pick", {"choice": "a"})
+    assert _code(res, 409) == "too_many_attempts" and "20" in res.json()["detail"]["message"]
+    replay = _ok(alice.answer("q_pick", {"choice": "c"}, request_id=first_rid))  # a retry still gets its result
+    assert replay["question"]["first"] == first["question"]["first"]
+    assert _ok(alice.answer("q_extra", {"choice": "id"}))["question"]["attempts"] == 1  # per question
+
+    for _ in range(lessons_svc.MAX_REVEALS_PER_QUESTION):
+        _ok(alice.reveal("q_pick"))
+    rows = _rows(env, LessonAttempt)
+    capped = _ok(alice.reveal("q_pick"))["question"]  # still shows the reasoning, records nothing
+    assert _rows(env, LessonAttempt) == rows
+    assert capped["revealed"] is True and capped["feedback"]["correct_options"] == ["a"]
+    assert capped["feedback"]["explanation"] and capped["feedback"]["message"] == "זו תכונה, לא תווית."
+
+    commit_rid = _rid()
+    _ok(alice.commit({"request_id": commit_rid}))
+    for _ in range(lessons_svc.MAX_COMMITMENTS - 1):
+        _ok(alice.commit({}))
+    assert _code(alice.commit({}), 409) == "too_many_commitments"
+    assert len(_ok(alice.commit({"request_id": commit_rid}))["commitments"]) == lessons_svc.MAX_COMMITMENTS
+    assert _rows(env, LessonCommitment) == lessons_svc.MAX_COMMITMENTS
 
 
 # ---------------------------------------------------------------------------
@@ -705,10 +810,52 @@ def test_completion_is_computed_from_evidence(env, course):
     listed = _ok(alice.call("GET"))["lessons"][0]
     assert (listed["status"], listed["required_done"], listed["required_total"]) == ("completed", 3, 3)
 
-    # completed_at is set once: removing an ack later doesn't unset it.
+    # completed_at is set once: removing an ack later doesn't unset it, but
+    # the status follows the evidence.
     revision = _ok(alice.lesson())["progress"]["revision"]
     after = _ok(alice.progress({"expected_revision": revision, "acks_remove": ["read_intro"]}))
     assert after["progress"]["completed_at"] == done["completed_at"] and after["steps"]["intro"]["completed"] is False
+    listed = _ok(alice.call("GET"))["lessons"][0]
+    assert (listed["status"], listed["required_done"], listed["required_total"]) == ("in_progress", 2, 3)
+
+
+def test_status_follows_evidence_after_completion(env, course):
+    alice = _browser(env, course, "Alice")
+    _complete_required(alice)
+    run = _ok(alice.lesson())["experiments"][0]
+    base = f"{_base(course)}/{course.lesson['id']}"
+
+    def statuses():
+        listed = _ok(alice.call("GET"))["lessons"][0]
+        stats = _ok(env.client.get(f"{base}/insights"))
+        row = next(s for s in stats["students"] if s["name"] == "Alice")
+        csv_row = next(r for r in env.client.get(f"{base}/export.csv").text.splitlines() if "Alice" in r)
+        detail = _ok(env.client.get(f"{base}/students/{course.ids['Alice']}"))
+        return {
+            "list": (listed["status"], listed["required_done"]),
+            "insights": (row["status"], row["completed_required"], stats["totals"]["completed"]),
+            "csv": csv_row.split(",")[1],
+            "detail": detail["status"],
+            "completed_at": detail["progress"]["completed_at"],
+        }
+
+    before = statuses()
+    assert before["list"] == ("completed", 3) and before["insights"] == ("completed", 3, 1)
+    assert before["csv"] == "completed" and before["detail"] == "completed" and before["completed_at"]
+
+    deleted = _ok(alice.call("DELETE", f"/test-lesson/experiments/{run['run_uuid']}", params={"expected_revision": 1}))
+    assert deleted["steps"]["lab"]["completed"] is False and deleted["completed_at"] == before["completed_at"]
+    after = statuses()
+    assert after["list"] == ("in_progress", 2) and after["insights"] == ("in_progress", 2, 0)
+    assert after["csv"] == "in_progress" and after["detail"] == "in_progress"
+    assert after["completed_at"] == before["completed_at"]  # history: when she first completed
+
+    _ok(alice.experiment(_rid(), {"depth_kind": "unlimited", "training_examples": 300, "train_accuracy_pct": 100,
+                                  "validation_accuracy_pct": 70, "baseline_validation_pct": 54.2,
+                                  "observation": "Training 100%, validation 70%."}))
+    again = statuses()
+    assert again["list"] == ("completed", 3) and again["insights"] == ("completed", 3, 1)
+    assert again["completed_at"] == before["completed_at"]
 
 
 def test_published_versions_stay_pinned(env, course):
@@ -736,19 +883,57 @@ def test_published_versions_stay_pinned(env, course):
         attempts = {(a.question_key, a.version_id) for a in db.scalars(select(LessonAttempt))}
         assert attempts == {("q_pick", v1["id"]), ("q_pick", v2["id"])}
 
+    # Correctness counts per question key over every version; the option bars
+    # only count answers to the question as the live version defines it.
+    base = f"{_base(course)}/{course.lesson['id']}"
+
+    def pick_stats():
+        return next(q for q in _ok(env.client.get(f"{base}/insights"))["questions"] if q["key"] == "q_pick")
+
+    def changed(name):
+        return [a["question_changed"] for a in _ok(env.client.get(f"{base}/students/{course.ids[name]}"))["attempts"]]
+
+    q = pick_stats()
+    assert q["answered"] == 2 and q["first_correct"] == 1 and q["first_incorrect"] == 1
+    assert q["prompt"].startswith("גרסה 2")  # as defined in the live version
+    assert {o["id"]: o["first_count"] for o in q["options"]} == {"a": 0, "b": 1, "c": 0}
+    assert q["other_version_answers"] == 1  # Alice answered v1's wording
+    assert changed("Alice") == [True] and changed("Bob") == [False]
+
     # Republishing v1 sends only students who haven't started back to it.
     _publish(env, course, course.lesson, v1["id"])
     assert _ok(bob.lesson())["version"]["id"] == v2["id"]
     tess = _browser(env, course, "Tess")
     assert _ok(tess.lesson())["version"]["id"] == v1["id"]
 
-    # Question stats are per question key, over every version.
-    stats = _ok(env.client.get(f"{_base(course)}/{course.lesson['id']}/insights"))
+    stats = _ok(env.client.get(f"{base}/insights"))
     q = next(q for q in stats["questions"] if q["key"] == "q_pick")
     assert q["answered"] == 2 and q["first_correct"] == 1 and q["first_incorrect"] == 1
-    assert q["prompt"].startswith("גרסה 2")  # as defined in the latest published version
+    assert q["prompt"] == "מהי התווית?"  # v1 is live again
+    assert {o["id"]: o["first_count"] for o in q["options"]} == {"a": 1, "b": 0, "c": 0}
+    assert q["other_version_answers"] == 1  # now Bob's v2 answer
+    assert changed("Alice") == [False] and changed("Bob") == [True]
     students = {s["name"]: s for s in stats["students"]}
     assert students["Alice"]["version_number"] == 1 and students["Bob"]["version_number"] == 2
+
+
+def test_option_bars_never_read_an_answer_with_another_versions_options(env, course):
+    alice = _browser(env, course, "Alice")
+    _ok(alice.answer("q_pick", {"choice": "b"}))  # v1: b is visits_30d (feature-as-label)
+    content = sample_content()
+    q = content["questions"]["q_pick"]
+    q["options"][1]["text"], q["options"][2]["text"] = q["options"][2]["text"], q["options"][1]["text"]
+    q["answer"]["misconceptions"] = {"b": "id-as-label", "c": "feature-as-label"}
+    q["answer"]["feedback"]["b"], q["answer"]["feedback"]["c"] = q["answer"]["feedback"]["c"], q["answer"]["feedback"]["b"]
+    _write_fixture(env, content)
+    _publish(env, course, course.lesson, _install(env, course)["draft_version"]["id"])
+
+    stats = _ok(env.client.get(f"{_base(course)}/{course.lesson['id']}/insights"))
+    pick = next(x for x in stats["questions"] if x["key"] == "q_pick")
+    assert (pick["answered"], pick["first_incorrect"], pick["other_version_answers"]) == (1, 1, 1)
+    bars = {o["id"]: (o["misconception"], o["first_count"], o["all_count"]) for o in pick["options"]}
+    assert bars["b"] == ("id-as-label", 0, 0)  # not reinterpreted as v2's misconception
+    assert bars["c"] == ("feature-as-label", 0, 0)
 
 
 def test_insights_count_enrolled_students_and_export(env, course):
@@ -824,6 +1009,26 @@ def test_course_page_lists_published_lessons(env):
     assert _ok(env.client.get(home))["lessons"] == [{"slug": "test-lesson", "title": "שיעור ניסוי"}]
 
 
+def test_course_page_survives_a_database_without_the_lesson_tables(env):
+    """Code deployed before migration 0021: the course page (peer review,
+    teams, grades) still works and just lists no lessons."""
+    from app.api import student_review
+
+    course = _course(env, "AI", [("100000001", "Alice", False)])
+    with env.Session() as db:
+        cascade = " CASCADE" if db.get_bind().dialect.name == "postgresql" else ""
+        db.execute(text(f"DROP TABLE lessons{cascade}"))
+        db.commit()
+    page = _ok(env.client.get(f"/api/r/{course.tokens['Alice']}"))
+    assert page["lessons"] == [] and page["student"]["name"] == "Alice"
+    with env.Session() as db:
+        assert student_review._lesson_links(db, course.id) == []
+        assert db.scalar(select(func.count()).select_from(Student)) == 1  # the session is still usable
+        db.add(Student(national_id="100000002", name="Bob"))
+        db.commit()
+        assert db.scalar(select(func.count()).select_from(Student)) == 2
+
+
 # ---------------------------------------------------------------------------
 # Seed command and migration
 # ---------------------------------------------------------------------------
@@ -854,6 +1059,8 @@ def test_seed_script_is_explicit_and_idempotent(env, monkeypatch, capsys):
     assert _seed("--course-id", str(course.id), "--dry-run", "--publish") == 0
     out = capsys.readouterr().out
     assert f"Course {course.id}: code AI, Course AI, 2026 semester A" in out and "create lesson 'test-lesson'" in out
+    with env.Session() as db:
+        assert f"Database: {db.get_bind().url.render_as_string(hide_password=True)}" in out
     assert "Dry run" in out and _rows(env, Lesson) == 0
 
     assert _seed("--course-id", str(course.id)) == 0

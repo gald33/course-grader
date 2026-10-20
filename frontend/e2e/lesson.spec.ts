@@ -111,6 +111,15 @@ function traverse(tree: { root: number; nodes: JsonNode[] }, sample: Record<stri
   return { leaf: node, path };
 }
 
+/** Everything the device mirror holds for a lesson (one entry per open tab:
+ * <prefix>:<tab id>), or null when nothing waits there. */
+function mirror(page: Page, prefix: string): Promise<string | null> {
+  return page.evaluate((p) => {
+    const keys = Object.keys(localStorage).filter((k) => k === p || k.startsWith(`${p}:`));
+    return keys.length ? keys.map((k) => localStorage.getItem(k) ?? '').join('\n') : null;
+  }, prefix);
+}
+
 function parseCsv(text: string): string[][] {
   return text
     .replace(/^\uFEFF/, '')
@@ -140,7 +149,9 @@ test('signed out: the lesson asks to sign in, and signing in returns to the same
   await expect(page).toHaveURL(/\/login\?next=/);
   // Signing in (the session cookie the login sets) sends the student back.
   await signIn(context, student);
-  await page.reload();
+  // The login page sends a signed-in student on by itself, possibly before the
+  // reloaded page's "load" event: wait for the reload to start, then the URL.
+  await page.reload({ waitUntil: 'commit' });
   await expect(page).toHaveURL(new RegExp(`${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
   await expect(stepHeading(page)).toContainText('בודקים את הנתונים עם הצ׳טבוט');
   expect(problems).toEqual([]);
@@ -192,7 +203,7 @@ test('a student completes two steps, reloads, and resumes with answers and feedb
   await waitSaved(page);
   // Acknowledged by the server, so nothing waits in the device's outbox.
   const mirrorKey = `cg-lesson-draft:${student.token}:${seed.lesson.slug}`;
-  expect(await page.evaluate((k) => localStorage.getItem(k), mirrorKey)).toBeNull();
+  expect(await mirror(page, mirrorKey)).toBeNull();
 
   // Open the lesson again without the #step: it resumes at the saved step.
   await page.goto(lessonPath(student));
@@ -312,8 +323,8 @@ test('the hand-written tree traces customers A and B one branch at a time', asyn
   await tree.getByRole('button', { name: 'יקנה', exact: true }).click();
   await expect(tree).toContainText('נכון: בעלה כתוב ״יקנה״.');
   await expect(path.locator('li')).toHaveCount(2);
-  await expect(path.locator('li').nth(0)).toContainText('הערך 12 ← לא ← ימינה');
-  await expect(path.locator('li').nth(1)).toContainText('הערך 7 ← כן ← שמאלה');
+  await expect(path.locator('li').nth(0)).toContainText('הערך 12: לא – ממשיכים ימינה');
+  await expect(path.locator('li').nth(1)).toContainText('הערך 7: כן – ממשיכים שמאלה');
   await shot(page, 'desktop-C-manual-tree');
   expect(problems).toEqual([]);
 });
@@ -328,8 +339,10 @@ test('the actual tree follows decision-tree-actual.json exactly at the split bou
   await expect(page.getByText('צילום מצב של המודל')).toBeVisible();
   // The snapshot says what it was trained with, and that Colab doesn't change it.
   await expect(page.getByText('שינוי הגדרות בקולאב לא משנה אותה')).toBeVisible();
-  await expect(page.locator('dl').first()).toContainText('max_depth');
-  await expect(page.locator('dl').first()).toContainText('data_seed=42');
+  const snapshotCard = page.locator('div').filter({ has: page.getByText('צילום מצב של המודל') }).filter({ has: page.locator('dl') }).last();
+  await expect(snapshotCard.locator('dl').first()).toContainText('max_depth');
+  // The seeds are part of the card too, under "פרטי הריצה".
+  await expect(snapshotCard).toContainText('data_seed=42');
 
   const tracer = page.getByRole('region', { name: 'מעקב אחרי לקוח בעץ שנלמד' });
   const leafName = (p: 0 | 1) => snapshot.class_labels_he[String(p)] as string;
@@ -350,7 +363,7 @@ test('the actual tree follows decision-tree-actual.json exactly at the split bou
       await expect(steps, where).toHaveCount(expected.path.length);
       for (const [i, s] of expected.path.entries()) {
         await expect(steps.nth(i), where).toContainText(s.feature);
-        await expect(steps.nth(i), where).toContainText(`הערך ${s.value} ← ${s.left ? 'כן ← שמאלה' : 'לא ← ימינה'}`);
+        await expect(steps.nth(i), where).toContainText(`הערך ${s.value}: ${s.left ? 'כן – ממשיכים שמאלה' : 'לא – ממשיכים ימינה'}`);
       }
     }
   }
@@ -483,6 +496,36 @@ test('experiments: an impossible percentage is refused per field, keeps the form
   await expect(choice2).toContainText('נבחר אחרי שנחשפת לתוצאת המבחן — המבחן כבר אינו בדיקה עצמאית');
   await expect(choice1).not.toContainText('נבחר אחרי שנחשפת');
   await shot(page, 'desktop-F-commitment');
+
+  // Accuracies copied from Colab as fractions are confirmed before saving:
+  // Cancel sends nothing and keeps the form, OK saves them as percentages.
+  await page.getByRole('button', { name: /^שלב E:/ }).click();
+  await expect(stepHeading(page)).toContainText('ניסויים בקולאב');
+  await form.getByLabel(/^עומק מרבי/).selectOption('3');
+  await form.getByLabel(/^דוגמאות אימון/).fill('100');
+  await form.getByLabel(/^דיוק אימון/).fill('0.85');
+  await form.getByLabel(/^דיוק אימות/).fill('0.74');
+  await form.getByLabel(/^קו בסיס/).fill('0.542');
+  let asked = '';
+  page.once('dialog', (d) => {
+    asked = d.message();
+    void d.dismiss();
+  });
+  await form.getByRole('button', { name: 'שמירת הריצה' }).click();
+  await expect.poll(() => asked).toContain('0.85 → 85%');
+  expect(asked).toContain('0.542 → 54.2%');
+  await expect(form.getByLabel(/^דיוק אימון/)).toHaveValue('0.85');
+  await expect(log.locator('li').filter({ hasText: 'ריצה 3' })).toHaveCount(0);
+  page.once('dialog', (d) => void d.accept());
+  await form.getByRole('button', { name: 'שמירת הריצה' }).click();
+  await expect(log).toContainText('✓ הריצה נשמרה ביומן.');
+  const run3 = log.locator('li').filter({ hasText: 'ריצה 3' });
+  await expect(run3).toContainText('85%');
+  await expect(run3).toContainText('74%');
+  await expect(run3).toContainText('54.2%');
+  const stored = await (await page.request.get(`/api/r/${student.token}/lessons/${seed.lesson.slug}`)).json();
+  const third = stored.experiments[2];
+  expect([third.train_accuracy, third.validation_accuracy, third.baseline_validation]).toEqual([0.85, 0.74, 0.542]);
   expect(problems).toEqual([]);
 });
 
@@ -524,7 +567,7 @@ test('a lost connection and a stale second tab never lose work', async ({ page, 
   await finding.getByRole('textbox').fill(offlineDraft);
   await expect(saveStatus(page)).toContainText('לא נשמר – נסו שוב');
   await expect(finding).toContainText('הטיוטה לא נשמרה בשרת – היא שמורה במכשיר הזה');
-  expect(await page.evaluate((k) => localStorage.getItem(k), mirrorKey)).toContain(offlineDraft);
+  expect(await mirror(page, mirrorKey)).toContain(offlineDraft);
   await page.reload();
   await expect(finding.getByRole('textbox')).toHaveValue(offlineDraft);
   await expect(saveStatus(page)).toContainText('לא נשמר – נסו שוב');
@@ -536,7 +579,7 @@ test('a lost connection and a stale second tab never lose work', async ({ page, 
   // …and once the server is reachable again, the automatic retry delivers it.
   offline = false;
   await expect(saveStatus(page)).toHaveText('✓ נשמר', { timeout: 15_000 });
-  expect(await page.evaluate((k) => localStorage.getItem(k), mirrorKey)).toBeNull();
+  expect(await mirror(page, mirrorKey)).toBeNull();
   const saved = await (await page.request.get(`/api/r/${student.token}/lessons/${seed.lesson.slug}`)).json();
   expect(saved.progress.drafts['q:q_data_finding']).toBe(offlineDraft);
   expect(saved.progress.acks).toEqual(['csv_downloaded']);
@@ -654,6 +697,58 @@ test('a 375px-wide phone never scrolls the page sideways, on any step', async ({
   expect(problems).toEqual([]);
 });
 
+test('a classmate’s lesson link sends the student to their own course, and a lost session keeps the draft', async ({
+  page,
+  context
+}) => {
+  const student = seed.lesson_students.access;
+  const other = seed.lesson_students.trees;
+  await signIn(context, student);
+  const escaped = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const problems = await watchForErrors(page, [
+    { status: 403, url: new RegExp(`/api/r/${other.token}/lessons/`) },
+    { status: 401, url: new RegExp(`/api/r/${student.token}/lessons/`) },
+    { status: 401, url: /\/api\/student-auth\/me$/ }
+  ]);
+
+  // Opening a classmate's lesson link: explained, with a way to the student's own course.
+  await page.goto(lessonPath(other, 'data'));
+  await expect(page.getByRole('heading', { name: 'הקישור שייך לחשבון אחר' })).toBeVisible();
+  await expect(stepHeading(page)).toHaveCount(0);
+  const own = page.getByRole('link', { name: 'לעמוד הקורס שלי' });
+  await expect(own).toHaveAttribute('href', '/login');
+  await own.click();
+  await expect(page).toHaveURL(new RegExp(`/r/${escaped(student.token)}$`));
+
+  // The login page follows ?next= only into the student's own links.
+  await page.goto(`/login?next=${encodeURIComponent(lessonPath(other, 'data'))}`);
+  await expect(page).toHaveURL(new RegExp(`/r/${escaped(student.token)}$`));
+  await page.goto(`/login?next=${encodeURIComponent(lessonPath(student, 'data'))}`);
+  await expect(page).toHaveURL(new RegExp(`${escaped(lessonPath(student, 'data'))}$`));
+  await expect(stepHeading(page)).toContainText('בודקים את הנתונים עם הצ׳טבוט');
+  await waitSaved(page);
+
+  // The session ends mid-lesson: the sticky bar says so and offers the sign-in
+  // right there; the text typed meanwhile survives the sign-in and is then saved.
+  await context.clearCookies();
+  const draft = 'כתבתי את זה אחרי שהחיבור לחשבון נגמר.';
+  const finding = questionCard(page, 'q_data_finding');
+  await finding.getByRole('textbox').fill(draft);
+  const barLogin = saveStatus(page).getByRole('link', { name: 'כניסה לחשבון' });
+  await expect(barLogin).toBeVisible();
+  await expect(saveStatus(page)).toContainText('⚠ לא נשמר');
+  await barLogin.click();
+  await expect(page).toHaveURL(/\/login\?next=/);
+  await signIn(context, student);
+  await page.reload({ waitUntil: 'commit' });
+  await expect(page).toHaveURL(new RegExp(`${escaped(lessonPath(student, 'data'))}$`));
+  await expect(finding.getByRole('textbox')).toHaveValue(draft);
+  await waitSaved(page);
+  const saved = await (await page.request.get(`/api/r/${student.token}/lessons/${seed.lesson.slug}`)).json();
+  expect(saved.progress.drafts['q:q_data_finding']).toBe(draft);
+  expect(problems).toEqual([]);
+});
+
 /* ---------------- Instructor ---------------- */
 
 test('instructor insights show a student’s first wrong answer, kept apart from the later right one', async ({
@@ -670,6 +765,15 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   await expect(depth).toContainText('✗ לא בדיוק');
   await answer(depth, /זה מספר השאלות המרבי במסלול אחד/);
   await expect(depth).toContainText('✓ נכון');
+
+  // Revealing the reasoning first, then answering right: not independent evidence.
+  await page.getByRole('button', { name: /^שלב A:/ }).click();
+  const target = questionCard(page, 'q_target');
+  await target.getByRole('button', { name: 'הצג הסבר' }).click();
+  await target.getByRole('button', { name: 'להציג בכל זאת' }).click();
+  await expect(target).toContainText('הסבר:');
+  await answer(target, /bought_next_week/);
+  await expect(target).toContainText('✓ נכון');
 
   // The instructor: a separate browser session, no student cookie.
   const instructorContext = await browser.newContext();
@@ -694,6 +798,16 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   const detail = instructor.locator('#lesson-q-detail-q_depth');
   await expect(detail).toContainText('depth=one-customer-path');
 
+  // The answer given after revealing is counted apart, never as right on the first try.
+  await expect(instructor.locator('#lesson-q-q_target')).toContainText('+ 1 answered only after revealing');
+  const stats = await (
+    await instructor.request.get(`/api/courses/${seed.course.id}/lessons/${seed.lesson.id}/insights`)
+  ).json();
+  const q = stats.questions.find((x: { key: string }) => x.key === 'q_target');
+  expect(q.answered_after_reveal).toBe(1);
+  expect(q.first_correct + q.first_incorrect).toBe(q.answered - q.answered_after_reveal);
+  expect(q.options.find((o: { correct: boolean }) => o.correct).first_count).toBe(q.first_correct);
+
   // The student's path: the first try is marked, the correction is "after feedback".
   await instructor.getByRole('button', { name: student.name, exact: true }).click();
   const drawer = instructor.getByRole('dialog');
@@ -704,6 +818,11 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   await expect(tries.nth(0)).toContainText('✗ incorrect');
   await expect(tries.nth(1)).toContainText('after feedback');
   await expect(tries.nth(1)).toContainText('✓ correct');
+  const revealed = drawer.locator('li').filter({ hasText: 'q_target' });
+  await expect(revealed).toHaveCount(2);
+  await expect(revealed.nth(0)).toContainText('revealed the reasoning before answering');
+  await expect(revealed.nth(1)).toContainText('first answer, after revealing — not independent');
+  await expect(revealed.nth(1)).not.toContainText('first try');
   await instructor.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);
   await shot(instructor, 'desktop-instructor-insights');

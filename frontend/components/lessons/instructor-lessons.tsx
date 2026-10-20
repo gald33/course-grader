@@ -111,7 +111,11 @@ type QuestionStats = {
   first_incorrect: number;
   attempts_after_feedback: number;
   revealed_before_answer: number;
+  /** Answered, but only after revealing the reasoning: in `answered`, never in first_correct / first_incorrect or the bars. */
+  answered_after_reveal: number;
   eventually_correct_after_wrong_first: number;
+  /** Choices made on a different definition of this question (another version): left out of the bars. */
+  other_version_answers: number;
   options: OptionStats[];
   free_text: WrittenResponse[];
 };
@@ -140,14 +144,24 @@ type DetailAttempt = {
   after_feedback: boolean;
   submitted_at: string | null;
   review_flag: boolean;
+  /** Made against another definition of the question than the one shown here (another version). */
+  question_changed: boolean;
+};
+type DetailExperiment = Experiment & {
+  deleted_at: string | null;
+  /** The prediction as first saved; later edits change `hypothesis` only. */
+  first_hypothesis: string | null;
+  first_hypothesis_at: string | null;
 };
 type StudentDetail = {
   student: { id: number; name: string; is_test: boolean; withdrawn: boolean };
+  /** From the current evidence (completed_at is only when they first finished). */
+  status: StudentStatus;
   progress: Progress | null;
   version_number: number | null;
   steps: Record<string, StepStatus> | null;
   attempts: DetailAttempt[];
-  experiments: (Experiment & { deleted_at: string | null })[];
+  experiments: DetailExperiment[];
   commitments: Commitment[];
 };
 
@@ -171,11 +185,13 @@ const AUTO_REFRESH_MS = 30_000;
 
 /* =============== Helpers =============== */
 
+// English dates on this English (LTR) page: a Hebrew-locale browser's format
+// would be reordered by the bidi algorithm ("20 14:57 ,2026 באוק׳").
 function fmtDate(iso: string | null | undefined): string {
-  return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+  return iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 }
 function fmtShortDate(iso: string | null | undefined): string {
-  return iso ? new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+  return iso ? new Date(iso).toLocaleString('en-GB', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
 }
 function shortHash(hash: string | null | undefined): string {
   return hash ? hash.slice(0, 8) : '—';
@@ -192,15 +208,19 @@ function depthText(kind: DepthKind | null, depth: number | null): string {
   if (kind === 'limited' && depth != null) return `depth ${depth}`;
   return 'depth not set';
 }
+/** Students whose first answer came before any feedback — the only independent ones. */
+function independent(q: QuestionStats): number {
+  return q.answered - q.answered_after_reveal;
+}
 function firstTryRate(q: QuestionStats): number | null {
-  return q.type === 'single_choice' && q.answered > 0 ? q.first_correct / q.answered : null;
+  return q.type === 'single_choice' && independent(q) > 0 ? q.first_correct / independent(q) : null;
 }
 /** Lowest first-try share first; free-text and unanswered questions last, in lesson order. */
 function worstFirst(a: QuestionStats, b: QuestionStats): number {
   const ra = firstTryRate(a);
   const rb = firstTryRate(b);
   if (ra == null || rb == null) return ra == null ? (rb == null ? 0 : 1) : -1;
-  return ra - rb || b.answered - a.answered;
+  return ra - rb || independent(b) - independent(a);
 }
 /** The wrong choice most students picked on their first try, if any. */
 function dominantWrong(q: QuestionStats): OptionStats | null {
@@ -1075,13 +1095,16 @@ function BreakdownCard({
                       {q.mode === 'check' ? ' · individual check' : ''}
                     </span>
                     <span className="tnum text-[13px] font-semibold text-ink">
-                      {q.first_correct} of {q.answered} right first try ({share(q.first_correct, q.answered)})
+                      {q.first_correct} of {independent(q)} right first try ({share(q.first_correct, independent(q))})
+                      {q.answered_after_reveal ? (
+                        <span className="font-normal text-ink-3"> · {q.answered_after_reveal} answered only after revealing</span>
+                      ) : null}
                     </span>
                   </div>
                   <div dir="rtl" className="text-start text-[14px] leading-snug">
                     <InlineText text={q.prompt} />
                   </div>
-                  <Meter value={q.first_correct} max={q.answered} label="right on the first try" />
+                  <Meter value={q.first_correct} max={independent(q)} label="right on the first try, before any feedback" />
                   {wrong ? (
                     <div className="grid gap-0.5 text-[12px] text-ink-2">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -1253,8 +1276,11 @@ function QuestionTable({
         <thead>
           <tr>
             <Th className="pl-5">Question</Th>
-            <Th className="text-right" title="Right on the first try / students who answered">
-              Right first try
+            <Th
+              className="text-right"
+              title="Right on the first try, before any feedback / students whose first answer came before any feedback. Answers given only after revealing the reasoning are counted apart."
+            >
+              Right first try (before feedback)
             </Th>
             <Th className="text-right">Unanswered</Th>
             <Th className="text-right" title="Answers submitted after the student had already seen feedback or the reasoning">
@@ -1290,12 +1316,17 @@ function QuestionTable({
                       q.answered ? (
                         <>
                           <div className="tnum font-semibold">
-                            {q.first_correct}/{q.answered}{' '}
-                            <span className="font-normal text-ink-3">({share(q.first_correct, q.answered)})</span>
+                            {q.first_correct}/{independent(q)}{' '}
+                            <span className="font-normal text-ink-3">({share(q.first_correct, independent(q))})</span>
                           </div>
                           <div className="mt-1">
-                            <Meter value={q.first_correct} max={q.answered} label="right on the first try" />
+                            <Meter value={q.first_correct} max={independent(q)} label="right on the first try, before any feedback" />
                           </div>
+                          {q.answered_after_reveal ? (
+                            <div className="mt-1 text-[12px] text-ink-3">
+                              + {q.answered_after_reveal} answered only after revealing
+                            </div>
+                          ) : null}
                         </>
                       ) : (
                         <span className="text-ink-3">no answers</span>
@@ -1350,7 +1381,21 @@ function QuestionDetail({ q, onFlag }: { q: QuestionStats; onFlag: FlagFn }) {
     <div className="grid gap-5">
       {q.type === 'single_choice' ? (
         <div className="grid gap-2.5">
-          <div className="label-eyebrow">Choices · bar = first answers · all = including retries</div>
+          <div className="label-eyebrow">
+            Choices · bar = first answers before any feedback · all = including retries
+          </div>
+          {q.answered_after_reveal ? (
+            <div className="text-[12px] text-ink-3">
+              {q.answered_after_reveal} student{q.answered_after_reveal === 1 ? '' : 's'} answered only after revealing the
+              reasoning — counted in “all”, not in the bars.
+            </div>
+          ) : null}
+          {q.other_version_answers ? (
+            <div className="text-[12px] text-ink-3">
+              {q.other_version_answers} answer{q.other_version_answers === 1 ? ' was' : 's were'} given to another version of
+              this question (its options read differently) — not included in these numbers.
+            </div>
+          ) : null}
           {q.options.map((o) => (
             <div key={o.id} className="grid items-center gap-x-4 gap-y-1 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_140px]">
               <div className="min-w-0">
@@ -1366,7 +1411,7 @@ function QuestionDetail({ q, onFlag }: { q: QuestionStats; onFlag: FlagFn }) {
                   <InlineText text={o.text} />
                 </div>
               </div>
-              <Meter value={o.first_count} max={q.answered} warm={!o.correct} label={`${o.first_count} first answers`} />
+              <Meter value={o.first_count} max={independent(q)} warm={!o.correct} label={`${o.first_count} first answers`} />
               <div className="tnum text-right text-[12px] text-ink-3">
                 {o.first_count} first · {o.all_count} all
               </div>
@@ -1379,6 +1424,9 @@ function QuestionDetail({ q, onFlag }: { q: QuestionStats; onFlag: FlagFn }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="label-eyebrow">
             {q.type === 'free_text' ? 'Written answers' : 'Written explanations'} · ungraded · {q.free_text.length}
+            <span className="ml-1 normal-case tracking-normal text-ink-3">
+              (each student’s first and latest try, plus flagged ones · every try is in the student’s drilldown)
+            </span>
           </div>
           {q.free_text.some((r) => r.flagged) ? (
             <label className="flex items-center gap-1.5 text-[12px] text-ink-2">
@@ -1668,7 +1716,9 @@ function StudentDrawer({
 
   const stepMeta = Object.fromEntries(steps.map((s) => [s.key, s]));
   const progress = detail?.progress ?? null;
-  const status: StudentStatus = !progress ? 'not_started' : progress.completed_at ? 'completed' : 'in_progress';
+  const allRequiredDone =
+    !!detail?.steps && steps.filter((s) => !s.optional).every((s) => detail.steps?.[s.key]?.completed);
+  const status: StudentStatus = detail?.status ?? (!progress ? 'not_started' : allRequiredDone ? 'completed' : 'in_progress');
   const stepKeys = detail?.steps ? Object.keys(detail.steps) : [];
 
   return (
@@ -1708,7 +1758,11 @@ function StudentDrawer({
               {progress ? (
                 <>
                   Started {fmtDate(progress.started_at)} · last saved {fmtDate(progress.updated_at)}
-                  {progress.completed_at ? ` · all required actions done ${fmtDate(progress.completed_at)}` : ''}
+                  {progress.completed_at
+                    ? ` · first completed all required actions ${fmtDate(progress.completed_at)}${
+                        status === 'completed' ? '' : ' (not complete now: some evidence was removed since)'
+                      }`
+                    : ''}
                 </>
               ) : (
                 'Nothing saved yet: the student hasn’t started this lesson (or opened it without saving anything).'
@@ -1830,7 +1884,9 @@ function AttemptItem({
   letter: string;
   onFlag: () => void;
 }) {
-  const option = a.answer?.choice != null ? question?.options.find((o) => o.id === a.answer?.choice) : undefined;
+  // An answer to another version of the question isn't read with this version's option texts and tags.
+  const option =
+    a.answer?.choice != null && !a.question_changed ? question?.options.find((o) => o.id === a.answer?.choice) : undefined;
   return (
     <li className="grid gap-1 border-b border-line-soft py-2.5 last:border-b-0">
       <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink-3">
@@ -1845,8 +1901,12 @@ function AttemptItem({
         ) : (
           <>
             <span className="pill">try {a.attempt_number}</span>
-            {a.attempt_number === 1 ? <span className="pill pill-forest">first try</span> : null}
-            {a.after_feedback ? <span className="pill pill-terra">after feedback</span> : null}
+            {a.attempt_number === 1 && !a.after_feedback ? <span className="pill pill-forest">first try</span> : null}
+            {a.attempt_number === 1 && a.after_feedback ? (
+              <span className="pill pill-terra">first answer, after revealing — not independent</span>
+            ) : a.after_feedback ? (
+              <span className="pill pill-terra">after feedback</span>
+            ) : null}
             {a.correct === true ? (
               <span className="pill pill-ok">✓ correct</span>
             ) : a.correct === false ? (
@@ -1876,6 +1936,11 @@ function AttemptItem({
               ) : null}
             </>
           ) : null}
+          {a.question_changed ? (
+            <span className="ml-1.5 text-[12px] text-ink-3">
+              (answered another version of this question — its options read differently there)
+            </span>
+          ) : null}
         </div>
       ) : null}
       {a.answer?.text ? (
@@ -1901,9 +1966,24 @@ function AttemptItem({
   );
 }
 
-function ExperimentItem({ e }: { e: Experiment & { deleted_at: string | null } }) {
+function ExperimentItem({ e }: { e: DetailExperiment }) {
+  // The student may save a prediction first and edit the record after the run:
+  // show the first saved prediction whenever it differs from the current one.
+  const rewritten = !!e.first_hypothesis && e.first_hypothesis !== e.hypothesis;
   const texts: [string, string][] = [
-    ['Prediction before the run', e.hypothesis],
+    ...(rewritten
+      ? ([
+          [`First prediction (saved ${fmtDate(e.first_hypothesis_at)})`, e.first_hypothesis as string],
+          [`Prediction — edited later (last edit ${fmtDate(e.updated_at)})`, e.hypothesis]
+        ] as [string, string][])
+      : ([
+          [
+            e.first_hypothesis
+              ? `Prediction (unchanged since saved ${fmtDate(e.first_hypothesis_at)})`
+              : 'Prediction (student-entered; may have been edited later)',
+            e.hypothesis
+          ]
+        ] as [string, string][])),
     ['Observation', e.observation],
     ['Explanation', e.explanation]
   ];

@@ -653,6 +653,10 @@ class LessonExperiment(Base):
     validation_accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)
     baseline_validation: Mapped[float | None] = mapped_column(Float, nullable=True)
     hypothesis: Mapped[str] = mapped_column(Text, default="")
+    # The first non-empty hypothesis saved for this run and when; never
+    # overwritten, so a prediction rewritten after the results stays visible.
+    first_hypothesis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    first_hypothesis_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     observation: Mapped[str] = mapped_column(Text, default="")
     explanation: Mapped[str] = mapped_column(Text, default="")
     provenance: Mapped[str] = mapped_column(String(32), default="student_entered")

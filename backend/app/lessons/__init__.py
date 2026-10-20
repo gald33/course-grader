@@ -3,6 +3,13 @@ fixtures shipped with the app (content/*.json).
 
 A fixture is installed into a course as a draft lesson version (the instructor
 API's install, or scripts/seed_lesson.py), previewed, then published.
+
+Authoring rules for a revision of a fixture that students may already have
+answered: keep step, question, ack and option ids stable, and never change
+what an existing option id *means* (to replace an option, add a new id and
+drop the old one). Students stay pinned to the version they started; the
+instructor's option bars count only answers given to the identical question
+(same question hash) and report the rest as answers to another version.
 """
 
 from __future__ import annotations

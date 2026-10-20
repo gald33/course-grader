@@ -8,7 +8,7 @@
  * device) until it is saved; invalid values come back per field and nothing
  * the student typed is cleared. */
 
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { InlineText, Ltr } from '@/components/lessons/inline';
 import type { LessonApi } from '@/components/lessons/lesson-player';
@@ -70,12 +70,14 @@ export function FieldError({ id, message }: { id: string; message?: string | nul
 
 export function DepthSelect({
   id,
+  code = 'tree_depth',
   value,
   onChange,
   error,
   disabled
 }: {
   id: string;
+  code?: string; // the notebook variable this setting goes into
   value: string;
   onChange: (v: string) => void;
   error?: string | null;
@@ -84,7 +86,7 @@ export function DepthSelect({
   return (
     <div className="grid grid-cols-1 content-start gap-1 text-[14px]">
       <label htmlFor={id} className="font-semibold">
-        עומק מרבי <span className="text-[12px] font-normal text-ink-3">(<Ltr>tree_depth</Ltr>)</span>
+        עומק מרבי <span className="text-[12px] font-normal text-ink-3">(<Ltr>{code}</Ltr>)</span>
       </label>
       <select
         id={id}
@@ -103,7 +105,7 @@ export function DepthSelect({
         ))}
         <option value="unlimited">ללא הגבלה (בקולאב: 0)</option>
       </select>
-      <span id={`${id}-hint`} className="text-[12px] text-ink-3">
+      <span id={`${id}-hint`} className="text-[12px] text-ink-2">
         בקולאב <Ltr>0</Ltr> פירושו ללא הגבלה – כאן בוחרים ״ללא הגבלה״, לא <Ltr>0</Ltr>.
       </span>
       <FieldError id={`${id}-error`} message={error} />
@@ -160,7 +162,7 @@ export function NumberField({
         ) : null}
       </div>
       {hint ? (
-        <span id={`${id}-hint`} className="text-[12px] text-ink-3">
+        <span id={`${id}-hint`} className="text-[12px] text-ink-2">
           {hint}
         </span>
       ) : null}
@@ -178,6 +180,32 @@ export function NumberField({
 export function fractionWarning(raw: string): string | null {
   const v = parseNumber(raw);
   return v != null && !Number.isNaN(v) && v > 0 && v <= 1 ? 'נראה כמו שבר מקולאב. כאן מזינים אחוזים: 0.762 → 76.2' : null;
+}
+
+/** Percentages that look like Colab's fractions (0 < v <= 1 — impossible as
+ * accuracies in this exercise) are confirmed before saving: OK turns them into
+ * percentages (0.762 → 76.2), Cancel returns null and nothing is sent. */
+export function confirmFractions<K extends string>(
+  values: Record<K, number | null>
+): { values: Record<K, number | null>; changed: boolean } | null {
+  const keys = (Object.keys(values) as K[]).filter((k) => {
+    const v = values[k];
+    return v != null && v > 0 && v <= 1;
+  });
+  if (!keys.length) return { values, changed: false };
+  const toPct = (v: number) => +(v * 100).toFixed(4);
+  const list = keys.map((k) => `${values[k]} → ${toPct(values[k] as number)}%`).join(', ');
+  if (!window.confirm(`נראה שהועתק שבר מקולאב (${list}). כאן מזינים אחוזים – לשמור באחוזים?\nביטול חוזר לטופס בלי לשמור.`)) {
+    return null;
+  }
+  const out = { ...values };
+  for (const k of keys) out[k] = toPct(values[k] as number);
+  return { values: out, changed: true };
+}
+
+/** A percentage in 0..100 (or empty) — only then is a comparison worth showing. */
+function inRange(v: number | null) {
+  return v == null || Number.isNaN(v) ? null : v >= 0 && v <= 100 ? v / 100 : undefined;
 }
 
 export function fieldsOf(e: unknown): Record<string, string> {
@@ -398,6 +426,17 @@ export function ExperimentLog({ block, api }: { block: LogBlock; api: LessonApi 
     setFieldErrors({});
   };
 
+  // After a refused save: the first marked field, in view and focused (once
+  // the field errors are on screen).
+  const [invalidShown, setInvalidShown] = useState(0);
+  const showFirstInvalid = () => setInvalidShown((n) => n + 1);
+  useEffect(() => {
+    if (!invalidShown) return;
+    const el = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    el?.scrollIntoView({ block: 'center' });
+    el?.focus({ preventScroll: true });
+  }, [invalidShown]);
+
   const save = async (e?: React.FormEvent) => {
     e?.preventDefault();
     setMessage(null);
@@ -405,7 +444,21 @@ export function ExperimentLog({ block, api }: { block: LogBlock; api: LessonApi 
     if (!input) {
       setFieldErrors(errors);
       setMessage({ tone: 'bad', text: 'חלק מהערכים אינם מספרים – תקנו את השדות המסומנים.' });
+      showFirstInvalid();
       return;
+    }
+    const fixed = confirmFractions({
+      train: input.train_accuracy_pct,
+      validation: input.validation_accuracy_pct,
+      baseline: input.baseline_validation_pct
+    });
+    if (!fixed) return;
+    if (fixed.changed) {
+      input.train_accuracy_pct = fixed.values.train;
+      input.validation_accuracy_pct = fixed.values.validation;
+      input.baseline_validation_pct = fixed.values.baseline;
+      const text = (v: number | null) => (v == null ? '' : String(v));
+      update({ train: text(fixed.values.train), validation: text(fixed.values.validation), baseline: text(fixed.values.baseline) });
     }
     setBusy(true);
     try {
@@ -416,6 +469,7 @@ export function ExperimentLog({ block, api }: { block: LogBlock; api: LessonApi 
       if (err instanceof LessonApiError && err.code === 'invalid_values') {
         setFieldErrors(fieldsOf(err));
         setMessage({ tone: 'bad', text: `${err.message}. שום דבר לא נשמר, והטופס נשאר כפי שהוא.` });
+        showFirstInvalid();
       } else if (err instanceof LessonApiError && err.code === 'stale') {
         const current = (err.detail.current as Experiment | null | undefined) ?? null;
         if (current && matches(current, input)) {
@@ -484,10 +538,11 @@ export function ExperimentLog({ block, api }: { block: LogBlock; api: LessonApi 
     }
   };
 
-  const validationPct = parseNumber(form.validation);
-  const baselinePct = parseNumber(form.baseline);
-  const trainPct = parseNumber(form.train);
-  const ok = (v: number | null) => (v == null || Number.isNaN(v) ? null : v / 100);
+  const formValidation = inRange(parseNumber(form.validation));
+  const formBaseline = inRange(parseNumber(form.baseline));
+  const formTrain = inRange(parseNumber(form.train));
+  const comparable = formValidation !== undefined && formBaseline !== undefined && formTrain !== undefined;
+  const invalidCount = Object.values(fieldErrors).filter(Boolean).length;
   const hypothesisOnly =
     !form.editing && !!form.hypothesis.trim() && [form.depth, form.training_examples, form.train, form.validation, form.baseline, form.observation, form.explanation].every((v) => !v.trim());
   const editingIndex = form.editing ? experiments.findIndex((x) => x.run_uuid === form.run_uuid) : -1;
@@ -508,9 +563,9 @@ export function ExperimentLog({ block, api }: { block: LogBlock; api: LessonApi 
       </div>
 
       {block.suggested_runs.length ? (
-        <details className="rounded-md border border-line-soft bg-paper px-3 py-2">
-          <summary className="cursor-pointer text-[14px] font-semibold text-forest">ריצות מוצעות</summary>
-          <ol className="mt-2 grid grid-cols-1 gap-2">
+        <details className="rounded-md border border-line-soft bg-paper">
+          <summary className="cursor-pointer px-3 py-2.5 text-[14px] font-semibold text-forest">ריצות מוצעות</summary>
+          <ol className="grid grid-cols-1 gap-2 px-3 pb-2.5">
             {block.suggested_runs.map((r, i) => (
               <li key={i} className="flex items-start justify-between gap-3 text-[14px]">
                 <span className="min-w-0 flex-1 leading-relaxed">
@@ -740,7 +795,7 @@ export function ExperimentLog({ block, api }: { block: LogBlock; api: LessonApi 
         <p className="text-[12px] text-ink-3">
           אחוזים בין <Ltr>0</Ltr> ל-<Ltr>100</Ltr>. בקולאב הדיוק מופיע כשבר: <Ltr>0.762</Ltr> → כאן <Ltr>76.2</Ltr>.
         </p>
-        <BaselineHint validation={ok(validationPct)} baseline={ok(baselinePct)} train={ok(trainPct)} />
+        {comparable ? <BaselineHint validation={formValidation} baseline={formBaseline} train={formTrain} /> : null}
         <TextArea
           id={`${id}-observation`}
           label="תצפית – מה ראית (מספרים, העץ)"
@@ -761,7 +816,8 @@ export function ExperimentLog({ block, api }: { block: LogBlock; api: LessonApi 
           <p className="text-[13px] text-bad">⚠ {fieldErrors.run_uuid ?? fieldErrors.expected_revision}</p>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <span aria-live="polite" className="text-[12px]">
+          <span aria-live="polite" className="grid gap-0.5 text-[12px]">
+            {invalidCount ? <span className="text-[13px] font-semibold text-bad">⚠ לא נשמר – תקנו את השדות המסומנים</span> : null}
             {api.preview ? null : <FormDraftNote status={api.draftStatus(FORM_KEY)} />}
           </span>
           <button
@@ -821,7 +877,7 @@ export function TextArea({
         {label}
       </label>
       {hint ? (
-        <span id={`${id}-hint`} className="text-[12px] text-ink-3">
+        <span id={`${id}-hint`} className="text-[12px] text-ink-2">
           {hint}
         </span>
       ) : null}

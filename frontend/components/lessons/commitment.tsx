@@ -14,6 +14,7 @@ import {
   FieldError,
   NumberField,
   TextArea,
+  confirmFractions,
   depthFromValue,
   depthLabel,
   depthValue,
@@ -48,7 +49,7 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-type Problem = { tone: 'ok' | 'warn' | 'bad'; text: string; retry?: () => void } | null;
+type Problem = { tone: 'ok' | 'warn' | 'bad'; text: string; retry?: boolean } | null;
 
 export function CommitmentPanel({ api }: { api: LessonApi }) {
   const commitments = api.commitments;
@@ -188,7 +189,7 @@ function ChoiceFormView({
   const [busy, setBusy] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<Problem>(null);
-  const requestId = useRequestId();
+  const requestId = useRequestId(api, 'commitment');
   const runs = api.experiments.filter((e) => e.depth_kind && e.training_examples != null);
 
   const setForm = (next: ChoiceForm | null) => {
@@ -206,6 +207,7 @@ function ChoiceFormView({
     }
     setForm(next);
     setFieldErrors({});
+    setProblem(null); // an edit makes an earlier "try again" stale
   };
 
   const submit = async (e?: React.FormEvent) => {
@@ -239,11 +241,7 @@ function ChoiceFormView({
       const retry = err instanceof LessonApiError && err.code === 'network';
       if (!retry) requestId.done();
       setFieldErrors(fieldsOf(err));
-      setProblem({
-        tone: 'bad',
-        text: `לא נשמר: ${err instanceof Error ? err.message : String(err)}`,
-        retry: retry ? () => void submit() : undefined
-      });
+      setProblem({ tone: 'bad', text: `לא נשמר: ${err instanceof Error ? err.message : String(err)}`, retry });
     } finally {
       setBusy(false);
     }
@@ -272,6 +270,7 @@ function ChoiceFormView({
             onChange={(e) => {
               const run = api.experiments.find((x) => x.run_uuid === e.target.value);
               setFieldErrors({});
+              setProblem(null);
               setForm(
                 run
                   ? {
@@ -300,6 +299,7 @@ function ChoiceFormView({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <DepthSelect
           id={`${id}-depth`}
+          code="chosen_depth"
           value={form.depth}
           onChange={(v) => update({ depth: v })}
           error={fieldErrors.depth_kind ?? fieldErrors.depth}
@@ -309,7 +309,7 @@ function ChoiceFormView({
           id={`${id}-examples`}
           label={
             <>
-              דוגמאות אימון <span className="text-[12px] font-normal text-ink-3">(<Ltr>training_examples</Ltr>)</span>
+              דוגמאות אימון <span className="text-[12px] font-normal text-ink-3">(<Ltr>chosen_training_examples</Ltr>)</span>
             </>
           }
           integer
@@ -332,7 +332,7 @@ function ChoiceFormView({
         onChange={(v) => update({ justification: v })}
         disabled={busy}
       />
-      <Message problem={problem} busy={busy} />
+      <Message problem={problem} busy={busy} onRetry={() => void submit()} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span aria-live="polite" className="text-[12px]">
           {api.preview ? null : <DraftNote status={api.draftStatus(CHOICE_KEY)} />}
@@ -372,6 +372,7 @@ function FinalForm({ commitment, n, api, onDone }: { commitment: Commitment; n: 
     const blank = !next.accuracy.trim() && !next.precision.trim() && !next.recall.trim() && !next.note.trim();
     api.setDraft(FINAL_KEY, blank ? null : JSON.stringify(next));
     setFieldErrors({});
+    setProblem(null); // an edit makes an earlier "try again" stale
   };
 
   const submit = async (e?: React.FormEvent) => {
@@ -401,6 +402,22 @@ function FinalForm({ commitment, n, api, onDone }: { commitment: Commitment; n: 
       setFieldErrors(errors);
       return;
     }
+    // The result can be recorded only once, so a value that looks like Colab's
+    // fraction is always confirmed (OK converts it to a percentage).
+    const fixed = confirmFractions({
+      accuracy: body.final_accuracy_pct,
+      precision: body.final_precision_pct,
+      recall: body.final_recall_pct
+    });
+    if (!fixed) return;
+    if (fixed.changed) {
+      const { accuracy: a, precision: p, recall: r } = fixed.values;
+      body.final_accuracy_pct = a ?? 0;
+      body.final_precision_pct = p;
+      body.final_recall_pct = r;
+      const text = (v: number | null) => (v == null ? '' : String(v));
+      update({ accuracy: text(a), precision: text(p), recall: text(r) });
+    }
     setBusy(true);
     try {
       // Recording a final result is once per commitment, so a retry is safe:
@@ -417,7 +434,7 @@ function FinalForm({ commitment, n, api, onDone }: { commitment: Commitment; n: 
         setProblem({
           tone: 'bad',
           text: `לא נשמר: ${err instanceof Error ? err.message : String(err)}`,
-          retry: code === 'network' ? () => void submit() : undefined
+          retry: code === 'network'
         });
       }
     } finally {
@@ -484,7 +501,7 @@ function FinalForm({ commitment, n, api, onDone }: { commitment: Commitment; n: 
         disabled={busy}
         rows={2}
       />
-      <Message problem={problem} busy={busy} />
+      <Message problem={problem} busy={busy} onRetry={() => void submit()} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span aria-live="polite" className="text-[12px]">
           {api.preview ? null : <DraftNote status={api.draftStatus(FINAL_KEY)} />}
@@ -497,7 +514,7 @@ function FinalForm({ commitment, n, api, onDone }: { commitment: Commitment; n: 
   );
 }
 
-function Message({ problem, busy }: { problem: Problem; busy: boolean }) {
+function Message({ problem, busy, onRetry }: { problem: Problem; busy: boolean; onRetry: () => void }) {
   return (
     <div aria-live="polite">
       {problem ? (
@@ -509,7 +526,7 @@ function Message({ problem, busy }: { problem: Problem; busy: boolean }) {
         >
           <span>{problem.text}</span>
           {problem.retry ? (
-            <button type="button" onClick={problem.retry} disabled={busy} className="font-semibold underline">
+            <button type="button" onClick={onRetry} disabled={busy} className="font-semibold underline">
               ניסיון חוזר
             </button>
           ) : null}

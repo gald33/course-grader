@@ -5,9 +5,10 @@
     python scripts/seed_lesson.py --course-id 7 --publish  # install and publish
 
 --course-id falls back to the LESSON_COURSE_ID environment variable; with
-neither it refuses (the course is never guessed). It prints the course it is
-about to touch (id, code, name, year, semester) and what it will do, using the
-same install logic as the instructor API (app/services/lessons.py): the lesson
+neither it refuses (the course is never guessed). It prints the database it is
+connected to (from DATABASE_URL, password masked), the course it is about to
+touch (id, code, name, year, semester) and what it will do, using the same
+install logic as the instructor API (app/services/lessons.py): the lesson
 is created as a draft, a changed fixture updates the draft or adds a new draft
 version after a published one, and unchanged content is a no-op, so re-running
 is safe. It never creates student activity. Exits non-zero on invalid content
@@ -65,6 +66,9 @@ def main(argv: list[str] | None = None, session_factory: Callable[[], Session] |
         from app.db.session import SessionLocal as session_factory
 
     with session_factory() as db:
+        # Which database this is (password masked): DATABASE_URL decides, and
+        # the fallback is a local SQLite file relative to the working directory.
+        print(f"Database: {db.get_bind().url.render_as_string(hide_password=True)}")
         course = db.get(Course, course_id)
         if course is None:
             print(f"No course with id {course_id}.", file=sys.stderr)

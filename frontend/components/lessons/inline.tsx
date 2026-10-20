@@ -12,7 +12,7 @@ type Segment = { kind: 'text' | 'code' | 'ltr'; text: string; bold: boolean };
 // A short LTR run (a menu label, an identifier) is kept on one line: split
 // across lines inside Hebrew, its words would read out of order. Longer runs
 // may still wrap so they never push the page sideways on a phone.
-const NOWRAP_MAX = 24;
+const NOWRAP_MAX = 28; // fits a file name like lesson2-customer-data.csv
 
 export function parseInline(source: string): Segment[] {
   const out: Segment[] = [];

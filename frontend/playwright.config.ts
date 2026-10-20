@@ -9,8 +9,9 @@ import { E2E_DIR, SEED_FILE } from './e2e/seed';
  * the smoke tests, and the guided lesson walked through as signed-in students
  * and as the instructor. Ports 8100/3100 stay clear of a local dev setup on
  * 8000/3000. */
-const BACKEND_PORT = 8100;
-const FRONTEND_PORT = 3100;
+// E2E_BACKEND_PORT / E2E_FRONTEND_PORT move them (e.g. beside another run).
+const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? 8100);
+const FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT ?? 3100);
 const backendUrl = `http://localhost:${BACKEND_PORT}`;
 const workDir = E2E_DIR;
 const python = process.env.PYTHON ?? 'python3';

@@ -92,6 +92,16 @@ export type Home = {
   today: string;
   rounds: RoundView[];
   grades: Grades;
+  // Published guided lessons and how far the student got; absent on a
+  // database without the lessons migration.
+  lessons?: LessonLink[];
+};
+type LessonLink = {
+  slug: string;
+  title: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  required_done: number;
+  required_total: number;
 };
 type Draft = { scores: Record<string, number>; responses: Record<string, string> };
 
@@ -300,7 +310,7 @@ export function StudentView({
       <TabBar tab={tab} onChange={go} />
 
       <div role="tabpanel" id={`tab-${tab}`} aria-labelledby={`tab-btn-${tab}`} className="pt-4">
-        {tab === 'home' ? <HomeTab home={home} seenGrades={seenGrades} go={go} /> : null}
+        {tab === 'home' ? <HomeTab token={token} home={home} seenGrades={seenGrades} go={go} /> : null}
 
         {tab === 'grades' ? (
           Object.keys(home.grades).length ? (
@@ -339,7 +349,7 @@ export function StudentView({
           </>
         ) : null}
 
-        {tab === 'info' ? <CourseInfoTab home={home} go={go} /> : null}
+        {tab === 'info' ? <CourseInfoTab token={token} home={home} go={go} /> : null}
       </div>
     </Shell>
     </PreviewCtx.Provider>
@@ -453,11 +463,27 @@ const GRADE_LABELS: Record<string, string> = {
   final: 'ציון סופי'
 };
 
-type UpNext = { key: string; tone: 'act' | 'info'; title: string; detail?: string; tab: Tab; round?: number };
+// An item opens a tab (and maybe a round) in the portal, or `href` leaves it
+// for a route of its own, such as a lesson.
+type UpNext = { key: string; tone: 'act' | 'info'; title: string; detail?: string; tab: Tab; round?: number; href?: string };
+
+const lessonHref = (token: string, slug?: string) => `/r/${token}/lessons${slug ? `/${encodeURIComponent(slug)}` : ''}`;
 
 /* What the student should look at next, built only from the home payload. */
-function upNext(home: Home, seenGrades: Set<string>, now: number): UpNext[] {
+function upNext(home: Home, seenGrades: Set<string>, now: number, lessonLink: (slug: string) => string | undefined): UpNext[] {
   const items: UpNext[] = [];
+
+  for (const l of home.lessons ?? []) {
+    if (l.status !== 'in_progress') continue;
+    items.push({
+      key: `lesson-${l.slug}`,
+      tone: 'act',
+      title: `להמשיך בשיעור: ${l.title}`,
+      detail: `${l.required_done} מתוך ${l.required_total} שלבי חובה`,
+      tab: 'info',
+      href: lessonLink(l.slug)
+    });
+  }
   const live = home.rounds.filter((r) => r.status !== 'closed');
 
   for (const r of live) {
@@ -540,8 +566,25 @@ function upNext(home: Home, seenGrades: Set<string>, now: number): UpNext[] {
   return items;
 }
 
-function HomeTab({ home, seenGrades, go }: { home: Home; seenGrades: Set<string>; go: (t: Tab, round?: number) => void }) {
-  const items = upNext(home, seenGrades, Date.now());
+function HomeTab({
+  token,
+  home,
+  seenGrades,
+  go
+}: {
+  token: string;
+  home: Home;
+  seenGrades: Set<string>;
+  go: (t: Tab, round?: number) => void;
+}) {
+  const preview = useContext(PreviewCtx);
+  // The lesson routes need the student's own sign-in, so the preview points at
+  // Course info instead.
+  const items = upNext(home, seenGrades, Date.now(), (slug) => (preview ? undefined : lessonHref(token, slug)));
+  const itemClass = (it: UpNext) =>
+    `flex min-h-[56px] w-full items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-right text-ink no-underline shadow-soft ${
+      it.tone === 'act' ? 'border-forest-soft' : 'border-border'
+    }`;
   return (
     <section aria-labelledby="up-next" className="grid gap-2">
       <h2 id="up-next" className="font-hebrew text-[20px]">
@@ -551,14 +594,9 @@ function HomeTab({ home, seenGrades, go }: { home: Home; seenGrades: Set<string>
         <EmptyNote>✓ אין כרגע משהו שמחכה לך. כשייפתח סבב ביקורת או יפורסם ציון, זה יופיע כאן.</EmptyNote>
       ) : (
         <ul className="grid gap-2">
-          {items.map((it) => (
-            <li key={it.key}>
-              <button
-                onClick={() => go(it.tab, it.round)}
-                className={`flex min-h-[56px] w-full items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 text-right shadow-soft ${
-                  it.tone === 'act' ? 'border-forest-soft' : 'border-border'
-                }`}
-              >
+          {items.map((it) => {
+            const body = (
+              <>
                 <span className="min-w-0">
                   <span className={`block text-[15px] font-semibold ${it.tone === 'act' ? 'text-forest' : ''}`}>{it.title}</span>
                   {it.detail ? <span className="block text-[13px] text-ink-2">{it.detail}</span> : null}
@@ -566,9 +604,22 @@ function HomeTab({ home, seenGrades, go }: { home: Home; seenGrades: Set<string>
                 <span aria-hidden className="shrink-0 text-ink-3">
                   ←
                 </span>
-              </button>
-            </li>
-          ))}
+              </>
+            );
+            return (
+              <li key={it.key}>
+                {it.href ? (
+                  <a href={it.href} className={itemClass(it)}>
+                    {body}
+                  </a>
+                ) : (
+                  <button onClick={() => go(it.tab, it.round)} className={itemClass(it)}>
+                    {body}
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
@@ -577,7 +628,7 @@ function HomeTab({ home, seenGrades, go }: { home: Home; seenGrades: Set<string>
 
 /* Everything the course already publishes to students, in one place. Built
  * from the same /api/r/<token> payload as the other tabs. */
-function CourseInfoTab({ home, go }: { home: Home; go: (t: Tab, round?: number) => void }) {
+function CourseInfoTab({ token, home, go }: { token: string; home: Home; go: (t: Tab, round?: number) => void }) {
   const { course, teams_policy: policy, rounds, team } = home;
   const sites = new Map<string, { team: string; url: string; status: LinkStatus; detail: string; own: boolean }>();
   for (const r of rounds) {
@@ -591,6 +642,8 @@ function CourseInfoTab({ home, go }: { home: Home; go: (t: Tab, round?: number) 
   const attendance = home.grades.attendance;
   return (
     <div className="grid gap-4">
+      {home.lessons?.length ? <LessonsCard token={token} lessons={home.lessons} /> : null}
+
       <section className="rounded-lg border border-border bg-card p-4 shadow-soft">
         <h2 className="font-hebrew text-[20px]">{course.name}</h2>
         {course.code ? (
@@ -663,6 +716,64 @@ function CourseInfoTab({ home, go }: { home: Home; go: (t: Tab, round?: number) 
         )}
       </section>
     </div>
+  );
+}
+
+const LESSON_STATUS: Record<LessonLink['status'], string> = {
+  not_started: 'עוד לא התחלת',
+  in_progress: 'בתהליך',
+  completed: '✓ הושלם'
+};
+
+/* Guided lessons. Each one opens the existing /r/<token>/lessons routes; the
+ * preview lists them without links, since those routes need the student's
+ * own sign-in. */
+function LessonsCard({ token, lessons }: { token: string; lessons: LessonLink[] }) {
+  const preview = useContext(PreviewCtx);
+  return (
+    <section aria-labelledby="lessons" className="rounded-lg border border-forest-soft bg-card p-4 shadow-soft">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="lessons" className="font-hebrew text-[18px]">
+          למידה בשיעור
+        </h2>
+        {preview ? null : (
+          <a href={lessonHref(token)} className="text-[13px] text-forest hover:underline">
+            כל השיעורים ←
+          </a>
+        )}
+      </div>
+      <ul className="mt-2 grid gap-2">
+        {lessons.map((l) => {
+          const body = (
+            <>
+              <span className="min-w-0">
+                <span className="block">{l.title}</span>
+                <span className="block text-[12px] text-ink-3">
+                  {LESSON_STATUS[l.status]} · {l.required_done} מתוך {l.required_total} שלבי חובה
+                </span>
+              </span>
+              {preview ? null : (
+                <span className="shrink-0 text-[14px] font-semibold text-forest">
+                  {l.status === 'not_started' ? 'להתחיל' : 'להמשיך'} ←
+                </span>
+              )}
+            </>
+          );
+          const cls = 'flex min-h-[48px] items-center justify-between gap-3 rounded-md border border-border bg-paper px-4 py-2 text-[15px] text-ink no-underline';
+          return (
+            <li key={l.slug}>
+              {preview ? (
+                <div className={cls}>{body}</div>
+              ) : (
+                <a href={lessonHref(token, l.slug)} className={`${cls} hover:border-forest`}>
+                  {body}
+                </a>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

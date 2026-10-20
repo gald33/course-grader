@@ -539,3 +539,164 @@ class Job(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (Index("ix_jobs_status_id", "status", "id"),)
+
+
+# ---------------------------------------------------------------------------
+# Guided lessons
+#
+# A lesson's content lives in versions; a published version is immutable.
+# Each student's progress pins the version they started on, and every attempt,
+# experiment and commitment records the version it was made against. Attempts
+# and commitments are append-only history (a commitment's final result is
+# recorded once).
+# ---------------------------------------------------------------------------
+
+
+class Lesson(Base):
+    __tablename__ = "lessons"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    slug: Mapped[str] = mapped_column(String(64))
+    title: Mapped[str] = mapped_column(String(255))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="draft")  # draft | published | archived
+    # The published version students start on. No FK: versions reference the
+    # lesson, so a FK back would be a cycle.
+    active_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    colab_url: Mapped[str] = mapped_column(String(1000), default="")
+    fixture_key: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("course_id", "slug", name="uq_lesson_course_slug"),)
+
+
+class LessonVersion(Base):
+    __tablename__ = "lesson_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default="draft")  # draft | published
+    content_json: Mapped[str] = mapped_column(Text)
+    # sha256 of the canonical JSON (sorted keys, no whitespace).
+    content_hash: Mapped[str] = mapped_column(String(64))
+    schema_version: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("lesson_id", "number", name="uq_lesson_version_number"),)
+
+
+class LessonProgress(Base):
+    __tablename__ = "lesson_progress"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), index=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"))
+    version_id: Mapped[int] = mapped_column(ForeignKey("lesson_versions.id"))
+    current_step_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    viewed_json: Mapped[str] = mapped_column(Text, default="[]")
+    acks_json: Mapped[str] = mapped_column(Text, default="[]")
+    drafts_json: Mapped[str] = mapped_column(Text, default="{}")
+    # Bumped by every progress write; a write naming an older revision is stale.
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("enrollment_id", "lesson_id", name="uq_lesson_progress_enrollment"),)
+
+
+class LessonAttempt(Base):
+    """One submitted answer or reveal. Append-only: a correction is a new row."""
+
+    __tablename__ = "lesson_attempts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), index=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"))
+    version_id: Mapped[int] = mapped_column(ForeignKey("lesson_versions.id"))
+    step_key: Mapped[str] = mapped_column(String(64))
+    question_key: Mapped[str] = mapped_column(String(64))
+    # sha256 of the question as answered, answer key included.
+    question_hash: Mapped[str] = mapped_column(String(64))
+    request_id: Mapped[str] = mapped_column(String(64))
+    # Answers count 1, 2, …; a reveal carries the number of answers before it.
+    attempt_number: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(16))  # answer | reveal
+    answer_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # The student had already answered or revealed this question (and so had
+    # seen feedback) before this attempt.
+    after_feedback: Mapped[bool] = mapped_column(Boolean, default=False)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    review_flag: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+
+    __table_args__ = (
+        UniqueConstraint("enrollment_id", "request_id", name="uq_lesson_attempt_request"),
+        Index("ix_lesson_attempts_lesson_question", "lesson_id", "question_key"),
+    )
+
+
+class LessonExperiment(Base):
+    """A Colab run the student recorded by hand (never fetched or verified)."""
+
+    __tablename__ = "lesson_experiments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), index=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"))
+    version_id: Mapped[int] = mapped_column(ForeignKey("lesson_versions.id"))
+    run_uuid: Mapped[str] = mapped_column(String(36))
+    depth_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)  # limited | unlimited
+    depth: Mapped[int | None] = mapped_column(Integer, nullable=True)  # only when limited
+    training_examples: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Fractions 0..1.
+    train_accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    validation_accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    baseline_validation: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hypothesis: Mapped[str] = mapped_column(Text, default="")
+    # The first non-empty hypothesis saved for this run and when; never
+    # overwritten, so a prediction rewritten after the results stays visible.
+    first_hypothesis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    first_hypothesis_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    observation: Mapped[str] = mapped_column(Text, default="")
+    explanation: Mapped[str] = mapped_column(Text, default="")
+    provenance: Mapped[str] = mapped_column(String(32), default="student_entered")
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Soft delete: the instructor still sees the record.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("enrollment_id", "run_uuid", name="uq_lesson_experiment_run"),)
+
+
+class LessonCommitment(Base):
+    """The settings a student chose before the final test. Never rewritten:
+    choosing again adds a row, flagged when a final result was already seen."""
+
+    __tablename__ = "lesson_commitments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    enrollment_id: Mapped[int] = mapped_column(ForeignKey("enrollments.id", ondelete="CASCADE"), index=True)
+    lesson_id: Mapped[int] = mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"))
+    version_id: Mapped[int] = mapped_column(ForeignKey("lesson_versions.id"))
+    request_id: Mapped[str] = mapped_column(String(64))
+    run_uuid: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    depth_kind: Mapped[str] = mapped_column(String(16))
+    depth: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    training_examples: Mapped[int] = mapped_column(Integer)
+    justification: Mapped[str] = mapped_column(Text)
+    committed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    after_final_seen: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Final-test result (fractions 0..1), recorded once.
+    final_accuracy: Mapped[float | None] = mapped_column(Float, nullable=True)
+    final_precision: Mapped[float | None] = mapped_column(Float, nullable=True)
+    final_recall: Mapped[float | None] = mapped_column(Float, nullable=True)
+    final_note: Mapped[str] = mapped_column(Text, default="")
+    final_recorded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    __table_args__ = (UniqueConstraint("enrollment_id", "request_id", name="uq_lesson_commitment_request"),)

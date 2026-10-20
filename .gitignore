@@ -31,6 +31,8 @@ homework_submissions.xlsx
 roster_attendance.xlsx
 *.command
 *.pdf
+# …except lesson handouts and homework: course material, not student PII.
+!frontend/public/lessons/**/*.pdf
 
 # Claude Code runtime
 .claude/scheduled_tasks.lock

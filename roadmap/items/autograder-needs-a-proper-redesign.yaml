@@ -1,0 +1,30 @@
+id: autograder-needs-a-proper-redesign
+title: The notebook autograder needs a proper redesign, once there is enough graded data
+status: deferred
+priority: later
+blocked_on: []
+refs:
+- 'backend/app/services/notebook_runner.py'
+- 'backend/app/services/code_metrics.py'
+- 'backend/app/services/llm_code_review.py'
+- 'backend/app/services/llm_review.py'
+- 'backend/app/services/scoring.py'
+evidence: |
+  Operator, 2026-10-20: "we need to do the auto grader properly. but we do
+  it when we have more data."
+
+  Today HW2 and project code are scored by this app's notebook autograder:
+  the notebook is run, code metrics plus an LLM review are mapped to a
+  rubric, then a course curve and a run-ratio penalty are applied
+  (notebook_runner, code_metrics, llm_code_review, scoring.apply_curve).
+  Since #15, its score is also the 70% part of any task a peer round
+  feeds.
+
+  DEFERRED until there is enough real graded data (submissions with
+  autograder scores next to the instructor's own judgement) to design and
+  check against. What "properly" means isn't defined yet. Start with the
+  operator: what is wrong with today's scores, and what the grade should
+  reward.
+
+  Done when: scoped with the operator against real data, and replaced by
+  concrete items.

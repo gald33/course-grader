@@ -19,6 +19,7 @@ The narrative layer above `roadmap/ROADMAP.md`: *why* each theme is still open. 
 
 Startable and legitimate — an item does not need an arc. Listed so the narrative layer's coverage gap is visible rather than implied.
 
+- `autograder-needs-a-proper-redesign` — The notebook autograder needs a proper redesign, once there is enough graded data
 - `courses-and-submissions-cannot-be-deleted` — Courses, assignments and submissions can't be deleted or archived
 - `frontend-has-no-tests` — The frontend has no tests; CI only type-checks it
 - `hebrew-report-pdfs-cannot-be-downloaded` — Hebrew student report PDFs are queued but can never be retrieved from the hosted site

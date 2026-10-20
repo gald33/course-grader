@@ -12,6 +12,7 @@ Claim before starting: `roadmap claim <key>`
 
 **In priority order, most important first.** An item with no marker carries no stated priority — take it as unjudged, not as low. The order within a band is alphabetical and means nothing.
 
+- `later` **`autograder-needs-a-proper-redesign`** — The notebook autograder needs a proper redesign, once there is enough graded data
 - `later` **`retire-bonus-points-phase-2-drop-column`** — enrollments.bonus_points is zeroed but still in the schema
 - `later` **`roster-reimport-email-conflicts-are-not-shown`** — Roster re-import reports email conflicts that the UI never shows
 - `later` **`unreleasing-a-peer-round-keeps-its-gradebook-scores`** — Un-releasing a peer round leaves its applied scores in the gradebook
@@ -38,6 +39,7 @@ graph TD
   classDef claimed stroke:#8250df,stroke-width:2px
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
+  autograder_needs_a_proper_redesign["The notebook autograder needs a proper redesign, once there is enough graded data"]:::ready
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
@@ -57,6 +59,41 @@ graph TD
 ```
 
 ## Items
+
+### `autograder-needs-a-proper-redesign`
+
+- **title:** The notebook autograder needs a proper redesign, once there is enough graded data
+- **status:** ready
+- **priority:** later
+- **refs:**
+  - `backend/app/services/notebook_runner.py`
+  - `backend/app/services/code_metrics.py`
+  - `backend/app/services/llm_code_review.py`
+  - `backend/app/services/llm_review.py`
+  - `backend/app/services/scoring.py`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-10-20: "we need to do the auto grader properly. but we do
+> it when we have more data."
+>
+> Today HW2 and project code are scored by this app's notebook autograder:
+> the notebook is run, code metrics plus an LLM review are mapped to a
+> rubric, then a course curve and a run-ratio penalty are applied
+> (notebook_runner, code_metrics, llm_code_review, scoring.apply_curve).
+> Since #15, its score is also the 70% part of any task a peer round
+> feeds.
+>
+> DEFERRED until there is enough real graded data (submissions with
+> autograder scores next to the instructor's own judgement) to design and
+> check against. What "properly" means isn't defined yet. Start with the
+> operator: what is wrong with today's scores, and what the grade should
+> reward.
+>
+> Done when: scoped with the operator against real data, and replaced by
+> concrete items.
+
+</details>
 
 ### `courses-and-submissions-cannot-be-deleted`
 

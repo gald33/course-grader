@@ -1,0 +1,19 @@
+id: no-button-to-recheck-site-links
+title: Add a "re-check all links" button for a round
+status: ready
+priority: next
+blocked_on: []
+refs:
+- 'backend/app/api/peer_review.py'
+- 'frontend/components/peer-review/peer-review-step.tsx'
+evidence: |
+  VERIFIED by grep at dfdfa01.
+
+  `POST /api/courses/{id}/peer/rounds/{round_id}/check-links` exists; its
+  docstring says it re-checks every team's link in the round "e.g. just before
+  class". Nothing in the frontend calls it. Links are only checked when a team
+  saves its materials, so a site that went down after saving still shows as OK.
+
+  Done when: the round's schedule view has a button that calls the endpoint
+  and shows the returned counts (ok / broken / missing), and the per-team link
+  status updates.

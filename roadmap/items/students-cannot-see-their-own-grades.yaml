@@ -1,0 +1,24 @@
+id: students-cannot-see-their-own-grades
+title: Students cannot see their own grades, feedback or attendance status
+status: ready
+priority: now
+blocked_on: []
+refs:
+- 'frontend/components/student-view.tsx'
+- 'backend/app/api/student_review.py'
+- 'backend/app/models/entities.py'
+- 'backend/app/services/scoring.py'
+evidence: |
+  VERIFIED by reading the code at dfdfa01.
+
+  The student site (`/login` -> review page) only covers peer review:
+  reviewing, slot selection, team management and released round results.
+  Each submission has a `feedback_student` text field (entities.py) that the
+  instructor fills in on the review page, and the gradebook computes every
+  component, but no student-facing endpoint returns either. Today the Hebrew
+  PDF export is the only way a student's grade reaches them.
+
+  Done when: a signed-in student sees a "My grades" view with each released
+  component (HW, project, talks, attendance), the instructor's feedback text,
+  and the final score. Nothing shows until the instructor releases it. Test
+  students and "view as student" show the same view.

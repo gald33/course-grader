@@ -1,0 +1,28 @@
+id: hebrew-report-pdfs-cannot-be-downloaded
+title: Hebrew student report PDFs are queued but can never be retrieved from the hosted site
+status: ready
+priority: now
+blocked_on: []
+refs:
+- 'frontend/app/course/[id]/page.tsx'
+- 'backend/app/services/exporter.py'
+- 'backend/app/api/exports.py'
+- 'backend/app/tasks/jobs.py'
+evidence: |
+  VERIFIED by reading the code at dfdfa01.
+
+  "Queue Hebrew PDFs" (course page, gradebook step) POSTs
+  `/api/courses/{id}/exports/student-reports?async_job=true`, shows a
+  "Student reports queued" toast, and stops. The response's `task_id` is
+  discarded; nothing in the frontend calls `GET /api/tasks/{task_id}`, so the
+  instructor never learns whether the job finished or failed.
+
+  Worse, `export_student_reports_hebrew` writes the PDFs with
+  `export_path(...) / "student_reports"`, i.e. to local disk under
+  `./data/exports/` on whichever machine runs the worker. They are never put in
+  storage, so with `STORAGE_BACKEND=supabase` (the hosted setup) the instructor
+  has no way to get them from the site at all.
+
+  Done when: the worker stores the PDFs (one zip is fine) through
+  `services/storage.py`; the gradebook polls the task and shows done / failed;
+  and a done export offers a download link that works on the hosted site.

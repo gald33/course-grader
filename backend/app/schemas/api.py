@@ -20,6 +20,7 @@ class CourseRead(BaseModel):
     year: int
     semester: str
     attendance_threshold: float
+    archived_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -29,6 +30,10 @@ class CourseUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     year: int | None = Field(default=None, ge=2000, le=2100)
     semester: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class SubmissionMembersUpdate(BaseModel):
+    student_ids: list[int] = Field(min_length=1)
 
 
 class AttendanceThresholdUpdate(BaseModel):

@@ -37,6 +37,8 @@ class Course(Base):
     max_team_size: Mapped[int] = mapped_column(Integer, default=7, server_default=text("7"))
     # UTC; after it passes teams lock for students even if teams_open is on.
     teams_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Archived courses are hidden from the home page; clearing this restores them.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="course", cascade="all, delete-orphan")
     assignments: Mapped[list[Assignment]] = relationship(back_populates="course", cascade="all, delete-orphan")

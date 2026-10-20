@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -19,8 +21,11 @@ router = APIRouter(prefix="/api/courses", tags=["courses"])
 
 
 @router.get("", response_model=list[CourseRead])
-def list_courses(db: Session = Depends(get_db)) -> list[Course]:
-    return db.scalars(select(Course).order_by(Course.year.desc(), Course.semester, Course.code)).all()
+def list_courses(include_archived: bool = Query(default=False), db: Session = Depends(get_db)) -> list[Course]:
+    stmt = select(Course).order_by(Course.year.desc(), Course.semester, Course.code)
+    if not include_archived:
+        stmt = stmt.where(Course.archived_at.is_(None))
+    return db.scalars(stmt).all()
 
 
 @router.post("", response_model=CourseRead)
@@ -60,6 +65,30 @@ def update_course(course_id: int, payload: CourseUpdate, db: Session = Depends(g
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Another course already has this code, year and semester")
+    db.refresh(course)
+    return course
+
+
+@router.post("/{course_id}/archive", response_model=CourseRead)
+def archive_course(course_id: int, db: Session = Depends(get_db)) -> Course:
+    """Hide the course from the home page. Nothing is deleted."""
+    course = db.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.archived_at is None:
+        course.archived_at = datetime.utcnow()
+        db.commit()
+        db.refresh(course)
+    return course
+
+
+@router.post("/{course_id}/restore", response_model=CourseRead)
+def restore_course(course_id: int, db: Session = Depends(get_db)) -> Course:
+    course = db.get(Course, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    course.archived_at = None
+    db.commit()
     db.refresh(course)
     return course
 

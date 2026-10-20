@@ -42,8 +42,9 @@ logins; see [Security and scope](#security-and-scope).
   - Rounds that require a working site link, checked when the team saves it
   - Test students (an instructor-owned student account that never counts) and read-only "View as student"
 - Student accounts: email + password login (Supabase Auth), first password = national ID
-- Student PDF report export in Hebrew to:
-  - `./data/exports/<course_code>_<year>_<semester>/student_reports`
+- Student PDF report export in Hebrew: one zip of PDFs per export, stored through the storage backend
+  (`./data/artifacts/exports/<course_code>_<year>_<semester>/student_reports_<timestamp>.zip` locally, the private bucket
+  when hosted) and downloaded from the gradebook
 
 ## Repository layout
 
@@ -126,7 +127,8 @@ Course setup and grading:
    - notes and student feedback
 7. Import presentations XLSX.
 8. Review gradebook and export CSV.
-9. Queue student Hebrew PDF report export.
+9. Queue the student Hebrew PDF reports (**Queue Hebrew PDFs** in the gradebook); when the job finishes, download
+   the zip from the link that appears. Hosted, the job waits for `make worker-hosted`.
 
 Peer review this semester (course page → **Peer review**; details in [Peer review](#peer-review)):
 
@@ -186,10 +188,10 @@ are optional remarks. Released results show students only the normalised team re
 never a raw average of the counted score.
 
 A round can require a working site link (`link_required`, set with `PATCH /api/courses/{course_id}/peer/rounds/{round_id}`;
-there is no toggle in the UI yet). When a team saves its link the server checks that it loads as an HTML page from a
+there is no toggle for it in the UI yet). When a team saves its link the server checks that it loads as an HTML page from a
 public address and flags links to code, chats or files; reviewers get an "open the site" button with the result, and
-the team sees a banner until the link works. `POST /api/courses/{course_id}/peer/rounds/{round_id}/check-links`
-re-checks every link in a round.
+the team sees a banner until the link works. **Re-check all links** on the round's schedule view
+(`POST /api/courses/{course_id}/peer/rounds/{round_id}/check-links`) re-checks every link in the round.
 
 **Test students and "View as student".** The accounts card can create a test student (an email of your own, e.g. a
 `+alias`; random first password, changed at first login). It signs in and reviews like any student but is left out of
@@ -323,7 +325,8 @@ student-notebook ML stack, which the app and tests never import.
 - `POST /api/courses/{course_id}/curves/calibrate-mean-83`
 - `GET /api/courses/{course_id}/gradebook`
 - `GET /api/courses/{course_id}/gradebook/csv`
-- `POST /api/courses/{course_id}/exports/student-reports`
+- `POST /api/courses/{course_id}/exports/student-reports`, then `GET /api/tasks/{task_id}` and
+  `GET /api/courses/{course_id}/exports/student-reports/{task_id}/download` (zip; a signed-URL redirect when hosted)
 - `PATCH /api/courses/{course_id}/enrollments/{enrollment_id}/bonus`
 
 Peer review (instructor, prefix `/api/courses/{course_id}/peer`):

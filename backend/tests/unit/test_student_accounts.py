@@ -55,7 +55,11 @@ class FakeSupabaseAuth:
         if path.startswith("/admin/users/") and request.method == "PUT":
             uid = path.rsplit("/", 1)[1]
             email = next(e for e, u in self.users.items() if u["id"] == uid)
-            self.users[email]["password"] = body["password"]
+            if "email" in body:
+                self.users[body["email"]] = self.users.pop(email)
+                email = body["email"]
+            if "password" in body:
+                self.users[email]["password"] = body["password"]
             return httpx.Response(200, json={"id": uid, "email": email})
         if path == "/recover":
             self.resets.append(body["email"])

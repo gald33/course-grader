@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GradeReleaseCard } from '@/components/grade-release-card';
 import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
+import { RosterCard } from '@/components/roster-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
@@ -903,6 +904,7 @@ function ImportsStep({
           <Button type="submit" size="sm">Upload roster</Button>
         </form>
       </ImportTile>
+      <RosterCard courseId={courseId} setToast={setToast} refresh={refresh} />
 
       {/* ZIP */}
       <ImportTile

@@ -8,8 +8,8 @@ so this can be applied while the previous code is still serving: that code
 reads bonus_points + bonus overrides = 0 + override, the same total, and
 inserts an explicit 0. Phase 2 (a later migration) drops the column.
 
-Revision ID: 0020_retire_bonus_points
-Revises: 0019_teams_deadline
+Revision ID: 0021_retire_bonus_points
+Revises: 0020_enrollment_withdrawn
 Create Date: 2026-10-20
 """
 
@@ -19,8 +19,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0020_retire_bonus_points"
-down_revision: Union[str, None] = "0019_teams_deadline"
+revision: str = "0021_retire_bonus_points"
+down_revision: Union[str, None] = "0020_enrollment_withdrawn"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -1,0 +1,18 @@
+id: readme-describes-a-localhost-only-app
+title: README still says "no login, localhost-only" and leaves out recent features
+status: ready
+priority: later
+blocked_on: []
+refs:
+- 'README.md'
+evidence: |
+  VERIFIED by reading README.md at dfdfa01.
+
+  "Security and scope" says "No login/auth screen by design (localhost-only
+  deployment)", while "Hosted app" and "Student accounts" describe a public
+  Vercel site with student logins. "Main workflow" and "API highlights" don't
+  mention practice rounds, test students, site links, student-formed teams or
+  the counted score.
+
+  Done when: the security section describes both the local and hosted setups,
+  and the workflow covers what an instructor actually does this semester.

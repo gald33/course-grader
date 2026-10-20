@@ -1,0 +1,21 @@
+id: roster-cannot-be-edited-per-student
+title: Add, remove, withdraw or fix a single student without re-importing the roster
+status: ready
+priority: next
+blocked_on: []
+refs:
+- 'backend/app/api/imports.py'
+- 'backend/app/services/roster_import.py'
+- 'backend/app/api/courses.py'
+evidence: |
+  VERIFIED by reading the route list at dfdfa01.
+
+  The only way to change who is in a course is `POST .../imports/roster` with
+  a full XLSX. There is no endpoint or UI to add one late student, mark a
+  student as withdrawn, or correct a name or email. Since student accounts
+  sign in with the roster email, a typo blocks that student from logging in
+  until the whole roster is re-imported.
+
+  Done when: the instructor can add a student, edit their name and email, and
+  withdraw them (kept for history, excluded from teams, review obligations and
+  the gradebook) from the course UI.

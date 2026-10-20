@@ -45,3 +45,6 @@ roster_attendance.xlsx
 
 # Vercel CLI project links
 .vercel
+
+# roadmap-core store: derived from roadmap/items/*.yaml by `roadmap push`
+roadmap/roadmap.db

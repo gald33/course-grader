@@ -1,0 +1,25 @@
+id: project-bonus-has-no-editor
+title: The per-student project bonus can't be edited directly
+status: ready
+priority: next
+blocked_on: []
+related_to:
+- key: peer-round-scores-never-reach-the-gradebook
+  note: 'If peer round scores are pushed into the gradebook as bonus, decide first
+    whether they land in `bonus_points` or as overrides. Otherwise there will
+    be three bonus mechanisms instead of two.'
+refs:
+- 'backend/app/api/courses.py'
+- 'frontend/app/course/[id]/page.tsx'
+evidence: |
+  VERIFIED by grep at dfdfa01.
+
+  `PATCH /api/courses/{id}/enrollments/{enrollment_id}/bonus` sets
+  `Enrollment.bonus_points`, and the gradebook displays it in a Bonus column,
+  but no UI calls the endpoint. The only way to give a bonus is an override
+  with component `bonus`. That works, but it means two separate mechanisms add
+  to the same number.
+
+  Done when: either the gradebook's Bonus cell is editable, or
+  `bonus_points` is retired in favour of overrides and the endpoint is
+  removed. Pick one; don't keep both.

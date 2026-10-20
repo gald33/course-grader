@@ -1,0 +1,20 @@
+id: peer-round-scores-never-reach-the-gradebook
+title: Peer-review round scores have to be copied into the gradebook by hand
+status: ready
+priority: next
+blocked_on: []
+refs:
+- 'backend/app/services/peer_scoring.py'
+- 'backend/app/services/scoring.py'
+- 'README.md'
+evidence: |
+  VERIFIED from the README and code at dfdfa01.
+
+  The README says round scores "are reported and exported on their own; they
+  are not added to the gradebook formula automatically". That's deliberate,
+  but nothing offers the next step either: to count a round, the instructor
+  copies each student's score into an override by hand.
+
+  Done when: a released round has an "apply to gradebook" action that writes
+  one override per student (component `peer_round_<n>`, reason naming the
+  round). Running it again updates those overrides instead of duplicating them.

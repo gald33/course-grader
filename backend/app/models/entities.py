@@ -35,6 +35,8 @@ class Course(Base):
     # Students may create, join and leave teams themselves while this is on.
     teams_open: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     max_team_size: Mapped[int] = mapped_column(Integer, default=7, server_default=text("7"))
+    # UTC; after it passes teams lock for students even if teams_open is on.
+    teams_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="course", cascade="all, delete-orphan")
     assignments: Mapped[list[Assignment]] = relationship(back_populates="course", cascade="all, delete-orphan")
@@ -251,6 +253,19 @@ class StudentComponentOverride(Base):
     delta: Mapped[float] = mapped_column(Float)
     reason: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class GradeRelease(Base):
+    """A gradebook component the instructor has released to students."""
+
+    __tablename__ = "grade_releases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    component: Mapped[str] = mapped_column(String(32))
+    released_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("course_id", "component", name="uq_grade_release_component"),)
 
 
 class CurveRevision(Base):

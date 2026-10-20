@@ -40,6 +40,7 @@ from app.schemas.api import (
     UploadedFileIn,
 )
 from app.services import peer_review as svc
+from app.services import student_grades
 from app.services.peer_scoring import ScoredReview, compute_round_scores, review_scores, reviewer_shares
 
 router = APIRouter(prefix="/api/r/{token}", tags=["student-review"])
@@ -276,11 +277,13 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
             else None
         ),
         "teams_policy": {
-            "open": bool(course and course.teams_open) and enrollment.withdrawn_at is None,
+            "open": bool(course and not svc.teams_locked(course)) and enrollment.withdrawn_at is None,
+            "deadline": iso(course.teams_deadline) if course else None,
             "max_size": course.max_team_size if course else None,
         },
         "today": date.today().isoformat(),
         "rounds": [_round_view(db, r, enrollment, team_id, sessions, teams) for r in rounds],
+        "grades": student_grades.grades_view(db, enrollment),
     }
 
 

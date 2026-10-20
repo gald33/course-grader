@@ -7,7 +7,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.entities import Enrollment, PeerReview, ReviewObligation, ReviewRound, Student, Team
+from app.models.entities import Enrollment, PeerReview, ReviewObligation, ReviewRound, Student
 from app.services import supabase_auth
 from app.services import peer_review as svc
 from app.services.peer_review import utcnow
@@ -108,19 +108,6 @@ def add_student(db: Session, course_id: int, national_id: str, name: str, email:
     return enrollment
 
 
-def _remove_from_team(db: Session, course_id: int, student_id: int) -> None:
-    """Take the student off their team even after teams lock; a team left
-    empty with no review history is removed. Same rules as a student leaving."""
-    team_id = svc.active_team_id(db, course_id, student_id)
-    if team_id is None:
-        return
-    svc.set_student_team(db, course_id, student_id, None)
-    team = db.get(Team, team_id)
-    if team is not None and not svc.active_members(db, team_id) and not svc.team_has_history(db, team):
-        db.delete(team)
-        db.commit()
-
-
 def withdraw(db: Session, enrollment: Enrollment) -> None:
     """Mark withdrawn, take them off their team, and exempt the reviews they
     still owe in rounds that haven't been released. Reviews they already
@@ -129,7 +116,7 @@ def withdraw(db: Session, enrollment: Enrollment) -> None:
         return
     enrollment.withdrawn_at = utcnow()
     db.commit()
-    _remove_from_team(db, enrollment.course_id, enrollment.student_id)
+    svc.remove_student_from_team(db, enrollment.course_id, enrollment.student_id)
     reviewed = select(PeerReview.presentation_id).where(PeerReview.reviewer_student_id == enrollment.student_id)
     for ob in db.scalars(
         select(ReviewObligation)

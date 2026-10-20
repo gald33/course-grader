@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import httpx
@@ -60,8 +61,9 @@ def test_withdraw_leaves_team_obligations_and_gradebook(env, course):
     _schedule_and_open(env, course)
     _ok(_review(env, course, "a1", "B"))
     a1 = course.students["a1"]
-    # Teams locked: the instructor can still take a withdrawn student off their team.
-    _ok(c.put(f"{_base(course)}/team-settings", json={"teams_open": False}))
+    # Teams locked by a passed deadline: the instructor can still take a withdrawn student off their team.
+    past = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+    _ok(c.put(f"{_base(course)}/team-settings", json={"teams_deadline": past}))
 
     _ok(c.post(f"/api/courses/{course.id}/students/{a1}/withdraw"))
     row = _students(env, course.id)[a1]
@@ -75,6 +77,7 @@ def test_withdraw_leaves_team_obligations_and_gradebook(env, course):
 
     teams = _ok(c.get(f"{_base(course)}/teams"))
     assert a1 not in {s["student_id"] for s in teams["students"]}
+    assert a1 not in teams["unassigned"]
     assert _ok(c.get(f"{_base(course)}/overview"))["student_count"] == 5
     gradebook = _ok(c.get(f"/api/courses/{course.id}/gradebook"))["rows"]
     assert "100000001" not in {r["national_id"] for r in gradebook} and len(gradebook) == 5

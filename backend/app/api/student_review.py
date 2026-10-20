@@ -274,7 +274,8 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
             else None
         ),
         "teams_policy": {
-            "open": bool(course and course.teams_open),
+            "open": bool(course and not svc.teams_locked(course)),
+            "deadline": iso(course.teams_deadline) if course else None,
             "max_size": course.max_team_size if course else None,
         },
         "today": date.today().isoformat(),

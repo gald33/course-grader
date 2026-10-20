@@ -252,6 +252,19 @@ class StudentComponentOverride(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class GradeRelease(Base):
+    """A gradebook component the instructor has released to students."""
+
+    __tablename__ = "grade_releases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    component: Mapped[str] = mapped_column(String(32))
+    released_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("course_id", "component", name="uq_grade_release_component"),)
+
+
 class CurveRevision(Base):
     __tablename__ = "curve_revisions"
 

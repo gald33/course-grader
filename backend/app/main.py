@@ -12,6 +12,7 @@ from app.api import (
     courses,
     curves,
     exports,
+    grade_releases,
     gradebook,
     imports,
     oauth,
@@ -58,6 +59,7 @@ app.include_router(assignments.router)
 app.include_router(submissions.router)
 app.include_router(runs.router)
 app.include_router(gradebook.router)
+app.include_router(grade_releases.router)
 app.include_router(curves.router)
 app.include_router(oauth.router)
 app.include_router(artifacts.router)

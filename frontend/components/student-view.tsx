@@ -2,6 +2,8 @@
 
 import { FormEvent, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { MyGradesCard, type Grades } from '@/components/my-grades';
+
 /* Student-facing peer review page (Hebrew, RTL, mobile-first). Rendered for
  * students at /r/<token> (talking to /api/r/<token> on the same origin), and
  * read-only for the instructor's "view as student" preview. */
@@ -89,6 +91,7 @@ export type Home = {
   teams_policy: { open: boolean; max_size: number | null; deadline: string | null };
   today: string;
   rounds: RoundView[];
+  grades: Grades;
 };
 type Draft = { scores: Record<string, number>; responses: Record<string, string> };
 
@@ -281,6 +284,8 @@ export function StudentView({
           ) : null}
         </div>
       </header>
+
+      <MyGradesCard grades={home.grades} />
 
       <TeamCard token={token} home={home} onUpdate={setHome} />
 

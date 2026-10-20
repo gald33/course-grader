@@ -87,13 +87,14 @@ test('student portal lands on Home and keeps the active tab in the URL', async (
   await expect(page).toHaveURL(/[?&]tab=info\b/);
   await expect(page.getByRole('tabpanel').getByRole('heading', { name: seed.course.name })).toBeVisible();
 
-  // Refresh stays on the tab; back/forward walk the tab history.
-  await page.reload();
-  await expect(tab('מידע על הקורס')).toHaveAttribute('aria-selected', 'true');
+  // Back/forward walk the tab history; refresh stays on the tab.
   await page.goBack();
   await expect(page).toHaveURL(/[?&]tab=review\b/);
   await expect(tab('ביקורת עמיתים')).toHaveAttribute('aria-selected', 'true');
   await page.goForward();
+  await expect(page).toHaveURL(/[?&]tab=info\b/);
+  await expect(tab('מידע על הקורס')).toHaveAttribute('aria-selected', 'true');
+  await page.reload();
   await expect(tab('מידע על הקורס')).toHaveAttribute('aria-selected', 'true');
 
   // Home drops the parameter again.
@@ -116,5 +117,7 @@ test('instructor "view as student" opens the same portal on the linked tab', asy
   await expect(page).toHaveURL(new RegExp(`student=${other}`));
   await expect(page).toHaveURL(/[?&]tab=team\b/);
   await expect(page.getByRole('tab', { name: 'צוות', exact: true })).toHaveAttribute('aria-selected', 'true');
-  expect(problems).toEqual([]);
+  // Rewriting the URL makes Next cancel its prefetch of the banner's "Back to
+  // course" link; a cancelled prefetch is not an error.
+  expect(problems.filter((p) => !(p.includes('_rsc=') && p.includes('ERR_ABORTED')))).toEqual([]);
 });

@@ -419,7 +419,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
     <nav
       role="tablist"
       aria-label="אזורים"
-      className="-mx-4 flex gap-1.5 overflow-x-auto border-b border-line-soft px-4 pb-2"
+      className="grid grid-cols-5 gap-1 border-b border-line-soft pb-2"
     >
       {TABS.map((t) => (
         <button
@@ -429,7 +429,7 @@ function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
           aria-selected={tab === t.key}
           aria-controls={`tab-${t.key}`}
           onClick={() => onChange(t.key)}
-          className={`h-10 shrink-0 rounded-full px-4 text-[14px] transition ${
+          className={`min-h-[44px] rounded-2xl px-1 text-[13px] leading-tight transition sm:text-[14px] ${
             tab === t.key ? 'bg-forest font-semibold text-paper' : 'text-ink-2 hover:bg-paper-2'
           }`}
         >

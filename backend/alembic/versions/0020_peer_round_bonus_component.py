@@ -1,5 +1,7 @@
-"""Round bonus overrides move from peer_round_<n> to peer_round_<n>_bonus, so
-peer_round_<n> can hold the round's final score applied to the gradebook.
+"""Peer rounds feed the gradebook: each round names the gradebook task it
+grades and the peer share of that task; round bonus overrides move from
+peer_round_<n> to peer_round_<n>_bonus, so peer_round_<n> can hold the
+round's final score applied to the gradebook.
 
 Revision ID: 0020_peer_round_bonus_component
 Revises: 0019_teams_deadline
@@ -33,6 +35,9 @@ def _rows(pattern: str) -> list[tuple[int, str]]:
 
 
 def upgrade() -> None:
+    with op.batch_alter_table("review_rounds") as batch:
+        batch.add_column(sa.Column("gradebook_task", sa.String(32), nullable=True))
+        batch.add_column(sa.Column("peer_weight", sa.Float(), nullable=False, server_default=sa.text("0.3")))
     conn = op.get_bind()
     for oid, component in _rows(r"peer_round_\d+"):
         conn.execute(overrides.update().where(overrides.c.id == oid).values(component=f"{component}_bonus"))
@@ -46,3 +51,6 @@ def downgrade() -> None:
         conn.execute(overrides.delete().where(overrides.c.id == oid))
     for oid, component in _rows(r"peer_round_\d+_bonus"):
         conn.execute(overrides.update().where(overrides.c.id == oid).values(component=component.removesuffix("_bonus")))
+    with op.batch_alter_table("review_rounds") as batch:
+        batch.drop_column("peer_weight")
+        batch.drop_column("gradebook_task")

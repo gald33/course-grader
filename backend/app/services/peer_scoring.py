@@ -377,8 +377,10 @@ def compute_round_scores(db: Session, rnd: ReviewRound) -> RoundResult:
 
 def apply_round_to_gradebook(db: Session, rnd: ReviewRound) -> dict[str, int]:
     """Write each scored student's round final (normalised + bonus) as one
-    override with component peer_round_<n>. Running it again updates those
-    rows in place; students who no longer have a score lose theirs."""
+    override with component peer_round_<n>; the gradebook blends it into the
+    round's gradebook_task (see scoring.peer_round_parts). Running it again
+    updates those rows in place; students who no longer have a score lose
+    theirs."""
     result = compute_round_scores(db, rnd)
     finals = {s.student_id: round(s.final, 2) for s in result.students if s.final is not None}
     component = score_component(rnd.number)
@@ -413,3 +415,16 @@ def apply_round_to_gradebook(db: Session, rnd: ReviewRound) -> dict[str, int]:
             counts["created"] += 1
     db.commit()
     return counts
+
+
+def remove_round_from_gradebook(db: Session, rnd: ReviewRound) -> int:
+    rows = db.scalars(
+        select(StudentComponentOverride).where(
+            StudentComponentOverride.course_id == rnd.course_id,
+            StudentComponentOverride.component == score_component(rnd.number),
+        )
+    ).all()
+    for o in rows:
+        db.delete(o)
+    db.commit()
+    return len(rows)

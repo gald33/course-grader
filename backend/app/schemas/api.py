@@ -261,6 +261,15 @@ class NotesUpdate(BaseModel):
     feedback_student: str = ""
 
 
+class PeerTaskPart(BaseModel):
+    """Applied peer rounds blended into one gradebook task."""
+
+    rounds: list[int]
+    peer: float
+    weight: float
+    auto: float
+
+
 class GradebookRow(BaseModel):
     enrollment_id: int
     student_id: int
@@ -280,6 +289,11 @@ class GradebookRow(BaseModel):
     project_with_bonus: float
     final: float
     final_uncurved: float
+    hw1_peer: float | None = None
+    hw2_peer: float | None = None
+    project_code_peer: float | None = None
+    presentation_peer: float | None = None
+    peer: dict[str, PeerTaskPart] = {}
     overrides: dict[str, float]
 
 
@@ -380,6 +394,9 @@ class RoundUpdate(BaseModel):
     link_required: bool | None = None
     participation_factor: bool | None = None
     llm_enabled: bool | None = None
+    # "" clears the task
+    gradebook_task: str | None = Field(default=None, pattern="^(hw1|hw2|project_code|presentation|)$")
+    peer_weight: float | None = Field(default=None, ge=0, le=1)
 
 
 class SessionReviewToggle(BaseModel):

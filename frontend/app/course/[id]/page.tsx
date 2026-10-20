@@ -77,7 +77,26 @@ type GradebookRow = {
   project_with_bonus: number;
   final: number;
   final_uncurved: number;
+  peer: Record<string, { rounds: number[]; peer: number; weight: number; auto: number }>;
 };
+
+/** Small "peer" tag on a gradebook cell whose tasks include applied peer-review rounds. */
+function PeerTag({ row, tasks }: { row: GradebookRow; tasks: string[] }) {
+  const parts = tasks.filter((t) => row.peer?.[t]);
+  if (parts.length === 0) return null;
+  const title = parts
+    .map((t) => {
+      const p = row.peer[t];
+      const w = Math.round(p.weight * 100);
+      return `${t}: ${100 - w}% own score ${p.auto} + ${w}% peer ${p.peer.toFixed(1)} (round ${p.rounds.join(', ')})`;
+    })
+    .join('\n');
+  return (
+    <span className="ml-1 text-[11px] text-forest" title={title}>
+      peer
+    </span>
+  );
+}
 
 type CurvePoints = { points: number[]; tunable: boolean };
 type ActiveCurve = {
@@ -1654,9 +1673,18 @@ function GradebookStep({
                       onChange={() => toggleExempt(s.enrollment_id, s.attendance_exempt)}
                     />
                   </td>
-                  <td className="px-3 py-3 text-right tnum">{s.hw1}</td>
-                  <td className="px-3 py-3 text-right tnum">{s.hw2}</td>
-                  <td className="px-3 py-3 text-right tnum">{s.project_with_bonus}</td>
+                  <td className="px-3 py-3 text-right tnum">
+                    {s.hw1}
+                    <PeerTag row={s} tasks={['hw1']} />
+                  </td>
+                  <td className="px-3 py-3 text-right tnum">
+                    {s.hw2}
+                    <PeerTag row={s} tasks={['hw2']} />
+                  </td>
+                  <td className="px-3 py-3 text-right tnum">
+                    {s.project_with_bonus}
+                    <PeerTag row={s} tasks={['project_code', 'presentation']} />
+                  </td>
                   <td
                     className="px-3 py-3 text-right tnum"
                     style={{ color: s.bonus_points > 0 ? 'var(--ok)' : 'var(--ink-3)' }}

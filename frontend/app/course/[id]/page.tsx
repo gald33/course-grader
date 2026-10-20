@@ -79,7 +79,26 @@ type GradebookRow = {
   project_with_bonus: number;
   final: number;
   final_uncurved: number;
+  peer: Record<string, { rounds: number[]; peer: number; weight: number; auto: number }>;
 };
+
+/** Small "peer" tag on a gradebook cell whose tasks include applied peer-review rounds. */
+function PeerTag({ row, tasks }: { row: GradebookRow; tasks: string[] }) {
+  const parts = tasks.filter((t) => row.peer?.[t]);
+  if (parts.length === 0) return null;
+  const title = parts
+    .map((t) => {
+      const p = row.peer[t];
+      const w = Math.round(p.weight * 100);
+      return `${t}: ${100 - w}% own score ${p.auto} + ${w}% peer ${p.peer.toFixed(1)} (round ${p.rounds.join(', ')})`;
+    })
+    .join('\n');
+  return (
+    <span className="ml-1 text-[11px] text-forest" title={title}>
+      peer
+    </span>
+  );
+}
 
 type CurvePoints = { points: number[]; tunable: boolean };
 type ActiveCurve = {
@@ -1305,7 +1324,8 @@ function OverridesStep({
           Use overrides for one-off adjustments that don't fit the rubric — bonus for studio help, late penalties, IDF
           reserve exemption, etc. The <strong className="text-ink">delta</strong> is added to the chosen component{' '}
           <em>after</em> the curve. The <strong className="text-ink">reason</strong> is required and appears in your
-          audit log; it's never shown to the student.
+          audit log; it's never shown to the student. The gradebook's <strong className="text-ink">Bonus</strong> column
+          is the sum of all <code>bonus</code> overrides — this is the only way to give a project bonus.
         </div>
       </div>
       <div className="flex items-baseline justify-between">
@@ -1660,9 +1680,18 @@ function GradebookStep({
                       onChange={() => toggleExempt(s.enrollment_id, s.attendance_exempt)}
                     />
                   </td>
-                  <td className="px-3 py-3 text-right tnum">{s.hw1}</td>
-                  <td className="px-3 py-3 text-right tnum">{s.hw2}</td>
-                  <td className="px-3 py-3 text-right tnum">{s.project_with_bonus}</td>
+                  <td className="px-3 py-3 text-right tnum">
+                    {s.hw1}
+                    <PeerTag row={s} tasks={['hw1']} />
+                  </td>
+                  <td className="px-3 py-3 text-right tnum">
+                    {s.hw2}
+                    <PeerTag row={s} tasks={['hw2']} />
+                  </td>
+                  <td className="px-3 py-3 text-right tnum">
+                    {s.project_with_bonus}
+                    <PeerTag row={s} tasks={['project_code', 'presentation']} />
+                  </td>
                   <td
                     className="px-3 py-3 text-right tnum"
                     style={{ color: s.bonus_points > 0 ? 'var(--ok)' : 'var(--ink-3)' }}

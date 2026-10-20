@@ -1102,4 +1102,4 @@ def test_migrations_upgrade_downgrade_upgrade(tmp_path):
     alembic("upgrade", "head")
     alembic("downgrade", "-1")
     alembic("upgrade", "head")
-    assert "0021_lessons" in alembic("current").stdout
+    assert "0024_lessons" in alembic("current").stdout

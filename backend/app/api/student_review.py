@@ -257,7 +257,7 @@ def _lesson_links(db: Session, course_id: int) -> list[dict]:
         with db.begin_nested():
             return lessons_svc.lesson_links(db, course_id)
     except (OperationalError, ProgrammingError):
-        logger.warning("Lesson links unavailable (is migration 0021_lessons applied?)", exc_info=True)
+        logger.warning("Lesson links unavailable (is migration 0024_lessons applied?)", exc_info=True)
         return []
 
 

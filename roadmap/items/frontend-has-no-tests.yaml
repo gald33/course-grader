@@ -1,0 +1,19 @@
+id: frontend-has-no-tests
+title: The frontend has no tests; CI only type-checks it
+status: ready
+priority: later
+blocked_on: []
+refs:
+- '.github/workflows/ci.yml'
+- 'frontend/app/course/[id]/submission/[submissionId]/page.tsx'
+- 'frontend/app/course/[id]/page.tsx'
+- 'frontend/components/student-view.tsx'
+evidence: |
+  VERIFIED at dfdfa01. The frontend job in ci.yml runs `npm ci` and
+  `npx tsc --noEmit`, and nothing else. The submission review page (about
+  2,500 lines), the course page (about 1,900), the peer-review step (about
+  2,100) and the student view (about 1,200) have no tests.
+
+  Done when: CI runs at least a Playwright smoke test that loads the
+  instructor course page and the student review page against a seeded
+  backend. Chromium is already available in the cloud sessions.

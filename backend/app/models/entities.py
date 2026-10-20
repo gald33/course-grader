@@ -37,6 +37,8 @@ class Course(Base):
     max_team_size: Mapped[int] = mapped_column(Integer, default=7, server_default=text("7"))
     # UTC; after it passes teams lock for students even if teams_open is on.
     teams_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Archived courses are hidden from the home page; clearing this restores them.
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="course", cascade="all, delete-orphan")
     assignments: Mapped[list[Assignment]] = relationship(back_populates="course", cascade="all, delete-orphan")
@@ -71,7 +73,6 @@ class Enrollment(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
     attendance_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     attendance_exempt: Mapped[bool] = mapped_column(Boolean, default=False)
-    bonus_points: Mapped[float] = mapped_column(Float, default=0.0)
     # Test student (e.g. the instructor's own student account): uses the site
     # normally but is left out of scores, normalisation, exports and grades.
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -395,6 +396,10 @@ class ReviewRound(Base):
     # The team must give a link to its live site (e.g. the jokes-site homework);
     # reviewers get it up front and missing/broken links are flagged.
     link_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Gradebook task the round's applied scores feed (hw1 | hw2 | project_code
+    # | presentation), and the peer share of that task: T = (1-w)·A + w·P.
+    gradebook_task: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    peer_weight: Mapped[float] = mapped_column(Float, default=0.3, server_default=text("0.3"))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     rubric_version: Mapped[PeerRubricVersion | None] = relationship()

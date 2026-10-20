@@ -6,8 +6,8 @@ Downgrade drops these tables and every student's lesson activity with them.
 Rolling back the lesson UI does not need it: the tables are additive and the
 rest of the app never reads them, so leave the schema in place.
 
-Revision ID: 0021_lessons
-Revises: 0020_enrollment_withdrawn
+Revision ID: 0024_lessons
+Revises: 0023_peer_round_bonus_component
 Create Date: 2026-10-20
 """
 
@@ -16,8 +16,8 @@ from typing import Sequence, Union
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0021_lessons"
-down_revision: Union[str, None] = "0020_enrollment_withdrawn"
+revision: str = "0024_lessons"
+down_revision: Union[str, None] = "0023_peer_round_bonus_component"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

@@ -153,8 +153,9 @@ ProjectBase = 0.50*ProjectCode + 0.20*ProjectReport + 0.10*InitialTalk + 0.20*Fi
 ```
 
 - HW1: binary completion (100/0)
+- HW1, HW2, ProjectCode and the presentation score can take a share from applied peer-review rounds (see Peer review)
 - Attendance: threshold pass/fail; exemptions force 100
-- Bonus: per-student points added to project after rubric + curve adjustments
+- Bonus: per-student points added to project after rubric + curve adjustments — the sum of the student's `bonus` overrides (also written by the presentation import)
 - Notebook-based components (`HW2`, `ProjectCode`) multiplied by penalty (`run_ratio ** 1.5`)
 
 ## Peer review
@@ -216,14 +217,28 @@ TeamScore[p] = share of all normalised score given to p     (Σ_p TeamScore = 1)
 Review[s]    = Σ_p TeamScore[p] · n[s,p]                    (× completion rate of required reviews, optional)
 Raw[s]       = Review[s] · TeamScore[team(s)], normalised so Σ_s Raw = 1
 Normalised   = rescaled to the round's target mean (80) and SD (10), clamped to 0–100
-Final        = Normalised + bonus (override component peer_round_<n>)
+Final        = Normalised + bonus (override component peer_round_<n>_bonus)
 ```
 
 The AI grader is one more reviewer (one call per round with every team's materials, using the frozen rubric; needs
 `ANTHROPIC_API_KEY`). By default a missing review is treated as missing: a team's score averages the normalised scores it
 actually received, so a larger team (fewer eligible reviewers) or an absent reviewer doesn't lower it; switch the round to
 "literal share" to count missing reviews as zero instead. Presentations with no valid reviews are "not yet scored".
-Round scores are reported and exported on their own; they are not added to the gradebook formula automatically.
+Round scores reach the gradebook only when applied. Each graded round names the gradebook task it grades (HW1, HW2,
+project code or presentation) and a peer share `w` (default 0.30) in **Scores & export**. Once the round is released,
+**Apply to gradebook** writes each scored student's round Final as one override with component `peer_round_<n>`
+(reason names the round); running it again updates those rows in place and removes them for students who no longer have
+a score, and **Remove from gradebook** deletes them. For a task with applied rounds:
+
+```
+Task = (1 − w)·Own + w·Peer + Override
+```
+
+`Own` is the task's usual score (autograder/rubric after curve and penalty, the manual grade, or HW1's 100/0); `Peer` is the
+mean of the student's applied round Finals for that task (each includes the round bonus, `peer_round_<n>_bonus`) and `w`
+the mean of those rounds' shares; `Override` is the task's ordinary per-component override (an absolute bonus). A round
+the student has no score in is left out, and with no applied round the task is `Own + Override` as before. The gradebook
+marks such cells "peer", the student page notes "כולל ביקורת עמיתים", and the CSV has `<task>_peer` columns.
 
 **Letting students in from a local install.** Without hosting, the app is localhost-only by default. To reach students' phones, set `INSTRUCTOR_TOKEN` in `.env`
 (instructor API routes then require it; the instructor UI asks for it once and keeps a cookie), restart, and expose the
@@ -340,7 +355,6 @@ student-notebook ML stack, which the app and tests never import.
 - `GET /api/courses/{course_id}/gradebook/csv`
 - `POST /api/courses/{course_id}/exports/student-reports`, then `GET /api/tasks/{task_id}` and
   `GET /api/courses/{course_id}/exports/student-reports/{task_id}/download` (zip; a signed-URL redirect when hosted)
-- `PATCH /api/courses/{course_id}/enrollments/{enrollment_id}/bonus`
 
 Peer review (instructor, prefix `/api/courses/{course_id}/peer`):
 

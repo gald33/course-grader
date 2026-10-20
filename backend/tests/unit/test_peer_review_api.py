@@ -388,7 +388,7 @@ def test_exclusion_participation_exemptions_and_scores(env, course):
     assert c.post(f"{base}/rounds/{course.round_id}/exemptions", json={"student_id": course.students["b2"], "exempt": True, "reason": ""}).status_code == 400
 
     # Bonus via the existing override mechanism lands on the round's final score
-    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": course.students["a1"], "component": "peer_round_1", "delta": 3, "reason": "Great feedback"}))
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": course.students["a1"], "component": "peer_round_1_bonus", "delta": 3, "reason": "Great feedback"}))
     scores = _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))
     students = {s["student_id"]: s for s in scores["students"]}
     a1 = students[course.students["a1"]]
@@ -734,6 +734,63 @@ def test_students_create_join_and_leave_teams(env):
     assert "Solo" not in {t["name"] for t in _ok(c.get(f"/api/courses/{course_id}/peer/teams"))["teams"]}
 
 
+def test_released_round_applies_to_gradebook_once_per_student(env, course):
+    _schedule_and_open(env, course)
+    c = env.client
+    base = _base(course)
+    for who in ("c1", "c2", "b1"):
+        _ok(_review(env, course, who, "A"))
+    for who in ("c1", "a1", "a2"):
+        _ok(_review(env, course, who, "B", scores={k: 5 for k in GOOD}))
+    a1 = course.students["a1"]
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": a1, "component": "peer_round_1_bonus", "delta": 3, "reason": "Great feedback"}))
+
+    res = c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook")
+    assert res.status_code == 409  # not released yet
+    _ok(c.post(f"{base}/rounds/{course.round_id}/actions/close"))
+    _ok(c.post(f"{base}/rounds/{course.round_id}/actions/release"))
+    res = c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook")
+    assert res.status_code == 409  # no gradebook task chosen yet
+    _ok(c.patch(f"{base}/rounds/{course.round_id}", json={"gradebook_task": "presentation"}))
+
+    def applied():
+        rows = _ok(c.get(f"/api/courses/{course.id}/overrides"))
+        return [o for o in rows if o["component"] == "peer_round_1"]
+
+    assert _ok(c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook")) == {"status": "ok", "created": 4, "updated": 0, "removed": 0}
+    scores = {s["student_id"]: s for s in _ok(c.get(f"{base}/rounds/{course.round_id}/scores"))["students"]}
+    assert scores[a1]["bonus"] == 3  # applying doesn't feed back into the round's bonus
+    rows = applied()
+    assert len(rows) == 4  # Team C isn't scored, so c1/c2 get nothing
+    assert all("round 1" in o["reason"] for o in rows)
+    by_student = {o["student_id"]: o["delta"] for o in rows}
+    assert by_student[a1] == pytest.approx(round(scores[a1]["final"], 2))
+
+    # Again, after the bonus changes and a stray duplicate: updates, never duplicates.
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": a1, "component": "peer_round_1_bonus", "delta": 2, "reason": "More"}))
+    _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": a1, "component": "peer_round_1", "delta": 1, "reason": "by hand"}))
+    assert _ok(c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook")) == {"status": "ok", "created": 0, "updated": 4, "removed": 1}
+    rows = applied()
+    assert len(rows) == 4
+    assert {o["student_id"]: o["delta"] for o in rows}[a1] == pytest.approx(by_student[a1] + 2)
+
+    # The round's score is now 30% of a1's presentation (instructor score 0 here).
+    gb = {r["student_id"]: r for r in _ok(c.get(f"/api/courses/{course.id}/gradebook"))["rows"]}
+    assert gb[a1]["presentation"] == pytest.approx(0.3 * (by_student[a1] + 2), abs=0.01)
+    assert gb[course.students["c1"]]["presentation"] == 0  # no round score: peer part ignored
+
+    # Remove from gradebook drops every applied row for the round.
+    assert _ok(c.delete(f"{base}/rounds/{course.round_id}/apply-to-gradebook")) == {"status": "ok", "removed": 4}
+    assert applied() == []
+    gb = {r["student_id"]: r for r in _ok(c.get(f"/api/courses/{course.id}/gradebook"))["rows"]}
+    assert gb[a1]["presentation"] == 0 and gb[a1]["peer"] == {}
+
+    with env.Session() as db:
+        db.get(ReviewRound, course.round_id).counts_toward_grade = False
+        db.commit()
+    assert c.post(f"{base}/rounds/{course.round_id}/apply-to-gradebook").status_code == 409
+
+
 def test_teams_lock_at_the_deadline(env, monkeypatch):
     from app.services import peer_review as svc
 
@@ -788,3 +845,89 @@ def test_teams_lock_at_the_deadline(env, monkeypatch):
     settings = _ok(c.put(f"{base}/team-settings", json={"clear_teams_deadline": True}))
     assert settings["teams_deadline"] is None and settings["teams_locked"] is False
     _ok(r(3, json={"name": "Reopened"}))
+
+
+def test_applied_rounds_count_toward_their_gradebook_task(env, course):
+    """T = (1 - w)·A + w·P + D_T, where P and w are the means over the student's
+    applied rounds for T (peer_round_<n> rows, as "Apply to gradebook" writes)."""
+    from app.models.entities import Assignment, Submission, SubmissionMember
+
+    c = env.client
+    base = _base(course)
+    a1, a2 = course.students["a1"], course.students["a2"]
+    with env.Session() as db:
+        for kind, manual in (("HW1", None), ("HW2", 60.0)):
+            assignment = Assignment(course_id=course.id, workcode=1, name=kind, assignment_type=kind)
+            db.add(assignment)
+            db.flush()
+            sub = Submission(course_id=course.id, assignment_id=assignment.id, group_identifier="a1", manual_grade=manual)
+            db.add(sub)
+            db.flush()
+            db.add(SubmissionMember(submission_id=sub.id, student_id=a1))
+        db.commit()
+    rounds = {r["number"]: r["id"] for r in _ok(c.get(f"{base}/overview"))["rounds"]}
+
+    def row(sid=a1):
+        return next(r for r in _ok(c.get(f"/api/courses/{course.id}/gradebook"))["rows"] if r["student_id"] == sid)
+
+    def override(component, delta, sid=a1):
+        _ok(c.post(f"/api/courses/{course.id}/overrides", json={"student_id": sid, "component": component, "delta": delta, "reason": "t"}))
+
+    before = row()
+    assert (before["hw1"], before["hw2"], before["peer"], before["hw2_peer"]) == (100, 60, {}, None)
+
+    # An applied score for a round with no task, or before mapping, changes nothing.
+    override("peer_round_1", 90)
+    assert row() == {**before, "overrides": {"peer_round_1": 90}}
+
+    _ok(c.patch(f"{base}/rounds/{rounds[1]}", json={"gradebook_task": "hw2"}))  # default weight 0.3
+    r = row()
+    assert r["hw2"] == pytest.approx(0.7 * 60 + 0.3 * 90)
+    assert r["hw2_peer"] == 90 and r["peer"]["hw2"] == {"rounds": [1], "peer": 90, "weight": 0.3, "auto": 60}
+    assert r["final"] == round(0.1 * r["hw1"] + 0.1 * r["hw2"] + 0.7 * r["project_with_bonus"] + 0.1 * r["attendance_score"])
+    assert r["final"] > before["final"]
+    assert row(a2)["hw2"] == 0 and row(a2)["peer"] == {}  # no applied score: T = A + D
+
+    override("hw2", 5)  # absolute bonus on the whole task
+    assert row()["hw2"] == pytest.approx(0.7 * 60 + 0.3 * 90 + 5)
+
+    # Two rounds on one task: P and w are the means over the rounds.
+    _ok(c.patch(f"{base}/rounds/{rounds[2]}", json={"gradebook_task": "hw2", "peer_weight": 0.5}))
+    override("peer_round_2", 70)
+    r = row()
+    assert r["peer"]["hw2"]["rounds"] == [1, 2]
+    assert r["hw2"] == pytest.approx(0.6 * 60 + 0.4 * 80 + 5)
+
+    # HW1: A is the 100/0 completion score.
+    _ok(c.patch(f"{base}/rounds/{rounds[3]}", json={"gradebook_task": "hw1"}))
+    override("peer_round_3", 50)
+    assert row()["hw1"] == pytest.approx(0.7 * 100 + 0.3 * 50)
+    _ok(c.patch(f"{base}/rounds/{rounds[3]}", json={"peer_weight": 0}))
+    assert row()["hw1"] == 100
+    _ok(c.patch(f"{base}/rounds/{rounds[3]}", json={"gradebook_task": ""}))
+    assert row()["hw1"] == 100 and "hw1" not in row()["peer"]
+
+    # Presentation feeds the project base like any presentation score.
+    _ok(c.patch(f"{base}/rounds/{rounds[4]}", json={"gradebook_task": "presentation"}))
+    override("peer_round_4", 80)
+    r = row()
+    assert r["presentation"] == pytest.approx(24) and r["project_base"] == pytest.approx(0.2 * 24)
+
+    # A round that no longer counts toward a grade drops out.
+    with env.Session() as db:
+        db.get(ReviewRound, rounds[2]).counts_toward_grade = False
+        db.commit()
+    assert row()["hw2"] == pytest.approx(0.7 * 60 + 0.3 * 90 + 5)
+
+    assert c.patch(f"{base}/rounds/{rounds[1]}", json={"peer_weight": 1.5}).status_code == 422
+    assert c.patch(f"{base}/rounds/{rounds[1]}", json={"gradebook_task": "final_talk"}).status_code == 422
+    rnd = next(x for x in _ok(c.get(f"{base}/overview"))["rounds"] if x["number"] == 1)
+    assert (rnd["gradebook_task"], rnd["peer_weight"]) == ("hw2", 0.3)
+
+    # Student page marks the part; the CSV carries the peer columns.
+    _ok(c.put(f"/api/courses/{course.id}/grade-releases/hw2", json={"released": True}))
+    grades = _ok(c.get(f"/api/r/{course.tokens['a1']}"))["grades"]
+    assert grades["hw2"]["peer"] is True and grades["hw2"]["score"] == row()["hw2"]
+    assert "peer" not in _ok(c.get(f"/api/r/{course.tokens['a2']}"))["grades"]["hw2"]
+    csv_text = c.get(f"/api/courses/{course.id}/gradebook/csv").text
+    assert "hw2_peer" in csv_text.splitlines()[0]

@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { SubmissionAdmin } from '@/components/submission-admin';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { DotScale } from '@/components/ui/dot-scale';
@@ -729,6 +730,15 @@ export default function SubmissionReviewPage({
         rubricDirty={rubricDirtyState || notesDirtyState}
         autoGrade={() => void autoGrade()}
         autoGrading={autoGrading}
+        manage={
+          <SubmissionAdmin
+            courseId={courseId}
+            submissionId={sub.id}
+            memberStudentIds={sub.member_student_ids}
+            onChanged={load}
+            setToast={setToast}
+          />
+        }
       />
 
       {layout === 'split' ? <ReviewSplit {...sharedProps} /> : null}
@@ -778,7 +788,8 @@ function ReviewHeader({
   rubricSaving,
   rubricDirty,
   autoGrade,
-  autoGrading
+  autoGrading,
+  manage
 }: {
   sub: SubmissionDetail['submission'];
   courseId: number;
@@ -795,6 +806,7 @@ function ReviewHeader({
   rubricDirty: boolean;
   autoGrade: () => void;
   autoGrading: boolean;
+  manage: React.ReactNode;
 }) {
   const isProject = sub.assignment_type === 'PROJECT';
   const tooltip = isProject
@@ -865,6 +877,7 @@ function ReviewHeader({
           </button>
         </div>
         <SaveStatus saving={rubricSaving} savedAt={rubricSavedAt} dirty={rubricDirty} />
+        {manage}
         <Button size="sm" variant="ghost" onClick={autoGrade} disabled={autoGrading} title={tooltip}>
           {autoGrading ? 'Auto-grading…' : '✦ Auto grade'}
         </Button>

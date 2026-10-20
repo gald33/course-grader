@@ -60,6 +60,8 @@ type RoundRow = {
   participation_factor: boolean;
   llm_enabled: boolean;
   counts_toward_grade: boolean;
+  gradebook_task: GradebookTask | null;
+  peer_weight: number;
   obligations: { expected: number; completed: number };
   presentations: PresentationRow[];
 };
@@ -1871,6 +1873,15 @@ type ScoresData = {
   }[];
 };
 
+type GradebookTask = 'hw1' | 'hw2' | 'project_code' | 'presentation';
+
+const GRADEBOOK_TASKS: Record<GradebookTask, string> = {
+  hw1: 'HW1',
+  hw2: 'HW2',
+  project_code: 'Project code',
+  presentation: 'Presentation'
+};
+
 const FLAG_TEXT: Record<string, string> = {
   no_reviews: 'no reviews',
   imputed_review_score: 'fully exempt → class-average review score',
@@ -1897,7 +1908,9 @@ function ScoresTab({
     target_std: round.target_std,
     missing_review_policy: round.missing_review_policy,
     participation_factor: round.participation_factor,
-    llm_enabled: round.llm_enabled
+    llm_enabled: round.llm_enabled,
+    gradebook_task: (round.gradebook_task ?? '') as GradebookTask | '',
+    peer_weight: round.peer_weight
   });
   const [llmBusy, setLlmBusy] = useState(false);
   const load = useCallback(async () => setScores(await apiGet<ScoresData>(`${base}/rounds/${round.id}/scores`)), [base, round.id]);
@@ -1933,13 +1946,30 @@ function ScoresTab({
       () =>
         apiPost(`/api/courses/${courseId}/overrides`, {
           student_id: s.student_id,
-          component: `peer_round_${round.number}`,
+          component: `peer_round_${round.number}_bonus`,
           delta: Number(points),
           reason
         }),
       'Bonus added (see Overrides to remove)'
     );
     await load();
+  };
+
+  const task = round.gradebook_task ? GRADEBOOK_TASKS[round.gradebook_task] : null;
+  const applyToGradebook = async () => {
+    const pct = Math.round(round.peer_weight * 100);
+    if (!window.confirm(`Count each student's round ${round.number} final score as ${pct}% of their ${task} grade? Running it again updates those scores.`)) return;
+    await run(async () => {
+      const res = await apiPost<{ created: number; updated: number; removed: number }>(`${base}/rounds/${round.id}/apply-to-gradebook`);
+      setToast(`Applied to gradebook: ${res.created} added, ${res.updated} updated, ${res.removed} removed`);
+    });
+  };
+  const removeFromGradebook = async () => {
+    if (!window.confirm(`Remove round ${round.number}'s scores from the gradebook? ${task ?? 'The task'} goes back to its own score.`)) return;
+    await run(async () => {
+      const res = await apiDelete<{ removed: number }>(`${base}/rounds/${round.id}/apply-to-gradebook`);
+      setToast(`Removed ${res.removed} round scores from the gradebook`);
+    });
   };
 
   return (
@@ -1969,7 +1999,7 @@ function ScoresTab({
       </div>
 
       <Card>
-        <form onSubmit={saveSettings} className="grid items-end gap-3 md:grid-cols-[110px_110px_1.6fr_1.2fr_1fr_auto]">
+        <form onSubmit={saveSettings} className="grid items-end gap-3 md:grid-cols-[110px_110px_1.6fr_1.2fr_1fr_140px_90px_auto]">
           <div>
             <Label>Target mean</Label>
             <Input type="number" step="0.5" value={settings.target_mean} onChange={(e) => setSettings({ ...settings, target_mean: Number(e.target.value) })} />
@@ -2001,6 +2031,32 @@ function ScoresTab({
             <input type="checkbox" checked={settings.llm_enabled} onChange={(e) => setSettings({ ...settings, llm_enabled: e.target.checked })} />
             AI grader
           </label>
+          <div>
+            <Label>Grades task</Label>
+            <select
+              className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
+              value={settings.gradebook_task}
+              onChange={(e) => setSettings({ ...settings, gradebook_task: e.target.value as GradebookTask | '' })}
+            >
+              <option value="">— none —</option>
+              {(Object.keys(GRADEBOOK_TASKS) as GradebookTask[]).map((k) => (
+                <option key={k} value={k}>
+                  {GRADEBOOK_TASKS[k]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label>Peer share</Label>
+            <Input
+              type="number"
+              min="0"
+              max="1"
+              step="0.05"
+              value={settings.peer_weight}
+              onChange={(e) => setSettings({ ...settings, peer_weight: Number(e.target.value) })}
+            />
+          </div>
           <Button size="sm" type="submit" variant="soft">
             Save
           </Button>
@@ -2015,6 +2071,22 @@ function ScoresTab({
           >
             ⬇ Export round (xlsx)
           </a>
+          {round.counts_toward_grade ? (
+            <>
+              <Button
+                size="sm"
+                variant="soft"
+                disabled={!round.released_at || !task}
+                title={!round.released_at ? 'Release the results first' : !task ? 'Choose the task this round grades first' : undefined}
+                onClick={applyToGradebook}
+              >
+                Apply to gradebook
+              </Button>
+              <Button size="sm" variant="soft" onClick={removeFromGradebook}>
+                Remove from gradebook
+              </Button>
+            </>
+          ) : null}
           <span className="self-center text-[12px] text-ink-3">
             Sheets: team scores, student scores, participation, and reviews with reviewers pseudonymised.
           </span>
@@ -2122,9 +2194,11 @@ function ScoresTab({
             </tbody>
           </TableCard>
           <p className="text-[12px] text-ink-3">
-            This round’s final score is reported on its own here and in the export; it is not added to the course
-            gradebook formula automatically. Bonus points are stored as overrides with component{' '}
-            <code>peer_round_{round.number}</code>.
+            This round’s final score is reported on its own here and in the export. <strong>Apply to gradebook</strong>{' '}
+            (after release) counts it as the peer share of the task the round grades:{' '}
+            task = (1 − share) × the task’s own score + share × peer score, plus any override on that task. Several rounds on
+            one task are averaged. Scores are stored as overrides with component <code>peer_round_{round.number}</code>;
+            bonus points with <code>peer_round_{round.number}_bonus</code>.
           </p>
         </>
       )}

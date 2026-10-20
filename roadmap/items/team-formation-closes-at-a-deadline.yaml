@@ -1,0 +1,41 @@
+id: team-formation-closes-at-a-deadline
+title: Let students form their own teams until a deadline, then lock teams automatically
+status: ready
+priority: now
+blocked_on: []
+related_to:
+- key: roster-cannot-be-edited-per-student
+  note: 'A withdrawn student must leave their team, so whichever lands second
+    has to handle a withdrawal after teams have locked.'
+refs:
+- 'backend/app/models/entities.py'
+- 'backend/app/services/peer_review.py'
+- 'backend/app/api/peer_review.py'
+- 'backend/app/api/student_review.py'
+- 'frontend/components/peer-review/peer-review-step.tsx'
+- 'frontend/components/student-view.tsx'
+evidence: |
+  REQUESTED by the instructor. Current behaviour VERIFIED by reading the code
+  at dfdfa01 (7c00bb1, "Students form their own teams; instructor sets the
+  rules").
+
+  Students can already create, join and leave teams, but the window is a
+  manual switch: `Course.teams_open` (a boolean, default true), toggled by a
+  checkbox in Peer review -> Teams and checked by `_require_teams_open` before
+  every student team change. There is no deadline, so teams stay open until
+  the instructor remembers to close them, and students can't see when the
+  window ends.
+
+  Done when:
+    1. The instructor sets a team-formation deadline (date and time, course
+       time zone) next to `max_team_size` in team settings, and can clear it.
+    2. After the deadline, student create / join / leave / rename are refused
+       server-side with the existing `teams_locked` error. The check runs on
+       the server clock, not the client.
+    3. Students see the deadline and a countdown on their team panel before it
+       passes, and a "teams are locked" state after.
+    4. The instructor can still move students between teams after the deadline.
+    5. Optional, decide while building: at the deadline, students without a
+       team are listed for the instructor, or auto-assigned to teams with
+       space.
+    6. Tests cover a change just before and just after the deadline.

@@ -52,3 +52,6 @@ roster_attendance.xlsx
 frontend/.e2e/
 frontend/test-results/
 frontend/playwright-report/
+
+# roadmap-core store: derived from roadmap/items/*.yaml by `roadmap push`
+roadmap/roadmap.db

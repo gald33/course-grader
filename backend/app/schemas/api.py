@@ -20,6 +20,7 @@ class CourseRead(BaseModel):
     year: int
     semester: str
     attendance_threshold: float
+    archived_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
@@ -29,6 +30,10 @@ class CourseUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     year: int | None = Field(default=None, ge=2000, le=2100)
     semester: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class SubmissionMembersUpdate(BaseModel):
+    student_ids: list[int] = Field(min_length=1)
 
 
 class AttendanceThresholdUpdate(BaseModel):
@@ -261,6 +266,15 @@ class NotesUpdate(BaseModel):
     feedback_student: str = ""
 
 
+class PeerTaskPart(BaseModel):
+    """Applied peer rounds blended into one gradebook task."""
+
+    rounds: list[int]
+    peer: float
+    weight: float
+    auto: float
+
+
 class GradebookRow(BaseModel):
     enrollment_id: int
     student_id: int
@@ -280,6 +294,11 @@ class GradebookRow(BaseModel):
     project_with_bonus: float
     final: float
     final_uncurved: float
+    hw1_peer: float | None = None
+    hw2_peer: float | None = None
+    project_code_peer: float | None = None
+    presentation_peer: float | None = None
+    peer: dict[str, PeerTaskPart] = {}
     overrides: dict[str, float]
 
 
@@ -289,10 +308,6 @@ class GradebookResponse(BaseModel):
 
 class AttendanceExemptUpdate(BaseModel):
     attendance_exempt: bool
-
-
-class BonusUpdate(BaseModel):
-    bonus_points: float
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +395,9 @@ class RoundUpdate(BaseModel):
     link_required: bool | None = None
     participation_factor: bool | None = None
     llm_enabled: bool | None = None
+    # "" clears the task
+    gradebook_task: str | None = Field(default=None, pattern="^(hw1|hw2|project_code|presentation|)$")
+    peer_weight: float | None = Field(default=None, ge=0, le=1)
 
 
 class SessionReviewToggle(BaseModel):

@@ -17,6 +17,7 @@ from app.models.entities import (
     Enrollment,
     NotebookRun,
     PresentationScore,
+    ReviewRound,
     RubricDimensionScore,
     Student,
     StudentComponentOverride,
@@ -386,6 +387,46 @@ def _overrides_for_student(db: Session, course_id: int, student_id: int) -> dict
     return merged
 
 
+PEER_TASKS = ("hw1", "hw2", "project_code", "presentation")
+
+
+def _peer_round_tasks(db: Session, course_id: int) -> dict[int, tuple[str, float]]:
+    """Graded rounds mapped to a gradebook task: number -> (task, peer weight)."""
+    return {
+        r.number: (r.gradebook_task, r.peer_weight)
+        for r in db.scalars(
+            select(ReviewRound).where(
+                ReviewRound.course_id == course_id,
+                ReviewRound.gradebook_task.is_not(None),
+                ReviewRound.counts_toward_grade.is_(True),
+            )
+        )
+    }
+
+
+def peer_round_parts(overrides: dict[str, float], round_tasks: dict[int, tuple[str, float]]) -> dict[str, dict]:
+    """Per task, the student's applied peer-round scores (peer_round_<n>
+    overrides): P = mean of the round finals, w = mean of those rounds'
+    weights. Rounds the student has no score in are left out."""
+    parts: dict[str, dict] = {}
+    for number, (task, weight) in sorted(round_tasks.items()):
+        final = overrides.get(f"peer_round_{number}")
+        if final is None:
+            continue
+        part = parts.setdefault(task, {"rounds": [], "finals": [], "weights": []})
+        part["rounds"].append(number)
+        part["finals"].append(final)
+        part["weights"].append(weight)
+    return {
+        task: {
+            "rounds": p["rounds"],
+            "peer": sum(p["finals"]) / len(p["finals"]),
+            "weight": sum(p["weights"]) / len(p["weights"]),
+        }
+        for task, p in parts.items()
+    }
+
+
 def compute_gradebook_rows(
     db: Session,
     course_id: int,
@@ -519,6 +560,22 @@ def _gradebook_row(
 
     overrides = _overrides_for_student(db, course_id, student.id)
 
+    # Applied peer rounds: task = (1 - w)·auto + w·peer, before the task's own
+    # delta overrides (absolute bonus) below.
+    peer = peer_round_parts(overrides, _peer_round_tasks(db, course_id))
+
+    def blend(task: str, auto: float) -> float:
+        part = peer.get(task)
+        return auto if part is None else (1 - part["weight"]) * auto + part["weight"] * part["peer"]
+
+    for task, auto in (("hw1", hw1), ("hw2", hw2), ("project_code", project_code), ("presentation", presentation)):
+        if task in peer:
+            peer[task]["auto"] = round(_finite(auto), 2)
+    hw1 = blend("hw1", hw1)
+    hw2, hw2_uncurved = blend("hw2", hw2), blend("hw2", hw2_uncurved)
+    project_code, project_code_uncurved = blend("project_code", project_code), blend("project_code", project_code_uncurved)
+    presentation, presentation_uncurved = blend("presentation", presentation), blend("presentation", presentation_uncurved)
+
     hw1 += overrides.get("hw1", 0.0)
     hw2 += overrides.get("hw2", 0.0)
     hw2_uncurved += overrides.get("hw2", 0.0)
@@ -541,7 +598,7 @@ def _gradebook_row(
     if project_submission and project_submission.manual_grade is not None:
         project_base = float(project_submission.manual_grade)
         project_base_uncurved = float(project_submission.manual_grade)
-    bonus_points = enrollment.bonus_points + overrides.get("bonus", 0.0)
+    bonus_points = overrides.get("bonus", 0.0)
     if not include_bonus:
         bonus_points = 0.0
     project_with_bonus = project_base + bonus_points
@@ -578,6 +635,8 @@ def _gradebook_row(
         "project_with_bonus": round(_finite(project_with_bonus), 2),
         "final": round(final_score),
         "final_uncurved": round(final_score_uncurved),
+        **{f"{task}_peer": (round(peer[task]["peer"], 2) if task in peer else None) for task in PEER_TASKS},
+        "peer": peer,
         "overrides": overrides,
     }
 

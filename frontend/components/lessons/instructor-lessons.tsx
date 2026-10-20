@@ -361,7 +361,7 @@ export function LessonsStep({
           <h2 className="font-display text-[24px]">Lessons couldn’t be loaded</h2>
           <p className="mt-2 max-w-2xl text-[14px] text-ink-2">{loadError}</p>
           <p className="mt-1 max-w-2xl text-[13px] text-ink-3">
-            If the server was just updated, its database may still need the lessons migration (0021_lessons).
+            If the server was just updated, its database may still need the lessons migration (0024_lessons).
           </p>
           <Button className="mt-4" size="sm" variant="outline" onClick={() => void load().catch((e) => setLoadError(errorMessage(e)))}>
             Try again

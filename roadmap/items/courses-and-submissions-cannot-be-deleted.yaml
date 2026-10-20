@@ -1,0 +1,20 @@
+id: courses-and-submissions-cannot-be-deleted
+title: Courses, assignments and submissions can't be deleted or archived
+status: ready
+priority: later
+blocked_on: []
+refs:
+- 'backend/app/api/courses.py'
+- 'backend/app/api/submissions.py'
+- 'frontend/app/page.tsx'
+evidence: |
+  VERIFIED by grep for `@router.delete` at dfdfa01. The only delete routes are
+  for the instructor session, teams, snapshots and overrides.
+
+  A test course or a mistaken ZIP import stays forever. There's also no way to
+  remove a student from a submission's group when the filename parser grouped
+  them wrongly.
+
+  Done when: a course can be archived (hidden from the home page, still
+  restorable); a submission can be deleted, with its artifacts removed from
+  storage; and group membership on a submission can be edited.

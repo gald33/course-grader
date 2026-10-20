@@ -89,11 +89,15 @@ def check_link(url: str, transport: httpx.BaseTransport | None = None, require_p
 
     current = url
     try:
+        # Refuse local/private links before initializing networking (which can
+        # itself fail when the host has an unsupported proxy configuration).
+        if require_public:
+            _public_host(parts.hostname or "")
         with httpx.Client(
             transport=transport, timeout=TIMEOUT_SECONDS, follow_redirects=False, headers={"User-Agent": USER_AGENT}
         ) as client:
-            for _ in range(MAX_REDIRECTS + 1):
-                if require_public:
+            for hop in range(MAX_REDIRECTS + 1):
+                if require_public and hop:
                     _public_host(urlsplit(current).hostname or "")
                 with client.stream("GET", current) as res:
                     if res.is_redirect and "location" in res.headers:

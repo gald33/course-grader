@@ -45,10 +45,13 @@ from app.services.peer_scoring import ScoredReview, compute_round_scores, review
 router = APIRouter(prefix="/api/r/{token}", tags=["student-review"])
 
 
-def _enrollment(db: Session, token: str) -> Enrollment:
+def _enrollment(db: Session, token: str, read_only: bool = False) -> Enrollment:
     enrollment = db.scalar(select(Enrollment).where(Enrollment.review_token == token)) if len(token) >= 16 else None
     if enrollment is None:
         raise HTTPException(status_code=404, detail={"code": "invalid_link", "message": "Unknown review link"})
+    # A withdrawn student can still look at their page (history), not change anything.
+    if enrollment.withdrawn_at is not None and not read_only:
+        raise HTTPException(status_code=409, detail={"code": "withdrawn", "message": "You have withdrawn from this course"})
     return enrollment
 
 
@@ -259,7 +262,7 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
         else []
     )
     return {
-        "student": {"name": student.name if student else ""},
+        "student": {"name": student.name if student else "", "withdrawn": enrollment.withdrawn_at is not None},
         "course": {"name": course.name if course else "", "code": course.code if course else ""},
         "team": (
             {
@@ -273,7 +276,7 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
             else None
         ),
         "teams_policy": {
-            "open": bool(course and course.teams_open),
+            "open": bool(course and course.teams_open) and enrollment.withdrawn_at is None,
             "max_size": course.max_team_size if course else None,
         },
         "today": date.today().isoformat(),
@@ -283,7 +286,7 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
 
 @router.get("")
 def student_home(token: str, db: Session = Depends(get_db)) -> dict:
-    return _payload(db, _enrollment(db, token))
+    return _payload(db, _enrollment(db, token, read_only=True))
 
 
 @router.put("/reviews/{presentation_id}")

@@ -154,3 +154,11 @@ def find_user_id(email: str) -> str | None:
             if len(users) < 1000:
                 return None
             page += 1
+
+
+def admin_set_email(user_id: str, email: str) -> None:
+    """Fix a student's sign-in email (confirmed, no email round-trip)."""
+    with _client() as client:
+        res = client.put(f"/admin/users/{user_id}", json={"email": email, "email_confirm": True})
+    if res.is_error:
+        raise _error(res)

@@ -403,7 +403,7 @@ def compute_gradebook_rows(
     enrollments = db.scalars(
         select(Enrollment)
         .join(Student)
-        .where(Enrollment.course_id == course_id, Enrollment.is_test.is_(False))
+        .where(Enrollment.course_id == course_id, Enrollment.is_test.is_(False), Enrollment.withdrawn_at.is_(None))
         .order_by(Student.national_id)
     ).all()
 

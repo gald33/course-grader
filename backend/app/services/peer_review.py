@@ -633,7 +633,11 @@ def snapshot_round(db: Session, rnd: ReviewRound) -> dict:
                 ):
                     db.delete(ob)
     added_students = 0
+    withdrawn = set()
     for enrollment in db.scalars(select(Enrollment).where(Enrollment.course_id == rnd.course_id)):
+        if enrollment.withdrawn_at is not None:
+            withdrawn.add(enrollment.student_id)
+            continue
         if enrollment.student_id in roster:
             continue
         row = ReviewRoundRoster(
@@ -653,6 +657,8 @@ def snapshot_round(db: Session, rnd: ReviewRound) -> dict:
     added_obligations = 0
     presentations = list(db.scalars(select(Presentation).where(Presentation.round_id == rnd.id)))
     for student_id, row in roster.items():
+        if student_id in withdrawn:
+            continue
         for p in presentations:
             if p.team_id == row.team_id or (student_id, p.id) in existing:
                 continue

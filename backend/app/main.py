@@ -12,10 +12,12 @@ from app.api import (
     courses,
     curves,
     exports,
+    grade_releases,
     gradebook,
     imports,
     oauth,
     peer_review,
+    roster,
     runs,
     student_auth,
     student_review,
@@ -58,6 +60,7 @@ app.include_router(assignments.router)
 app.include_router(submissions.router)
 app.include_router(runs.router)
 app.include_router(gradebook.router)
+app.include_router(grade_releases.router)
 app.include_router(curves.router)
 app.include_router(oauth.router)
 app.include_router(artifacts.router)
@@ -68,6 +71,7 @@ app.include_router(student_review.router)
 app.include_router(student_review.preview_router)
 app.include_router(student_auth.router)
 app.include_router(accounts.router)
+app.include_router(roster.router)
 
 
 @app.on_event("startup")

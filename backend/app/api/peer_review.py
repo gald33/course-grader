@@ -208,7 +208,9 @@ def overview(course_id: int, db: Session = Depends(get_db)) -> dict:
         select(ReviewRound).where(ReviewRound.course_id == course_id).order_by(ReviewRound.number)
     ).all()
     student_count = db.scalar(
-        select(func.count()).select_from(Enrollment).where(Enrollment.course_id == course_id, Enrollment.is_test.is_(False))
+        select(func.count())
+        .select_from(Enrollment)
+        .where(Enrollment.course_id == course_id, Enrollment.is_test.is_(False), Enrollment.withdrawn_at.is_(None))
     )
     return {
         "sessions": [
@@ -261,11 +263,16 @@ def list_teams(course_id: int, db: Session = Depends(get_db)) -> dict:
         )
     }
     rows = db.execute(
-        select(Student, Enrollment.is_test).join(Enrollment).where(Enrollment.course_id == course_id).order_by(Student.name)
+        select(Student, Enrollment.is_test)
+        .join(Enrollment)
+        .where(Enrollment.course_id == course_id, Enrollment.withdrawn_at.is_(None))
+        .order_by(Student.name)
     ).all()
     course = _course(db, course_id)
     return {
-        "settings": {"teams_open": course.teams_open, "max_team_size": course.max_team_size},
+        "settings": _team_settings(course),
+        # After the deadline: students left without a team, for the instructor to place.
+        "unassigned": svc.unassigned_students(db, course_id),
         "teams": [
             {"id": t.id, "name": t.name, "project_title": t.project_title, "join_code": t.join_code} for t in teams
         ],
@@ -299,8 +306,21 @@ def update_team_settings(course_id: int, payload: TeamSettingsIn, db: Session = 
         course.teams_open = payload.teams_open
     if payload.max_team_size is not None:
         course.max_team_size = payload.max_team_size
+    if payload.clear_teams_deadline:
+        course.teams_deadline = None
+    elif payload.teams_deadline is not None:
+        course.teams_deadline = to_utc_naive(payload.teams_deadline)
     db.commit()
-    return {"teams_open": course.teams_open, "max_team_size": course.max_team_size}
+    return _team_settings(course)
+
+
+def _team_settings(course: Course) -> dict:
+    return {
+        "teams_open": course.teams_open,
+        "max_team_size": course.max_team_size,
+        "teams_deadline": iso(course.teams_deadline),
+        "teams_locked": svc.teams_locked(course),
+    }
 
 
 @router.patch("/teams/{team_id}")
@@ -327,8 +347,13 @@ def delete_team(course_id: int, team_id: int, db: Session = Depends(get_db)) -> 
 @router.put("/students/{student_id}/team")
 def set_student_team(course_id: int, student_id: int, payload: StudentTeamUpdate, db: Session = Depends(get_db)) -> dict:
     _course(db, course_id)
-    if not db.scalar(select(Enrollment).where(Enrollment.course_id == course_id, Enrollment.student_id == student_id)):
+    enrollment = db.scalar(
+        select(Enrollment).where(Enrollment.course_id == course_id, Enrollment.student_id == student_id)
+    )
+    if not enrollment:
         raise HTTPException(status_code=404, detail="Student is not enrolled in this course")
+    if enrollment.withdrawn_at is not None and payload.team_id is not None:
+        raise HTTPException(status_code=409, detail="This student has withdrawn; reinstate them first")
     try:
         svc.set_student_team(db, course_id, student_id, payload.team_id)
     except svc.PeerReviewError as exc:

@@ -69,7 +69,6 @@ class Enrollment(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
     attendance_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
     attendance_exempt: Mapped[bool] = mapped_column(Boolean, default=False)
-    bonus_points: Mapped[float] = mapped_column(Float, default=0.0)
     # Test student (e.g. the instructor's own student account): uses the site
     # normally but is left out of scores, normalisation, exports and grades.
     is_test: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -291,10 +291,6 @@ class AttendanceExemptUpdate(BaseModel):
     attendance_exempt: bool
 
 
-class BonusUpdate(BaseModel):
-    bonus_points: float
-
-
 # ---------------------------------------------------------------------------
 # Peer review
 # ---------------------------------------------------------------------------

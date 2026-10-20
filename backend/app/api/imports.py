@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
-from app.models.entities import Artifact, Course, Enrollment, PresentationScore, Student
+from app.models.entities import Artifact, Course, Enrollment, PresentationScore, Student, StudentComponentOverride
 from app.schemas.api import PresentationImportResult
 from app.services.presentation_import import aggregate_presentation_rows, parse_presentations_xlsx
 from app.services import storage
@@ -216,8 +216,16 @@ async def import_presentations(
             if value is not None:
                 setattr(presentation, field, value)
 
-        if row.bonus is not None:
-            enrollment.bonus_points += row.bonus
+        if row.bonus:
+            db.add(
+                StudentComponentOverride(
+                    course_id=course_id,
+                    student_id=student.id,
+                    component="bonus",
+                    delta=row.bonus,
+                    reason=f"Presentation import ({row.stage})",
+                )
+            )
             bonus_updates += 1
 
         imported_rows += 1

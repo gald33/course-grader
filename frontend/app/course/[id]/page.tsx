@@ -1426,6 +1426,12 @@ function OverridesStep({
 
 /* =============== Gradebook Step =============== */
 
+type TaskStatus = { task_id: string; state: string; payload: Record<string, unknown> };
+type ReportsExport =
+  | { taskId: string; state: 'running' }
+  | { taskId: string; state: 'done'; count: number }
+  | { taskId: string; state: 'failed'; error: string };
+
 function GradebookStep({
   gradebook,
   activeCurve,
@@ -1440,6 +1446,26 @@ function GradebookStep({
   refresh: () => Promise<void>;
 }) {
   const [sort, setSort] = useState<'name' | 'final' | 'attendance'>('name');
+  const [reportsExport, setReportsExport] = useState<ReportsExport | null>(null);
+
+  // Poll the queued Hebrew-PDF export until the worker finishes or fails.
+  useEffect(() => {
+    if (reportsExport?.state !== 'running') return;
+    const taskId = reportsExport.taskId;
+    const timer = setInterval(async () => {
+      try {
+        const task = await apiGet<TaskStatus>(`/api/tasks/${taskId}`);
+        if (task.state === 'SUCCESS') {
+          setReportsExport({ taskId, state: 'done', count: Number(task.payload.report_count ?? 0) });
+        } else if (task.state === 'FAILURE') {
+          setReportsExport({ taskId, state: 'failed', error: String(task.payload.error ?? 'failed') });
+        }
+      } catch {
+        /* transient; keep polling */
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [reportsExport?.state, reportsExport?.taskId]);
 
   const sorted = useMemo(() => {
     const arr = [...gradebook];
@@ -1480,7 +1506,8 @@ function GradebookStep({
   };
 
   const triggerExport = async () => {
-    await apiPost(`/api/courses/${courseId}/exports/student-reports?async_job=true`);
+    const res = await apiPost<{ task_id: string }>(`/api/courses/${courseId}/exports/student-reports?async_job=true`);
+    setReportsExport({ taskId: res.task_id, state: 'running' });
     setToast('Student reports queued');
   };
 
@@ -1550,9 +1577,29 @@ function GradebookStep({
             >
               ⬇ Grades report (xlsx)
             </a>
-            <button onClick={triggerExport} className="text-[13px] text-forest hover:underline">
+            <button
+              onClick={triggerExport}
+              disabled={reportsExport?.state === 'running'}
+              className="text-[13px] text-forest hover:underline disabled:opacity-50"
+            >
               Queue Hebrew PDFs
             </button>
+            {reportsExport?.state === 'running' ? (
+              <span className="text-[13px] text-ink-3">Generating PDFs…</span>
+            ) : null}
+            {reportsExport?.state === 'done' ? (
+              <a
+                className="text-[13px] text-forest hover:underline"
+                href={`${apiBase()}/api/courses/${courseId}/exports/student-reports/${reportsExport.taskId}/download`}
+              >
+                ⬇ Hebrew PDFs ({reportsExport.count}, zip)
+              </a>
+            ) : null}
+            {reportsExport?.state === 'failed' ? (
+              <span className="text-[13px] text-terracotta" title={reportsExport.error}>
+                PDF export failed: {reportsExport.error}
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="overflow-auto">

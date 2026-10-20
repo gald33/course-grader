@@ -163,3 +163,29 @@ def test_fixing_an_email_moves_the_sign_in_account(auth_env):
     assert res.status_code == 409 and res.json()["detail"]["code"] == "account_needs_email"
     with auth_env.Session() as db:
         assert db.get(Student, sid).email == "tal@example.com"
+
+
+def test_reimport_keeps_a_fixed_email_on_an_account(auth_env, tmp_path):
+    from test_student_accounts import _yedion_file
+
+    c, cid = auth_env.client, auth_env.course_id
+    row = ["600000002", "טל", "טייפו", "x", 0, "Typo", "Tal", "tal@exmaple.com", "", "", "", 1]
+    path = tmp_path / "y.xlsx"
+    _yedion_file(path, [row])
+
+    def _import():
+        with open(path, "rb") as fh:
+            return _ok(c.post(f"/api/courses/{cid}/imports/roster", files={"file": ("y.xlsx", fh)}))
+
+    _import()
+    with auth_env.Session() as db:
+        sid = db.scalar(select(Student.id).where(Student.national_id == "600000002"))
+    assert c.post(f"/api/courses/{cid}/accounts/create", json={}).json()["counts"] == {"created": 1}
+    _ok(c.patch(f"/api/courses/{cid}/students/{sid}", json={"email": "tal@example.com"}))
+
+    # The registrar sheet still has the typo: reported, not applied.
+    assert _import()["email_conflicts"] == ["600000002"]
+    with auth_env.Session() as db:
+        assert db.get(Student, sid).email == "tal@example.com"
+    res = c.post("/api/student-auth/login", json={"email": "tal@example.com", "password": "600000002"})
+    assert res.status_code == 200

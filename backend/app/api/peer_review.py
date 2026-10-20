@@ -265,7 +265,9 @@ def list_teams(course_id: int, db: Session = Depends(get_db)) -> dict:
     ).all()
     course = _course(db, course_id)
     return {
-        "settings": {"teams_open": course.teams_open, "max_team_size": course.max_team_size},
+        "settings": _team_settings(course),
+        # After the deadline: students left without a team, for the instructor to place.
+        "unassigned": svc.unassigned_students(db, course_id),
         "teams": [
             {"id": t.id, "name": t.name, "project_title": t.project_title, "join_code": t.join_code} for t in teams
         ],
@@ -299,8 +301,21 @@ def update_team_settings(course_id: int, payload: TeamSettingsIn, db: Session = 
         course.teams_open = payload.teams_open
     if payload.max_team_size is not None:
         course.max_team_size = payload.max_team_size
+    if payload.clear_teams_deadline:
+        course.teams_deadline = None
+    elif payload.teams_deadline is not None:
+        course.teams_deadline = to_utc_naive(payload.teams_deadline)
     db.commit()
-    return {"teams_open": course.teams_open, "max_team_size": course.max_team_size}
+    return _team_settings(course)
+
+
+def _team_settings(course: Course) -> dict:
+    return {
+        "teams_open": course.teams_open,
+        "max_team_size": course.max_team_size,
+        "teams_deadline": iso(course.teams_deadline),
+        "teams_locked": svc.teams_locked(course),
+    }
 
 
 @router.patch("/teams/{team_id}")

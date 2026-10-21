@@ -20,7 +20,7 @@ from app.services.exporter import export_student_reports_hebrew
 from app.services.llm_code_review import LLMCodeReviewError, review_code_dimensions
 from app.services.notebook_runner import execute_notebook, serialize_notebook
 from app.services.pdf_service import extract_originality_score, extract_text_from_pdf
-from app.services import storage
+from app.services import custom_rubrics, storage
 from app.services.scoring import apply_curve, get_active_curve, parse_curve_mapping
 from app.services.snapshot_service import build_snapshot_artifact, fetch_snapshot_content, persist_snapshot_file
 from app.tasks.queue import job
@@ -388,6 +388,18 @@ def run_notebook(run_id: int) -> dict:
                     ensure_ascii=False,
                 )
 
+                # A custom rubric replaces these dimensions in the gradebook: the
+                # LLM scores each criterion, with the measurements above as
+                # evidence. Best-effort like the LLM dims; the run is saved first
+                # so a failure here can't lose it.
+                if custom_rubrics.get_rubric(db, assignment.id) is not None:
+                    db.commit()
+                    try:
+                        custom_rubrics.score_submission(db, submission, run, executed_path)
+                    except Exception:  # noqa: BLE001
+                        db.rollback()
+                        logger.exception("Custom rubric scoring failed unexpectedly")
+
             report_artifact = db.scalar(
                 select(Artifact)
                 .where(Artifact.submission_id == submission.id, Artifact.kind == "project_report_pdf")
@@ -412,6 +424,21 @@ def run_notebook(run_id: int) -> dict:
             "run_ratio": run.run_ratio,
             "penalty_multiplier": run.penalty_multiplier,
         }
+
+
+@job("app.tasks.jobs.score_custom_rubric")
+def score_custom_rubric(submission_id: int) -> dict:
+    """Score a submission's custom rubric against its grading run's executed
+    notebook, without re-running the notebook."""
+    with SessionLocal() as db:
+        submission = db.get(Submission, submission_id)
+        if submission is None:
+            return {"status": "missing_submission"}
+        run = custom_rubrics.grading_run(db, submission)
+        artifact = db.get(Artifact, run.executed_notebook_artifact_id) if run is not None else None
+        if artifact is None:
+            return {"status": "no_executed_notebook"}
+        return custom_rubrics.score_submission(db, submission, run, str(storage.local_path(artifact.path)))
 
 
 @job("app.tasks.jobs.fetch_and_run_latest")

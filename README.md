@@ -29,6 +29,9 @@ logins; see [Security and scope](#security-and-scope).
   - run ratio and penalty multiplier (`run_ratio ** 1.5`)
   - executed notebook + HTML + logs artifacts
 - Rubrics (0-5 dimensions) + dimension curves (monotonic piecewise 0..5 -> 0..5)
+- Custom rubrics per assignment (HW2, PROJECT): ordered criteria with max points and optional levels, each scored by
+  the LLM from the executed notebook (and report) with the code metrics as evidence; instructor overrides win and
+  survive re-runs. Assignments without one keep the fixed dimensions
 - Calibration action to target `FinalBase ~ 83` using tunable dimensions only
 - Attendance threshold model + helper action `Set threshold so <=25% fail`
 - Per-student override deltas per component (reason required)

@@ -259,6 +259,8 @@ class SubmissionDetail(BaseModel):
     artifacts: list[ArtifactRead] = []
     llm_review: LLMReviewRead | None = None
     code_review: CodeReviewRead | None = None
+    # Per-criterion scores when the assignment has a custom rubric.
+    custom_rubric: dict | None = None
 
 
 class NotesUpdate(BaseModel):

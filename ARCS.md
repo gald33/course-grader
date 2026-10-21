@@ -19,6 +19,7 @@ The narrative layer above `roadmap/ROADMAP.md`: *why* each theme is still open. 
 
 Startable and legitimate — an item does not need an arc. Listed so the narrative layer's coverage gap is visible rather than implied.
 
+- `assignments-need-custom-rubrics` — Assignments are graded on one fixed rubric instead of rubrics that fit the task
 - `courses-and-submissions-cannot-be-deleted` — Courses, assignments and submissions can't be deleted or archived
 - `frontend-has-no-tests` — The frontend has no tests; CI only type-checks it
 - `hebrew-report-pdfs-cannot-be-downloaded` — Hebrew student report PDFs are queued but can never be retrieved from the hosted site
@@ -29,4 +30,5 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `readme-describes-a-localhost-only-app` — README still says "no login, localhost-only" and leaves out recent features
 - `roster-cannot-be-edited-per-student` — Add, remove, withdraw or fix a single student without re-importing the roster
 - `students-cannot-see-their-own-grades` — Students cannot see their own grades, feedback or attendance status
+- `suggest-rubrics-per-assignment-from-clusters` — Suggest a rubric for a new assignment from clusters of past rubrics
 - `team-formation-closes-at-a-deadline` — Let students form their own teams until a deadline, then lock teams automatically

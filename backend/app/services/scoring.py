@@ -24,6 +24,7 @@ from app.models.entities import (
     Submission,
     SubmissionMember,
 )
+from app.services.custom_rubrics import custom_component_score
 
 settings = get_settings()
 
@@ -494,6 +495,11 @@ def _gradebook_row(
         if hw2_submission
         else 0.0
     )
+    # A custom rubric replaces the fixed code dimensions (and their curves);
+    # the run-ratio penalty still applies.
+    hw2_custom = custom_component_score(db, hw2_submission, hw2_penalty) if hw2_submission else None
+    if hw2_custom is not None:
+        hw2 = hw2_uncurved = hw2_custom
     if hw2_submission and hw2_submission.manual_grade is not None:
         hw2 = float(hw2_submission.manual_grade)
         hw2_uncurved = float(hw2_submission.manual_grade)
@@ -509,6 +515,9 @@ def _gradebook_row(
         if project_submission
         else 0.0
     )
+    project_custom = custom_component_score(db, project_submission, project_penalty) if project_submission else None
+    if project_custom is not None:
+        project_code = project_code_uncurved = project_custom
     project_report = (
         component_score_from_rubric(db, project_submission.id, "project_report", 1.0, curve_override=curve_override)
         if project_submission

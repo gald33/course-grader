@@ -302,6 +302,7 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
         "today": date.today().isoformat(),
         "rounds": [_round_view(db, r, enrollment, team_id, sessions, teams) for r in rounds],
         "grades": student_grades.grades_view(db, enrollment),
+        "rubrics": student_grades.rubrics_view(db, enrollment),
         "lessons": _lesson_links(db, enrollment.course_id),
     }
 

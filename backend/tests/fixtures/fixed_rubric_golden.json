@@ -1,0 +1,349 @@
+{
+ "_comment": "Fixed-rubric outputs for tests/unit/autograder_harness.py's course, produced by running it on main at 5b530b6 (before custom rubrics).",
+ "runs": [
+  {
+   "failed_cells": 1,
+   "ok_cells": 1,
+   "penalty_multiplier": 0.353553,
+   "run_id": 3,
+   "run_ratio": 0.5,
+   "status": "SUCCESS"
+  },
+  {
+   "failed_cells": 1,
+   "ok_cells": 1,
+   "penalty_multiplier": 0.353553,
+   "run_id": 4,
+   "run_ratio": 0.5,
+   "status": "SUCCESS"
+  }
+ ],
+ "after": [
+  {
+   "attendance_exempt": false,
+   "attendance_percent": 90.0,
+   "attendance_score": 100.0,
+   "bonus_points": 0.0,
+   "enrollment_id": 1,
+   "final": 32,
+   "final_talk": 0.0,
+   "final_uncurved": 29,
+   "hw1": 0.0,
+   "hw1_peer": null,
+   "hw2": 48.0,
+   "hw2_peer": null,
+   "name": "Alice",
+   "national_id": "100000001",
+   "overrides": {},
+   "peer": {},
+   "presentation": 0.0,
+   "presentation_peer": null,
+   "project_base": 24.08,
+   "project_code": 15.8,
+   "project_code_peer": null,
+   "project_report": 73.0,
+   "project_with_bonus": 24.08,
+   "student_id": 1
+  },
+  {
+   "attendance_exempt": false,
+   "attendance_percent": 90.0,
+   "attendance_score": 100.0,
+   "bonus_points": 0.0,
+   "enrollment_id": 2,
+   "final": 28,
+   "final_talk": 0.0,
+   "final_uncurved": 26,
+   "hw1": 0.0,
+   "hw1_peer": null,
+   "hw2": 15.8,
+   "hw2_peer": null,
+   "name": "Bob",
+   "national_id": "100000002",
+   "overrides": {},
+   "peer": {},
+   "presentation": 0.0,
+   "presentation_peer": null,
+   "project_base": 24.08,
+   "project_code": 15.8,
+   "project_code_peer": null,
+   "project_report": 73.0,
+   "project_with_bonus": 24.08,
+   "student_id": 2
+  }
+ ],
+ "before": [
+  {
+   "attendance_exempt": false,
+   "attendance_percent": 90.0,
+   "attendance_score": 100.0,
+   "bonus_points": 0.0,
+   "enrollment_id": 1,
+   "final": 42,
+   "final_talk": 0.0,
+   "final_uncurved": 38,
+   "hw1": 0.0,
+   "hw1_peer": null,
+   "hw2": 48.0,
+   "hw2_peer": null,
+   "name": "Alice",
+   "national_id": "100000001",
+   "overrides": {},
+   "peer": {},
+   "presentation": 0.0,
+   "presentation_peer": null,
+   "project_base": 38.18,
+   "project_code": 39.3,
+   "project_code_peer": null,
+   "project_report": 73.0,
+   "project_with_bonus": 38.18,
+   "student_id": 1
+  },
+  {
+   "attendance_exempt": false,
+   "attendance_percent": 90.0,
+   "attendance_score": 100.0,
+   "bonus_points": 0.0,
+   "enrollment_id": 2,
+   "final": 43,
+   "final_talk": 0.0,
+   "final_uncurved": 39,
+   "hw1": 0.0,
+   "hw1_peer": null,
+   "hw2": 61.9,
+   "hw2_peer": null,
+   "name": "Bob",
+   "national_id": "100000002",
+   "overrides": {},
+   "peer": {},
+   "presentation": 0.0,
+   "presentation_peer": null,
+   "project_base": 38.18,
+   "project_code": 39.3,
+   "project_code_peer": null,
+   "project_report": 73.0,
+   "project_with_bonus": 38.18,
+   "student_id": 2
+  }
+ ],
+ "hw2": {
+  "code_review_json": "{\"component\": \"hw2_code\", \"dimensions\": {\"english_comments_compliance\": {\"score\": 5.0, \"rationale\": \"2 of 2 comments / docstrings have no Hebrew characters (100%).\", \"source\": \"auto\"}, \"data_scope_adequacy\": {\"score\": 0.0, \"rationale\": \"No data files staged for this submission.\", \"source\": \"auto\"}, \"processing_implementation\": {\"score\": 1.0, \"rationale\": \"1 distinct preprocessing primitive: dropna.\", \"source\": \"auto\"}, \"num_models_baseline\": {\"score\": 5.0, \"rationale\": \"3 distinct estimators (LogisticRegression, RandomForestClassifier, DecisionTreeClassifier) — meets the ≥3 requirement.\", \"source\": \"auto\"}, \"experiments_comparison\": {\"score\": 0.0, \"rationale\": \"1 .fit() call × 0 distinct metric functions (none); score = min(1, 0) → 0.\", \"source\": \"auto\"}, \"variable_plots\": {\"score\": 2.0, \"rationale\": \"2 plot calls in 1 cell before the first .fit().\", \"source\": \"auto\"}, \"results_plots\": {\"score\": 0.0, \"rationale\": \"0 plot calls after the first .fit().\", \"source\": \"auto\"}, \"order\": {\"score\": 1.0, \"rationale\": \"1 markdown heading; 0 expected sections present (none recognized).\", \"source\": \"auto\"}, \"clarity\": {\"score\": 2.0, \"rationale\": \"1 substantive markdown cell (70 chars) vs 463 code chars → ratio 0.15.\", \"source\": \"auto\"}, \"code_quality\": {\"score\": 0.0, \"rationale\": \"4 ruff F warnings on 14 LOC = 28.57 per 100 LOC.\", \"source\": \"auto\"}, \"processing_description\": {\"score\": 3.0, \"rationale\": \"הסבר חלקי על העיבוד\", \"source\": \"claude\"}, \"models_quality\": {\"score\": 4.0, \"rationale\": \"בחירת מודלים סבירה\", \"source\": \"claude\"}}}",
+  "scores": [
+   [
+    "hw2_code",
+    "clarity",
+    2.0,
+    2.5,
+    true
+   ],
+   [
+    "hw2_code",
+    "code_quality",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "hw2_code",
+    "data_scope_adequacy",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "hw2_code",
+    "english_comments_compliance",
+    5.0,
+    5.0,
+    true
+   ],
+   [
+    "hw2_code",
+    "experiments_comparison",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "hw2_code",
+    "models_quality",
+    4.0,
+    4.5,
+    true
+   ],
+   [
+    "hw2_code",
+    "num_models_baseline",
+    5.0,
+    5.0,
+    true
+   ],
+   [
+    "hw2_code",
+    "order",
+    1.0,
+    1.5,
+    true
+   ],
+   [
+    "hw2_code",
+    "processing_description",
+    3.0,
+    3.5,
+    true
+   ],
+   [
+    "hw2_code",
+    "processing_implementation",
+    1.0,
+    1.5,
+    true
+   ],
+   [
+    "hw2_code",
+    "results_plots",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "hw2_code",
+    "variable_plots",
+    2.0,
+    2.5,
+    true
+   ]
+  ]
+ },
+ "project": {
+  "code_review_json": "{\"component\": \"project_code\", \"dimensions\": {\"english_comments_compliance\": {\"score\": 5.0, \"rationale\": \"2 of 2 comments / docstrings have no Hebrew characters (100%).\", \"source\": \"auto\"}, \"data_scope_adequacy\": {\"score\": 0.0, \"rationale\": \"No data files staged for this submission.\", \"source\": \"auto\"}, \"processing_implementation\": {\"score\": 1.0, \"rationale\": \"1 distinct preprocessing primitive: dropna.\", \"source\": \"auto\"}, \"num_models_baseline\": {\"score\": 5.0, \"rationale\": \"3 distinct estimators (LogisticRegression, RandomForestClassifier, DecisionTreeClassifier) — meets the ≥3 requirement.\", \"source\": \"auto\"}, \"experiments_comparison\": {\"score\": 0.0, \"rationale\": \"1 .fit() call × 0 distinct metric functions (none); score = min(1, 0) → 0.\", \"source\": \"auto\"}, \"variable_plots\": {\"score\": 2.0, \"rationale\": \"2 plot calls in 1 cell before the first .fit().\", \"source\": \"auto\"}, \"results_plots\": {\"score\": 0.0, \"rationale\": \"0 plot calls after the first .fit().\", \"source\": \"auto\"}, \"order\": {\"score\": 1.0, \"rationale\": \"1 markdown heading; 0 expected sections present (none recognized).\", \"source\": \"auto\"}, \"clarity\": {\"score\": 2.0, \"rationale\": \"1 substantive markdown cell (70 chars) vs 463 code chars → ratio 0.15.\", \"source\": \"auto\"}, \"code_quality\": {\"score\": 0.0, \"rationale\": \"4 ruff F warnings on 14 LOC = 28.57 per 100 LOC.\", \"source\": \"auto\"}, \"processing_description\": {\"score\": 3.0, \"rationale\": \"הסבר חלקי על העיבוד\", \"source\": \"claude\"}, \"models_quality\": {\"score\": 4.0, \"rationale\": \"בחירת מודלים סבירה\", \"source\": \"claude\"}}}",
+  "scores": [
+   [
+    "project_code",
+    "clarity",
+    2.0,
+    2.5,
+    true
+   ],
+   [
+    "project_code",
+    "code_quality",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "project_code",
+    "data_scope_adequacy",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "project_code",
+    "english_comments_compliance",
+    5.0,
+    5.0,
+    true
+   ],
+   [
+    "project_code",
+    "experiments_comparison",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "project_code",
+    "models_quality",
+    4.0,
+    4.5,
+    true
+   ],
+   [
+    "project_code",
+    "num_models_baseline",
+    5.0,
+    5.0,
+    true
+   ],
+   [
+    "project_code",
+    "order",
+    1.0,
+    1.5,
+    true
+   ],
+   [
+    "project_code",
+    "processing_description",
+    3.0,
+    3.5,
+    true
+   ],
+   [
+    "project_code",
+    "processing_implementation",
+    1.0,
+    1.5,
+    true
+   ],
+   [
+    "project_code",
+    "results_plots",
+    0.0,
+    0.0,
+    true
+   ],
+   [
+    "project_code",
+    "variable_plots",
+    2.0,
+    2.5,
+    true
+   ],
+   [
+    "project_report",
+    "consistency_with_code",
+    3.0,
+    3.5,
+    true
+   ],
+   [
+    "project_report",
+    "data_description",
+    3.0,
+    3.5,
+    true
+   ],
+   [
+    "project_report",
+    "data_processing",
+    4.0,
+    4.5,
+    true
+   ],
+   [
+    "project_report",
+    "models_comparison",
+    5.0,
+    5.0,
+    true
+   ],
+   [
+    "project_report",
+    "research_question_hypothesis",
+    2.0,
+    2.5,
+    true
+   ],
+   [
+    "project_report",
+    "results_analysis",
+    2.0,
+    2.5,
+    true
+   ]
+  ]
+ }
+}

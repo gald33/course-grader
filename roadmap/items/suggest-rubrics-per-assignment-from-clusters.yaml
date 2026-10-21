@@ -1,0 +1,29 @@
+id: suggest-rubrics-per-assignment-from-clusters
+title: Suggest a rubric for a new assignment from clusters of past rubrics
+status: deferred
+priority: later
+blocked_on:
+- assignments-need-custom-rubrics
+refs:
+- 'backend/app/models/entities.py'
+- 'backend/app/services/custom_rubrics.py'
+evidence: |
+  Operator, 2026-10-21: "later we would cluster among those rubrics and
+  offer rubrics per assignment."
+
+  Phase 2 of assignments-need-custom-rubrics. That item stores rubrics as
+  structured rows so this stays possible: assignment_rubrics (one per
+  assignment, with copied_from_rubric_id recording which rubric a copy came
+  from) and rubric_criteria (ordered name, description, max points and
+  level descriptors per criterion), plus per-run criterion results and
+  instructor overrides. Today an instructor reuses a rubric only by copying
+  one by hand.
+
+  DEFERRED until custom rubrics have shipped and enough assignments carry
+  one to cluster. Start by checking what there is to learn from: how many
+  rubrics, how many copied versus written fresh, and how far copies drift
+  from their source.
+
+  Done when: creating a rubric for an assignment offers suggested rubrics
+  drawn from clusters of existing ones, and the instructor can accept,
+  edit or ignore the suggestion.

@@ -34,11 +34,16 @@ _Nothing deferred._
 
 ## 🔒 Claimed — someone is on these
 
-_Nothing claimed._
+| item | held by | since |
+|---|---|---|
+| `assignments-need-custom-rubrics` | claude/assignments-need-custom-rubrics | 2026-10-21T10:25:06Z |
+
+A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
 ## ⛔ Blocked
 
-_Nothing blocked._
+- **`suggest-rubrics-per-assignment-from-clusters`** — Suggest a rubric for a new assignment from clusters of past rubrics  
+  waiting on `assignments-need-custom-rubrics`
 
 ## Dependency graph
 
@@ -50,6 +55,7 @@ graph TD
   classDef claimed stroke:#8250df,stroke-width:2px
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
+  assignments_need_custom_rubrics["Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::claimed
   courses_and_submissions_cannot_be_deleted["Courses, assignments and submissions can't be deleted or archived"]:::ready
   frontend_has_no_tests["The frontend has no tests; CI only type-checks it"]:::ready
   hebrew_report_pdfs_cannot_be_downloaded["Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::ready
@@ -60,12 +66,62 @@ graph TD
   readme_describes_a_localhost_only_app["README still says 'no login, localhost-only' and leaves out recent features"]:::ready
   roster_cannot_be_edited_per_student["Add, remove, withdraw or fix a single student without re-importing the roster"]:::ready
   students_cannot_see_their_own_grades["Students cannot see their own grades, feedback or attendance status"]:::ready
+  suggest_rubrics_per_assignment_from_clusters["Suggest a rubric for a new assignment from clusters of past rubrics"]:::blocked
   team_formation_closes_at_a_deadline["Let students form their own teams until a deadline, then lock teams automatically"]:::ready
+  assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
 ```
 
 ## Items
+
+### `assignments-need-custom-rubrics`
+
+- **title:** Assignments are graded on one fixed rubric instead of rubrics that fit the task
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/assignments-need-custom-rubrics (since 2026-10-21T10:25:06Z)
+- **blocks:** `suggest-rubrics-per-assignment-from-clusters`
+- **refs:**
+  - `backend/app/services/scoring.py`
+  - `backend/app/services/code_metrics.py`
+  - `backend/app/services/llm_code_review.py`
+  - `backend/app/tasks/jobs.py`
+  - `backend/app/models/entities.py`
+  - `backend/app/services/student_grades.py`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-10-21: "Rubrics need to fit the actual task. for now we can
+> simply add custom rubrics. later we would cluster among those rubrics and
+> offer rubrics per assignment."
+>
+> VERIFIED by reading the code at 5b530b6. HW2 and project code are scored
+> on the same twelve dimensions for every assignment
+> (scoring.py:38 CODE_DIMENSIONS, weights fixed in code). Ten come from
+> deterministic counting rules (code_metrics.py:402
+> all_deterministic_scores) and english_comments; two are scored by the LLM
+> from a fixed list (llm_code_review.py:28 CODE_REVIEW_DIMENSIONS, system
+> prompt cached at :142, called from jobs.py:345). Each 0-5 score goes
+> through the course's per-dimension curve (scoring.py:119 apply_curve,
+> applied at jobs.py:361) and the component is multiplied by the run-ratio
+> penalty (notebook_runner.py:121, scoring.py:305, :486). An assignment
+> (entities.py:92) has no way to say what it should be graded on.
+>
+> Phase 1 only: custom rubrics stored as structured criteria rows, the
+> LLM scoring each criterion with the deterministic metrics as evidence,
+> instructor overrides, the gradebook using the rubric. Clustering is
+> suggest-rubrics-per-assignment-from-clusters.
+>
+> Done when: an instructor can author a rubric for an assignment (create,
+> edit, reorder, delete, copy from another assignment), run the autograder,
+> see per-criterion LLM scores with rationales citing cells, override them
+> (overrides survive re-runs), and the gradebook total for that assignment
+> comes from the rubric. An LLM failure leaves criteria "not scored" and
+> the run still succeeds. Assignments without a custom rubric score exactly
+> as before, proven by a regression test.
+
+</details>
 
 ### `courses-and-submissions-cannot-be-deleted`
 
@@ -323,6 +379,40 @@ graph TD
 > component (HW, project, talks, attendance), the instructor's feedback text,
 > and the final score. Nothing shows until the instructor releases it. Test
 > students and "view as student" show the same view.
+
+</details>
+
+### `suggest-rubrics-per-assignment-from-clusters`
+
+- **title:** Suggest a rubric for a new assignment from clusters of past rubrics
+- **status:** blocked
+- **priority:** later
+- **blocked on:** `assignments-need-custom-rubrics`
+- **refs:**
+  - `backend/app/models/entities.py`
+  - `backend/app/services/custom_rubrics.py`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-10-21: "later we would cluster among those rubrics and
+> offer rubrics per assignment."
+>
+> Phase 2 of assignments-need-custom-rubrics. That item stores rubrics as
+> structured rows so this stays possible: assignment_rubrics (one per
+> assignment, with copied_from_rubric_id recording which rubric a copy came
+> from) and rubric_criteria (ordered name, description, max points and
+> level descriptors per criterion), plus per-run criterion results and
+> instructor overrides. Today an instructor reuses a rubric only by copying
+> one by hand.
+>
+> DEFERRED until custom rubrics have shipped and enough assignments carry
+> one to cluster. Start by checking what there is to learn from: how many
+> rubrics, how many copied versus written fresh, and how far copies drift
+> from their source.
+>
+> Done when: creating a rubric for an assignment offers suggested rubrics
+> drawn from clusters of existing ones, and the instructor can accept,
+> edit or ignore the suggestion.
 
 </details>
 

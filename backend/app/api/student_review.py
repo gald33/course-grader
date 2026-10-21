@@ -43,7 +43,7 @@ from app.schemas.api import (
 )
 from app.services import lessons as lessons_svc
 from app.services import peer_review as svc
-from app.services import student_grades
+from app.services import student_assignments, student_grades
 from app.services.peer_scoring import ScoredReview, compute_round_scores, review_scores, reviewer_shares
 
 router = APIRouter(prefix="/api/r/{token}", tags=["student-review"])
@@ -307,6 +307,7 @@ def _payload(db: Session, enrollment: Enrollment) -> dict:
         "today": date.today().isoformat(),
         "rounds": [_round_view(db, r, enrollment, team_id, sessions, teams) for r in rounds],
         "grades": student_grades.grades_view(db, enrollment),
+        "assignments": student_assignments.assignments_view(db, enrollment),
         "lessons": _lesson_links(db, enrollment),
     }
 

@@ -1,7 +1,8 @@
 id: roster-cannot-be-edited-per-student
 title: Add, remove, withdraw or fix a single student without re-importing the roster
-status: ready
+status: done
 priority: next
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/api/imports.py'
@@ -19,3 +20,5 @@ evidence: |
   Done when: the instructor can add a student, edit their name and email, and
   withdraw them (kept for history, excluded from teams, review obligations and
   the gradebook) from the course UI.
+
+  SHIPPED: #20, merged as e074e5f and deployed 2026-10-20 (Vercel green, health 200).

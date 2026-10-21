@@ -1,7 +1,8 @@
 id: no-button-to-recheck-site-links
 title: Add a "re-check all links" button for a round
-status: ready
+status: done
 priority: next
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/api/peer_review.py'
@@ -17,3 +18,5 @@ evidence: |
   Done when: the round's schedule view has a button that calls the endpoint
   and shows the returned counts (ok / broken / missing), and the per-team link
   status updates.
+
+  SHIPPED: #10, merged as d0d18fa and deployed 2026-10-20 (Vercel green, health 200).

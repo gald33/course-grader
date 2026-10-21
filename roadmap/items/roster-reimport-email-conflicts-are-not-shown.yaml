@@ -1,0 +1,16 @@
+id: roster-reimport-email-conflicts-are-not-shown
+title: Roster re-import reports email conflicts that the UI never shows
+status: ready
+priority: later
+blocked_on: []
+refs:
+- 'backend/app/api/imports.py'
+- 'frontend/app/course/[id]/page.tsx'
+evidence: |
+  From the reviewer's notes on #20. On re-import, students who already have
+  an account keep their email, and the API returns those rows in
+  `email_conflicts`. The frontend ignores the field, so the instructor
+  never learns that a changed email was not applied.
+
+  Done when: after a roster import, the instructor sees the list of
+  email conflicts (student, current email, email in the file).

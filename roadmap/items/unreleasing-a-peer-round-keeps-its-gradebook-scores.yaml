@@ -1,0 +1,22 @@
+id: unreleasing-a-peer-round-keeps-its-gradebook-scores
+title: Un-releasing a peer round leaves its applied scores in the gradebook
+status: ready
+priority: later
+blocked_on: []
+refs:
+- 'backend/app/api/peer_review.py'
+- 'backend/app/services/scoring.py'
+evidence: |
+  From the reviewer's non-blocking notes on #15 (peer rounds feed a task as
+  (1-w)*autograder + w*peer). An applied round writes peer_round_<n>
+  overrides. Un-releasing the round leaves them, so the gradebook keeps
+  counting a round students can no longer see, until someone clicks
+  "Remove from gradebook".
+
+  Also from that review: the CSV export carries the peer data as one
+  `peer` dict column, and the Hebrew PDF shows peer info as per-line notes
+  rather than columns.
+
+  Done when: un-releasing a round either removes its applied scores or asks
+  the instructor first, and the CSV shows the peer data as flat,
+  readable columns.

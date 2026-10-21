@@ -1,7 +1,8 @@
 id: peer-round-scores-never-reach-the-gradebook
 title: Peer-review round scores have to be copied into the gradebook by hand
-status: ready
+status: done
 priority: next
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/services/peer_scoring.py'
@@ -18,3 +19,5 @@ evidence: |
   Done when: a released round has an "apply to gradebook" action that writes
   one override per student (component `peer_round_<n>`, reason naming the
   round). Running it again updates those overrides instead of duplicating them.
+
+  SHIPPED: #15, merged as 62c2918 and deployed 2026-10-20 (Vercel green, health 200).

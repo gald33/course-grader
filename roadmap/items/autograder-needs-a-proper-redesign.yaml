@@ -1,7 +1,8 @@
 id: autograder-needs-a-proper-redesign
 title: The notebook autograder needs a proper redesign, once there is enough graded data
-status: deferred
+status: done
 priority: later
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/services/notebook_runner.py'
@@ -28,3 +29,7 @@ evidence: |
 
   Done when: scoped with the operator against real data, and replaced by
   concrete items.
+
+  SUPERSEDED 2026-10-21: the operator asked for the rebuild now. Phase 1 is
+  assignments-need-custom-rubrics (#26); phase 2 is
+  suggest-rubrics-per-assignment-from-clusters (deferred).

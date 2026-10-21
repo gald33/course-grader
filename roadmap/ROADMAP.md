@@ -12,7 +12,6 @@ Claim before starting: `roadmap claim <key>`
 
 **In priority order, most important first.** An item with no marker carries no stated priority — take it as unjudged, not as low. The order within a band is alphabetical and means nothing.
 
-- `later` **`autograder-needs-a-proper-redesign`** — The notebook autograder needs a proper redesign, once there is enough graded data
 - `later` **`retire-bonus-points-phase-2-drop-column`** — enrollments.bonus_points is zeroed but still in the schema
 - `later` **`roster-reimport-email-conflicts-are-not-shown`** — Roster re-import reports email conflicts that the UI never shows
 - `later` **`unreleasing-a-peer-round-keeps-its-gradebook-scores`** — Un-releasing a peer round leaves its applied scores in the gradebook
@@ -39,7 +38,7 @@ graph TD
   classDef claimed stroke:#8250df,stroke-width:2px
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
-  autograder_needs_a_proper_redesign["The notebook autograder needs a proper redesign, once there is enough graded data"]:::ready
+  autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
@@ -63,7 +62,7 @@ graph TD
 ### `autograder-needs-a-proper-redesign`
 
 - **title:** The notebook autograder needs a proper redesign, once there is enough graded data
-- **status:** ready
+- **status:** done
 - **priority:** later
 - **refs:**
   - `backend/app/services/notebook_runner.py`
@@ -92,6 +91,10 @@ graph TD
 >
 > Done when: scoped with the operator against real data, and replaced by
 > concrete items.
+>
+> SUPERSEDED 2026-10-21: the operator asked for the rebuild now. Phase 1 is
+> assignments-need-custom-rubrics (#26); phase 2 is
+> suggest-rubrics-per-assignment-from-clusters (deferred).
 
 </details>
 

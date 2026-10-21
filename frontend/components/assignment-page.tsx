@@ -210,7 +210,8 @@ export function AssignmentView({
 function AssignmentBody({ assignment: a, custom, courseName }: { assignment: AssignmentSummary; custom: CustomRubric | null; courseName: string }) {
   const result = a.result;
   // The custom rubric replaces the fixed code part; its scores arrive only once released.
-  const customScored = custom?.released ?? false;
+  // A manual grade replaces the rubric, so its criterion scores aren't shown.
+  const customScored = (custom?.released ?? false) && !result?.manual;
   const fixed = (result ? result.components : a.rubric).filter((c) => !(custom && CODE_COMPONENTS.has(c.key)));
   const feedback = result?.feedback || (customScored ? custom?.feedback ?? '' : '');
   const recorded = formatDate(a.submission?.recorded_at ?? null);
@@ -243,7 +244,7 @@ function AssignmentBody({ assignment: a, custom, courseName }: { assignment: Ass
         </h2>
         {!custom && fixed.length === 0 ? (
           <p className="mt-2 text-[14px] text-ink-2">
-            אין למטלה הזו מחוון מפורט: ההגשה עצמה מזכה בציון, אלא אם המרצה קבע/ה ציון אחר.
+            אין למטלה הזו מחוון מפורט: ההגשה עצמה מזכה בציון, אלא אם נקבע לה ציון אחר.
           </p>
         ) : null}
         {result?.manual ? <p className="mt-2 text-[14px] text-ink-2">הציון במטלה הזו נקבע ידנית על ידי המרצה, ולא לפי המחוון.</p> : null}
@@ -251,7 +252,8 @@ function AssignmentBody({ assignment: a, custom, courseName }: { assignment: Ass
         {fixed.map((c) => (
           <FixedComponent key={c.key} component={c} />
         ))}
-        {!result && !customScored ? <p className="mt-3 text-[13px] text-ink-3">הניקוד יופיע כאן אחרי שהמרצה יפרסם את הציון.</p> : null}
+        {!a.released ? <p className="mt-3 text-[13px] text-ink-3">הניקוד יופיע כאן אחרי פרסום הציון.</p> : null}
+        {a.released && !a.submission ? <p className="mt-3 text-[13px] text-ink-3">הציון פורסם, אך לא נמצאה לך הגשה במטלה הזו.</p> : null}
       </section>
 
       {feedback ? (

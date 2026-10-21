@@ -12,6 +12,8 @@ Claim before starting: `roadmap claim <key>`
 
 **In priority order, most important first.** An item with no marker carries no stated priority — take it as unjudged, not as low. The order within a band is alphabetical and means nothing.
 
+- `now` **`unteamed-students-need-instructor-approved-auto-assign`** — After teams lock, propose teams for unteamed students and apply them only on the instructor's approval
+  - ↔ related: **`team-formation-closes-at-a-deadline`** — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
 - `later` **`retire-bonus-points-phase-2-drop-column`** — enrollments.bonus_points is zeroed but still in the schema
 - `later` **`roster-reimport-email-conflicts-are-not-shown`** — Roster re-import reports email conflicts that the UI never shows
 - `later` **`unreleasing-a-peer-round-keeps-its-gradebook-scores`** — Un-releasing a peer round leaves its applied scores in the gradebook
@@ -58,8 +60,10 @@ graph TD
   students_cannot_see_their_own_grades["✓ Students cannot see their own grades, feedback or attendance status"]:::done
   team_formation_closes_at_a_deadline["✓ Let students form their own teams until a deadline, then lock teams automatically"]:::done
   unreleasing_a_peer_round_keeps_its_gradebook_scores["Un-releasing a peer round leaves its applied scores in the gradebook"]:::ready
+  unteamed_students_need_instructor_approved_auto_assign["After teams lock, propose teams for unteamed students and apply them only on the instructor's approval"]:::ready
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
+  team_formation_closes_at_a_deadline -.- unteamed_students_need_instructor_approved_auto_assign
 ```
 
 ## Items
@@ -480,6 +484,7 @@ graph TD
 - **priority:** now
 - **related to** (not a dependency — both are startable):
   - `roster-cannot-be-edited-per-student` — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
+  - `unteamed-students-need-instructor-approved-auto-assign` — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
 - **refs:**
   - `backend/app/models/entities.py`
   - `backend/app/services/peer_review.py`
@@ -543,5 +548,58 @@ graph TD
 > Done when: un-releasing a round either removes its applied scores or asks
 > the instructor first, and the CSV shows the peer data as flat,
 > readable columns.
+
+</details>
+
+### `unteamed-students-need-instructor-approved-auto-assign`
+
+- **title:** After teams lock, propose teams for unteamed students and apply them only on the instructor's approval
+- **status:** ready
+- **priority:** now
+- **related to** (not a dependency — both are startable):
+  - `team-formation-closes-at-a-deadline` — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
+- **refs:**
+  - `backend/app/models/entities.py`
+  - `backend/app/services/peer_review.py`
+  - `backend/app/api/peer_review.py`
+  - `frontend/components/peer-review/peer-review-step.tsx`
+
+<details><summary>evidence</summary>
+
+> REQUESTED by the instructor: "add auto assign but let me approve."
+> Current behaviour VERIFIED by reading the code at 5b530b6.
+>
+> Teams lock for students at `Course.teams_deadline`
+> (backend/app/models/entities.py:39; `teams_locked`,
+> backend/app/services/peer_review.py:421), with a size cap of
+> `Course.max_team_size` (entities.py:37, default 7). After that,
+> `unassigned_students` (peer_review.py:474) lists enrolled students who
+> are not test students, not withdrawn and have no team, and `GET
+> /peer/teams` returns them as `unassigned`
+> (backend/app/api/peer_review.py:283). The Teams view only prints their
+> names ("Teams are locked. Without a team: ...",
+> frontend/components/peer-review/peer-review-step.tsx:1149). Nothing
+> places them. The instructor moves each student by hand through
+> `PUT /peer/students/{id}/team` (api/peer_review.py:356). Each call
+> commits on its own (`set_student_team`, peer_review.py:362;
+> `create_team`, peer_review.py:393), so there is no way to apply a batch
+> of placements all at once.
+>
+> Done when:
+>   1. Once teams are locked, the instructor clicks "Propose" and gets a
+>      proposal. Building it writes nothing. The proposal fills existing
+>      teams that have room first, then forms balanced new teams within
+>      max_team_size, avoiding a team of 1 where possible. Withdrawn and
+>      test students are left out.
+>   2. The proposal is deterministic for a seed, and it returns the seed it
+>      used.
+>   3. The instructor can move a student, drop a student, rename a new team
+>      or re-run the proposal, then click Approve. Approve writes exactly
+>      the shown proposal in one transaction.
+>   4. Approve refuses with 409 when the teams or roster changed since the
+>      proposal was built (state fingerprint). Approving the same proposal
+>      twice is refused the same way.
+>   5. Both endpoints are instructor-only and scoped to the course. Tests
+>      cover all of the above.
 
 </details>

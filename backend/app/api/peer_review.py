@@ -33,6 +33,8 @@ from app.models.entities import (
     TeamMembership,
 )
 from app.schemas.api import (
+    AutoAssignApproveIn,
+    AutoAssignProposeIn,
     ExemptionUpdate,
     PresentationUpdate,
     ReviewExclusion,
@@ -367,6 +369,33 @@ def set_student_team(course_id: int, student_id: int, payload: StudentTeamUpdate
     except svc.PeerReviewError as exc:
         raise_domain(exc)
     return {"status": "ok"}
+
+
+@router.post("/teams/auto-assign/propose")
+def propose_team_assignment(course_id: int, payload: AutoAssignProposeIn, db: Session = Depends(get_db)) -> dict:
+    """Preview where unteamed students would go. Writes nothing."""
+    course = _course(db, course_id)
+    try:
+        return svc.propose_assignment(db, course, payload.seed)
+    except svc.PeerReviewError as exc:
+        raise_domain(exc)
+
+
+@router.post("/teams/auto-assign/approve")
+def approve_team_assignment(course_id: int, payload: AutoAssignApproveIn, db: Session = Depends(get_db)) -> dict:
+    """Apply the reviewed proposal in one transaction; 409 if it is stale."""
+    _course(db, course_id)
+    try:
+        result = svc.approve_assignment(
+            db,
+            course_id,
+            payload.fingerprint,
+            [e.model_dump() for e in payload.existing],
+            [t.model_dump() for t in payload.new_teams],
+        )
+    except svc.PeerReviewError as exc:
+        raise_domain(exc)
+    return {"status": "ok", **result}
 
 
 # ---------------------------------------------------------------------------

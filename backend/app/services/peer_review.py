@@ -7,6 +7,7 @@ duplicates, scale) is enforced here, server-side.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import random
@@ -359,8 +360,14 @@ def active_team_id(db: Session, course_id: int, student_id: int) -> int | None:
     return m.team_id if m else None
 
 
-def set_student_team(db: Session, course_id: int, student_id: int, team_id: int | None) -> None:
-    """Move a student. The previous membership is ended, never rewritten."""
+def set_student_team(
+    db: Session, course_id: int, student_id: int, team_id: int | None, commit: bool = True
+) -> None:
+    """Move a student. The previous membership is ended, never rewritten.
+
+    With commit=False the change is only flushed, so a caller can group
+    several moves into one transaction (and refresh practice rounds itself).
+    """
     current = active_membership(db, course_id, student_id)
     if current and current.team_id == team_id:
         return
@@ -372,6 +379,9 @@ def set_student_team(db: Session, course_id: int, student_id: int, team_id: int 
         if team is None or team.course_id != course_id:
             raise PeerReviewError("not_found", "Team not found", 404)
         db.add(TeamMembership(course_id=course_id, team_id=team_id, student_id=student_id))
+    if not commit:
+        db.flush()
+        return
     db.commit()
     refresh_practice_rounds(db, course_id)
 
@@ -390,7 +400,7 @@ def new_join_code(db: Session) -> str:
             return code
 
 
-def create_team(db: Session, course_id: int, name: str, project_title: str = "") -> Team:
+def create_team(db: Session, course_id: int, name: str, project_title: str = "", commit: bool = True) -> Team:
     name = name.strip()
     if not name:
         raise PeerReviewError("invalid_team", "The team needs a name", 422)
@@ -403,6 +413,8 @@ def create_team(db: Session, course_id: int, name: str, project_title: str = "")
     for rnd in db.scalars(select(ReviewRound).where(ReviewRound.course_id == course_id)):
         if rnd.status in ("draft", "scheduling"):
             sync_round_presentations(db, rnd)
+    if not commit:
+        return team
     db.commit()
     refresh_practice_rounds(db, course_id)
     return team
@@ -496,6 +508,211 @@ def active_members(db: Session, team_id: int) -> list[int]:
             )
         )
     )
+
+
+# ---------------------------------------------------------------------------
+# Auto-assigning unteamed students (instructor proposes, reviews, approves)
+# ---------------------------------------------------------------------------
+#
+# Stateless: propose_assignment writes nothing and returns the proposal with a
+# fingerprint of the team state it was built from. approve_assignment re-checks
+# the fingerprint, re-validates every placement and writes the (possibly
+# edited) proposal in one transaction. Once applied, memberships change, so the
+# fingerprint changes and approving the same proposal again is refused as stale.
+#
+# Assignment rule (deterministic for a given seed and state):
+#   1. The eligible students (enrolled, not test, not withdrawn, no active team)
+#      are sorted by id, then shuffled with random.Random(seed).
+#   2. Fill: each student in turn joins the existing team with at least one
+#      member, below max_team_size, that has the fewest active members (ties:
+#      lowest team id). Empty existing teams are never filled one by one, so
+#      the fill step can't create a team of one.
+#   3. Group the n students left: k = ceil(n / max_team_size) groups with sizes
+#      as equal as possible (they differ by at most 1). Groups go to the empty
+#      existing teams first (lowest id first), then to new teams.
+#   4. No lone student: if step 3 would make a group of one (n == 1, or an odd
+#      n with max_team_size == 2) and the fill step placed someone, the last
+#      student it placed moves back into the pool so the groups pair up. A
+#      group of one is left only when it can't be avoided (nothing was filled,
+#      or max_team_size == 1).
+
+
+def team_state_fingerprint(db: Session, course: Course) -> str:
+    """Hash of everything a proposal depends on: team size limit, the course's
+    teams, active memberships and each enrollment's test/withdrawn state."""
+    teams = sorted(db.scalars(select(Team.id).where(Team.course_id == course.id)))
+    members = sorted(
+        (m.student_id, m.team_id)
+        for m in db.scalars(
+            select(TeamMembership).where(TeamMembership.course_id == course.id, TeamMembership.end_at.is_(None))
+        )
+    )
+    enrollments = sorted(
+        (e.student_id, bool(e.is_test), e.withdrawn_at is not None)
+        for e in db.scalars(select(Enrollment).where(Enrollment.course_id == course.id))
+    )
+    state = {
+        "course": course.id,
+        "max_team_size": course.max_team_size,
+        "teams": teams,
+        "members": members,
+        "enrollments": enrollments,
+    }
+    return hashlib.sha256(json.dumps(state, separators=(",", ":")).encode()).hexdigest()
+
+
+def _require_teams_locked(course: Course) -> None:
+    # Students must not be changing teams while the instructor assigns them.
+    if not teams_locked(course):
+        raise PeerReviewError("teams_open", "Close team formation (or wait for the deadline) first", 409)
+
+
+def _new_team_names(db: Session, course_id: int, count: int) -> list[str]:
+    taken = set(db.scalars(select(Team.name).where(Team.course_id == course_id)))
+    names, n = [], 1
+    while len(names) < count:
+        name = f"צוות {n}"
+        if name not in taken:
+            names.append(name)
+        n += 1
+    return names
+
+
+def propose_assignment(db: Session, course: Course, seed: int | None = None) -> dict:
+    """Build a proposal for placing every unteamed student. Writes nothing."""
+    _require_teams_locked(course)
+    if seed is None:
+        seed = secrets.randbelow(2**31)
+    max_size = course.max_team_size
+    pool = sorted(unassigned_students(db, course.id))
+    random.Random(seed).shuffle(pool)
+
+    teams = list(db.scalars(select(Team).where(Team.course_id == course.id).order_by(Team.id)))
+    size = {t.id: len(active_members(db, t.id)) for t in teams}
+    added: dict[int, list[int]] = {t.id: [] for t in teams}
+    placed: list[tuple[int, int]] = []  # (team_id, student_id) in fill order
+    while pool:
+        open_teams = [t.id for t in teams if 0 < size[t.id] < max_size]
+        if not open_teams:
+            break
+        team_id = min(open_teams, key=lambda tid: (size[tid], tid))
+        student_id = pool.pop(0)
+        added[team_id].append(student_id)
+        size[team_id] += 1
+        placed.append((team_id, student_id))
+
+    def makes_lone_student(n: int) -> bool:
+        return n > 0 and n // math.ceil(n / max_size) == 1 and max_size >= 2
+
+    if makes_lone_student(len(pool)) and placed:
+        team_id, student_id = placed.pop()
+        added[team_id].remove(student_id)
+        pool.insert(0, student_id)
+
+    groups: list[list[int]] = []
+    if pool:
+        k = math.ceil(len(pool) / max_size)
+        base, extra = divmod(len(pool), k)
+        start = 0
+        for i in range(k):
+            end = start + base + (1 if i < extra else 0)
+            groups.append(pool[start:end])
+            start = end
+    empty_teams = [t.id for t in teams if size[t.id] == 0]
+    for team_id, group in zip(empty_teams, groups):
+        added[team_id] = group
+    groups = groups[len(empty_teams) :]
+    names = _new_team_names(db, course.id, len(groups))
+    return {
+        "seed": seed,
+        "fingerprint": team_state_fingerprint(db, course),
+        "max_team_size": max_size,
+        "existing": [{"team_id": tid, "student_ids": ids} for tid, ids in added.items() if ids],
+        "new_teams": [{"name": name, "student_ids": ids} for name, ids in zip(names, groups)],
+    }
+
+
+def approve_assignment(
+    db: Session, course_id: int, fingerprint: str, existing: list[dict], new_teams: list[dict]
+) -> dict:
+    """Apply a (possibly edited) proposal in one transaction, or refuse.
+
+    Refused with stale_proposal (409) when the team state changed since the
+    proposal was built, including after this same proposal was applied.
+    Bypasses the student-facing lock on purpose: it is an instructor action
+    and only runs once teams are locked. Every student must still be an
+    eligible unteamed student of this course, and no team may end up above
+    max_team_size.
+    """
+    # Serialises concurrent approvals on Postgres. SQLite (local dev only) has no
+    # row lock; overlapping students still fail on the unique index below.
+    course = db.get(Course, course_id, with_for_update=True, populate_existing=True)
+    if course is None:
+        raise PeerReviewError("not_found", "Course not found", 404)
+    _require_teams_locked(course)
+    if fingerprint != team_state_fingerprint(db, course):
+        raise PeerReviewError(
+            "stale_proposal", "Teams or the roster changed since this proposal was made; propose again", 409
+        )
+
+    eligible = set(unassigned_students(db, course.id))
+    seen: set[int] = set()
+
+    def check_students(ids: list[int]) -> None:
+        for sid in ids:
+            if sid in seen:
+                raise PeerReviewError("invalid_proposal", "A student appears twice in the proposal", 422)
+            if sid not in eligible:
+                raise PeerReviewError(
+                    "invalid_proposal", "The proposal includes a student who can't be assigned", 422
+                )
+            seen.add(sid)
+
+    team_ids = set(db.scalars(select(Team.id).where(Team.course_id == course.id)))
+    adding: Counter = Counter()
+    for item in existing:
+        tid, ids = item["team_id"], item["student_ids"]
+        if tid not in team_ids:
+            raise PeerReviewError("not_found", "Team not found", 404)
+        check_students(ids)
+        adding[tid] += len(ids)
+        if len(active_members(db, tid)) + adding[tid] > course.max_team_size:
+            raise PeerReviewError("team_full", f"A team would have more than {course.max_team_size} members", 409)
+    names = set(db.scalars(select(Team.name).where(Team.course_id == course.id)))
+    for item in new_teams:
+        name, ids = item["name"].strip(), item["student_ids"]
+        if not ids:
+            continue
+        if not name or name in names:
+            raise PeerReviewError("team_name_taken", "Each new team needs a new, unique name", 409)
+        names.add(name)
+        check_students(ids)
+        if len(ids) > course.max_team_size:
+            raise PeerReviewError("team_full", f"A team would have more than {course.max_team_size} members", 409)
+
+    created: list[int] = []
+    try:
+        for item in existing:
+            for sid in item["student_ids"]:
+                set_student_team(db, course.id, sid, item["team_id"], commit=False)
+        for item in new_teams:
+            if not item["student_ids"]:
+                continue
+            team = create_team(db, course.id, item["name"], commit=False)
+            created.append(team.id)
+            for sid in item["student_ids"]:
+                set_student_team(db, course.id, sid, team.id, commit=False)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise PeerReviewError(
+            "stale_proposal", "Teams changed while the proposal was being applied; propose again", 409
+        )
+    except Exception:
+        db.rollback()
+        raise
+    refresh_practice_rounds(db, course.id)
+    return {"placed": len(seen), "created_team_ids": created}
 
 
 # ---------------------------------------------------------------------------

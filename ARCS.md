@@ -35,3 +35,4 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `students-cannot-see-their-own-grades` — Students cannot see their own grades, feedback or attendance status
 - `team-formation-closes-at-a-deadline` — Let students form their own teams until a deadline, then lock teams automatically
 - `unreleasing-a-peer-round-keeps-its-gradebook-scores` — Un-releasing a peer round leaves its applied scores in the gradebook
+- `unteamed-students-need-instructor-approved-auto-assign` — After teams lock, propose teams for unteamed students and apply them only on the instructor's approval

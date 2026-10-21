@@ -185,8 +185,7 @@ def delete_rubric(db: Session, assignment_id: int) -> bool:
 
 
 def _results_by_criterion(db: Session, submission: Submission, criteria: list[RubricCriterion]) -> dict[int, list[CriterionResult]]:
-    """Each criterion's results, newest first. When the pinned run has
-    results, only that run's count (the pinned run also sets the penalty)."""
+    """Each criterion's results across all runs, newest first."""
     ids = [c.id for c in criteria]
     if not ids:
         return {}
@@ -195,12 +194,14 @@ def _results_by_criterion(db: Session, submission: Submission, criteria: list[Ru
         .where(CriterionResult.submission_id == submission.id, CriterionResult.criterion_id.in_(ids))
         .order_by(CriterionResult.id.desc())
     ).all()
-    if submission.pinned_run_id is not None and any(r.run_id == submission.pinned_run_id for r in rows):
-        rows = [r for r in rows if r.run_id == submission.pinned_run_id]
     out: dict[int, list[CriterionResult]] = {}
     for r in rows:
         out.setdefault(r.criterion_id, []).append(r)
     return out
+
+
+def _newest_score(rows: list[CriterionResult]) -> CriterionResult | None:
+    return next((r for r in rows if r.status == SCORED and r.score is not None), None)
 
 
 def _clamp(value: float, max_points: float) -> float:
@@ -228,8 +229,12 @@ def submission_breakdown(db: Session, submission: Submission) -> dict[str, Any] 
     total = 0.0
     for c in criteria:
         attempts = results.get(c.id, [])
-        scored = next((r for r in attempts if r.status == SCORED and r.score is not None), None)
-        latest = attempts[0] if attempts else None
+        # The pinned run's rows come first when it has any (it also sets the
+        # penalty); a criterion it holds no score for falls back to the newest
+        # score from any run, so a failed pinned run never zeroes a grade.
+        pinned = [r for r in attempts if r.run_id is not None and r.run_id == submission.pinned_run_id]
+        scored = _newest_score(pinned) or _newest_score(attempts)
+        latest = (pinned or attempts or [None])[0]
         override = overrides.get(c.id)
         llm_score = _clamp(scored.score, c.max_points) if scored else None
         if override is not None:
@@ -417,16 +422,15 @@ def score_submission(db: Session, submission: Submission, run: NotebookRun | Non
     # the gradebook counts.
     run_id = run.id if run is not None else None
     for c in criteria:
-        if run_id is not None:
-            stale = select(CriterionResult).where(
-                CriterionResult.submission_id == submission.id,
-                CriterionResult.run_id == run_id,
-                CriterionResult.criterion_id == c.id,
-            )
-            if c.id not in scores:
-                stale = stale.where(CriterionResult.status == NOT_SCORED)
-            for old in db.scalars(stale):
-                db.delete(old)
+        stale = select(CriterionResult).where(
+            CriterionResult.submission_id == submission.id,
+            CriterionResult.run_id.is_(None) if run_id is None else CriterionResult.run_id == run_id,
+            CriterionResult.criterion_id == c.id,
+        )
+        if c.id not in scores:
+            stale = stale.where(CriterionResult.status == NOT_SCORED)
+        for old in db.scalars(stale):
+            db.delete(old)
         if c.id in scores:
             score, rationale = scores[c.id]
             db.add(

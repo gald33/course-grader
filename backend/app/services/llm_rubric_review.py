@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import secrets
 from dataclasses import dataclass
@@ -233,12 +234,13 @@ def build_user_message(
 
 
 def clamp_score(value: Any, max_points: float) -> float:
-    try:
-        score = float(value)
-    except (TypeError, ValueError) as exc:
-        raise LLMRubricReviewError(f"non-numeric score {value!r}") from exc
-    if score != score:  # NaN
-        raise LLMRubricReviewError("NaN score")
+    """A finite JSON number clamped to [0, max]. Strict: bools, strings,
+    NaN and infinities are rejected (the criterion stays not scored)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise LLMRubricReviewError(f"score is not a number: {value!r}")
+    score = float(value)
+    if not math.isfinite(score):
+        raise LLMRubricReviewError(f"score is not finite: {value!r}")
     return max(0.0, min(float(max_points), score))
 
 
@@ -298,7 +300,9 @@ def review_rubric(
         messages=[{"role": "user", "content": build_user_message(notebook_text, report_text, evidence)}],
     )
     if response.stop_reason == "max_tokens":
-        logger.warning("llm_rubric_review hit max_tokens; output likely truncated")
+        # A truncated answer may be missing or cutting off scores: fail closed,
+        # so every criterion keeps its last good score.
+        raise LLMRubricReviewError("The model's answer was cut off (max_tokens); nothing was scored")
 
     tool_input = next(
         (b.input for b in response.content if b.type == "tool_use" and b.name == TOOL_NAME),

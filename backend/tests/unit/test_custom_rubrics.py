@@ -459,6 +459,76 @@ def test_a_failed_rescore_of_the_same_run_keeps_its_scores(env):
         assert db.scalar(select(func.count()).select_from(CriterionResult).where(CriterionResult.submission_id == sub)) == 3
 
 
+def test_pinning_a_run_whose_scoring_failed_keeps_the_last_score(env):
+    """Reed's B1': a pinned run with only failure rows (or a partial answer)
+    must fall back, per criterion, to the newest score of any run."""
+    from app.services.student_grades import set_released
+
+    rubric = _author(env)
+    stub_autograder(env.monkeypatch, env.Session)
+    sub = env.course.hw2_sub_ids[1]
+    FakeLLM(lambda kw: _scores(rubric, [20, 40, 10])).install(env.monkeypatch)
+    _run(env, sub)
+    FakeLLM(error=RuntimeError("API down")).install(env.monkeypatch)
+    run2 = _run(env, sub)
+    assert [c["effective_score"] for c in _view(env, sub)["criteria"]] == [20, 40, 10]
+
+    _ok(env.client.post(f"/api/runs/{run2}/pin"))
+    view = _view(env, sub)
+    assert [c["effective_score"] for c in view["criteria"]] == [20, 40, 10]
+    assert all(c["last_attempt_failed"] for c in view["criteria"])
+    assert view["component_score"] == round(70 * view["penalty_multiplier"], 2) > 0
+    assert _row(env, "Bob")["hw2"] == view["component_score"]
+    with env.Session() as db:
+        set_released(db, env.course.id, "hw2", True)
+    (entry,) = _student_rubrics(env, _student_token(env, "Bob"))
+    assert [c["score"] for c in entry["criteria"]] == [20, 40, 10] and entry["total"] == 70
+
+    # A partial re-score of the pinned run wins where it scored; the
+    # criterion it missed keeps its earlier score.
+    payload = _scores(rubric, [5, 6, 7])
+    del payload["scores"][f"c{rubric['criteria'][1]['id']}"]
+    FakeLLM(payload=payload).install(env.monkeypatch)
+    _score_job(env, sub)
+    view = _view(env, sub)
+    assert [c["effective_score"] for c in view["criteria"]] == [5, 40, 7]
+    assert [c["last_attempt_failed"] for c in view["criteria"]] == [False, True, False]
+    assert _row(env, "Bob")["hw2"] == round(52 * view["penalty_multiplier"], 2)
+
+    # An override still wins over all of it.
+    c1 = rubric["criteria"][1]["id"]
+    _ok(env.client.put(f"/api/submissions/{sub}/custom-rubric/{c1}/override", json={"score": 1}))
+    assert [c["effective_score"] for c in _view(env, sub)["criteria"]] == [5, 1, 7]
+
+
+@pytest.mark.parametrize("bad", [True, "10", "Infinity", float("inf"), float("nan"), None, [5]])
+def test_parser_rejects_non_numbers(bad):
+    spec = llm_rubric_review.CriterionSpec(1, "A", "", 10, [])
+    assert llm_rubric_review.parse_scores({"scores": {"c1": {"score": bad, "rationale": "x"}}}, [spec]) == {}
+    assert llm_rubric_review.parse_scores({"scores": {"c1": {"score": 12, "rationale": "x"}}}, [spec]) == {1: (10.0, "x")}
+
+
+def test_a_truncated_answer_scores_nothing(env):
+    rubric = _author(env)
+    stub_autograder(env.monkeypatch, env.Session)
+    sub = env.course.hw2_sub_ids[1]
+    FakeLLM(lambda kw: _scores(rubric, [20, 40, 10])).install(env.monkeypatch)
+    _run(env, sub)
+    llm = FakeLLM(lambda kw: _scores(rubric, [1, 1, 1])).install(env.monkeypatch)
+    original = llm.create
+
+    def truncated(**kwargs):
+        response = original(**kwargs)
+        response.stop_reason = "max_tokens"
+        return response
+
+    llm.create = truncated
+    _score_job(env, sub)
+    view = _view(env, sub)
+    assert [c["effective_score"] for c in view["criteria"]] == [20, 40, 10]
+    assert "cut off" in view["criteria"][0]["error"]
+
+
 def test_student_text_cannot_steer_or_break_the_scoring(env, tmp_path):
     """Reed's B2: notebook text is wrapped as untrusted data under a random
     token, look-alike tags are defused, the system prompt says to ignore

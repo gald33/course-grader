@@ -31,6 +31,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `retire-bonus-points-phase-2-drop-column` — enrollments.bonus_points is zeroed but still in the schema
 - `roster-cannot-be-edited-per-student` — Add, remove, withdraw or fix a single student without re-importing the roster
 - `roster-reimport-email-conflicts-are-not-shown` — Roster re-import reports email conflicts that the UI never shows
+- `student-portal-is-one-long-scroll` — The student portal is one long scroll with no navigation
 - `students-cannot-see-their-own-grades` — Students cannot see their own grades, feedback or attendance status
 - `team-formation-closes-at-a-deadline` — Let students form their own teams until a deadline, then lock teams automatically
 - `unreleasing-a-peer-round-keeps-its-gradebook-scores` — Un-releasing a peer round leaves its applied scores in the gradebook

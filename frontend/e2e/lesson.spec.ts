@@ -219,6 +219,9 @@ test('a student completes two steps, reloads, and resumes with answers and feedb
 
   // And a plain reload keeps step A's answers: the latest is the right one, both tries counted.
   await page.getByRole('button', { name: /^שלב A:/ }).click();
+  // Let the step change reach the server first: reloading while it is in
+  // flight replays it from the outbox with a stale revision (a handled 409).
+  await waitSaved(page);
   await page.reload();
   await expect(stepHeading(page)).toContainText('מנתונים לחיזוי');
   await expect(target.getByRole('radio', { name: /bought_next_week/ })).toBeChecked();

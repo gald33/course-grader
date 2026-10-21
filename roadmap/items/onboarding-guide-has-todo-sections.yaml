@@ -1,7 +1,8 @@
 id: onboarding-guide-has-todo-sections
 title: ONBOARDING.md still has _TODO_ under Team Tips and Get Started
-status: ready
+status: done
 priority: later
+claim: null
 blocked_on: []
 refs:
 - 'ONBOARDING.md'
@@ -12,3 +13,5 @@ evidence: |
   Done when: Get Started names a first task (e.g. `make start`, or pick a
   `roadmap ready` item) and Team Tips has at least the hosted-worker and
   migrate-before-deploy rules from the README.
+
+  SHIPPED: #16, merged as b7d2b11 and deployed 2026-10-20 (Vercel green, health 200).

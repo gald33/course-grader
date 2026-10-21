@@ -1,7 +1,8 @@
 id: courses-and-submissions-cannot-be-deleted
 title: Courses, assignments and submissions can't be deleted or archived
-status: ready
+status: done
 priority: later
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/api/courses.py'
@@ -18,3 +19,5 @@ evidence: |
   Done when: a course can be archived (hidden from the home page, still
   restorable); a submission can be deleted, with its artifacts removed from
   storage; and group membership on a submission can be edited.
+
+  SHIPPED: #18, merged as ab89251 and deployed 2026-10-20 (Vercel green, health 200).

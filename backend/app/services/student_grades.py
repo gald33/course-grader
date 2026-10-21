@@ -7,7 +7,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.entities import Course, Enrollment, GradeRelease
+from app.models.entities import Assignment, Course, Enrollment, GradeRelease, Submission, SubmissionMember
+from app.services import custom_rubrics
 from app.services.peer_review import utcnow
 from app.services.scoring import _get_submission_for_student, compute_student_grade_row
 
@@ -76,3 +77,69 @@ def grades_view(db: Session, enrollment: Enrollment) -> dict:
     if "final" in released:
         view["final"] = {"score": row["final"]}
     return view
+
+
+# The grade-release component that releases each autograded assignment type.
+RUBRIC_RELEASE_COMPONENT = {"HW2": "hw2", "PROJECT": "project"}
+
+
+def rubrics_view(db: Session, enrollment: Enrollment) -> list[dict]:
+    """The custom rubrics of the course's assignments, for the student page.
+
+    Each criterion's name, description and max points are always shown, so
+    students know what they are graded on. Scores, rationales and the
+    instructor's feedback appear only once the assignment's gradebook
+    component is released, under the same rules as grades_view. An
+    overridden criterion carries no rationale (it was written for the LLM's
+    score, not the instructor's). `counts` marks the assignment whose
+    submission the gradebook counts for that type."""
+    released = released_components(db, enrollment.course_id)
+    assignments = db.scalars(
+        select(Assignment)
+        .where(
+            Assignment.course_id == enrollment.course_id,
+            Assignment.assignment_type.in_(RUBRIC_RELEASE_COMPONENT),
+        )
+        .order_by(Assignment.assignment_type, Assignment.workcode)
+    ).all()
+    counted = set()
+    for assignment_type in RUBRIC_RELEASE_COMPONENT:
+        sub = _get_submission_for_student(db, enrollment.course_id, enrollment.student_id, assignment_type)
+        if sub is not None:
+            counted.add(sub.assignment_id)
+    out: list[dict] = []
+    for assignment in assignments:
+        rubric = custom_rubrics.get_rubric(db, assignment.id)
+        if rubric is None or not rubric.criteria:
+            continue
+        entry: dict = {
+            "assignment_id": assignment.id,
+            "name": assignment.name,
+            "assignment_type": assignment.assignment_type,
+            "released": RUBRIC_RELEASE_COMPONENT[assignment.assignment_type] in released,
+            "counts": assignment.id in counted,
+            "criteria": [
+                {"name": c.name, "description": c.description, "max_points": c.max_points} for c in rubric.criteria
+            ],
+        }
+        if entry["released"]:
+            submission = db.scalar(
+                select(Submission)
+                .join(SubmissionMember, SubmissionMember.submission_id == Submission.id)
+                .where(Submission.assignment_id == assignment.id, SubmissionMember.student_id == enrollment.student_id)
+                .order_by(Submission.id.desc())
+            )
+            breakdown = custom_rubrics.submission_breakdown(db, submission) if submission else None
+            scored = {c["id"]: c for c in breakdown["criteria"]} if breakdown else {}
+            for item, criterion in zip(entry["criteria"], rubric.criteria):
+                result = scored.get(criterion.id)
+                item["score"] = result["effective_score"] if result else None
+                item["rationale"] = (
+                    result["rationale"] if result and result["status"] == "scored" and result["source"] == "llm" else ""
+                )
+            entry["total"] = breakdown["total"] if breakdown else None
+            entry["max_total"] = round(sum(c.max_points for c in rubric.criteria), 4)
+            entry["feedback"] = (submission.feedback_student or "").strip() if submission else ""
+        out.append(entry)
+    return out
+

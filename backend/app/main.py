@@ -19,6 +19,7 @@ from app.api import (
     oauth,
     peer_review,
     roster,
+    rubrics,
     runs,
     student_auth,
     student_lessons,
@@ -60,6 +61,7 @@ app.include_router(courses.router)
 app.include_router(imports.router)
 app.include_router(assignments.router)
 app.include_router(submissions.router)
+app.include_router(rubrics.router)
 app.include_router(runs.router)
 app.include_router(gradebook.router)
 app.include_router(grade_releases.router)

@@ -11,6 +11,7 @@ import { GradeReleaseCard } from '@/components/grade-release-card';
 import { LessonsStep } from '@/components/lessons/instructor-lessons';
 import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
 import { RosterCard } from '@/components/roster-card';
+import { RubricsStep } from '@/components/rubric-editor';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
@@ -131,11 +132,12 @@ type Assignment = {
   submission_count: number;
 };
 
-type StepKey = 'queue' | 'imports' | 'peer' | 'lessons' | 'curve' | 'overrides' | 'gradebook' | 'settings';
+type StepKey = 'queue' | 'imports' | 'rubrics' | 'peer' | 'lessons' | 'curve' | 'overrides' | 'gradebook' | 'settings';
 
 const STEPS: { key: StepKey; label: string; icon: string; title: string; sub: string }[] = [
   { key: 'queue', label: 'Grading queue', icon: '📥', title: 'Grading queue', sub: 'Submissions, snapshots, and runs.' },
   { key: 'imports', label: 'Imports', icon: '⤴', title: 'Imports', sub: 'Roster, assignment ZIPs, presentation sheets.' },
+  { key: 'rubrics', label: 'Rubrics', icon: '☰', title: 'Rubrics', sub: 'Custom per-assignment rubrics the autograder scores with the LLM.' },
   { key: 'peer', label: 'Peer review', icon: '⇄', title: 'Peer review', sub: 'Presentation schedule, student reviews, and round scores.' },
   { key: 'lessons', label: 'Lessons', icon: '✦', title: 'Lessons', sub: 'Guided lessons: preview, publish, and where understanding breaks down.' },
   { key: 'curve', label: 'Curve & calibration', icon: '⚙', title: 'Curve & calibration', sub: 'Adjust dimension curves and attendance threshold.' },
@@ -199,6 +201,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const counts: Record<StepKey, number | null> = {
     queue: submissions.length,
     imports: assignments.length,
+    rubrics: null,
     peer: null,
     lessons: null,
     curve: activeCurve?.revision_number ?? 0,
@@ -257,6 +260,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           ) : null}
           {step === 'imports' ? (
             <ImportsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
+          ) : null}
+          {step === 'rubrics' ? (
+            <RubricsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
           ) : null}
           {step === 'peer' ? <PeerReviewStep courseId={courseId} setToast={setToast} /> : null}
           {step === 'lessons' ? <LessonsStep courseId={courseId} course={course} setToast={setToast} /> : null}

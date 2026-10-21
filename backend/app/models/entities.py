@@ -227,6 +227,89 @@ class RubricDimensionScore(Base):
     __table_args__ = (UniqueConstraint("submission_id", "component", "dimension_key", name="uq_rubric_component_dim"),)
 
 
+# ---------------------------------------------------------------------------
+# Custom rubrics
+#
+# An assignment may carry its own rubric: an ordered list of criteria, each
+# scored by the LLM against the executed notebook. Without one, the fixed
+# code dimensions above grade the assignment as before. Kept as structured
+# rows (not free text) so rubrics can later be compared across assignments.
+# ---------------------------------------------------------------------------
+
+
+class AssignmentRubric(Base):
+    __tablename__ = "assignment_rubrics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    assignment_id: Mapped[int] = mapped_column(ForeignKey("assignments.id", ondelete="CASCADE"), unique=True, index=True)
+    # The rubric this one was copied from, if any (provenance for later clustering).
+    copied_from_rubric_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assignment_rubrics.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    criteria: Mapped[list[RubricCriterion]] = relationship(
+        back_populates="rubric", cascade="all, delete-orphan", order_by="RubricCriterion.position"
+    )
+
+
+class RubricCriterion(Base):
+    __tablename__ = "rubric_criteria"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    rubric_id: Mapped[int] = mapped_column(ForeignKey("assignment_rubrics.id", ondelete="CASCADE"))
+    # Order within the rubric. Not unique: a reorder rewrites every position
+    # in one transaction, with no constraint to trip over midway.
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    name: Mapped[str] = mapped_column(String(255))
+    # What earns full or partial credit.
+    description: Mapped[str] = mapped_column(Text, default="")
+    max_points: Mapped[float] = mapped_column(Float)
+    # Optional level descriptors: [{"points": float, "description": str}, ...]
+    levels_json: Mapped[str] = mapped_column(Text, default="[]")
+
+    rubric: Mapped[AssignmentRubric] = relationship(back_populates="criteria")
+
+    __table_args__ = (Index("ix_rubric_criteria_rubric_position", "rubric_id", "position"),)
+
+
+class CriterionResult(Base):
+    """The autograder's score for one criterion in one run. status is
+    "scored", or "not_scored" when the LLM was unavailable or failed."""
+
+    __tablename__ = "criterion_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"))
+    criterion_id: Mapped[int] = mapped_column(ForeignKey("rubric_criteria.id", ondelete="CASCADE"), index=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("notebook_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(16))
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rationale: Mapped[str] = mapped_column(Text, default="")
+    model: Mapped[str] = mapped_column(String(128), default="")
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # The latest result per criterion of a submission.
+    __table_args__ = (Index("ix_criterion_results_submission_criterion", "submission_id", "criterion_id"),)
+
+
+class CriterionOverride(Base):
+    """The instructor's score for a criterion. Wins over every run's result."""
+
+    __tablename__ = "criterion_overrides"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    submission_id: Mapped[int] = mapped_column(ForeignKey("submissions.id", ondelete="CASCADE"), index=True)
+    criterion_id: Mapped[int] = mapped_column(ForeignKey("rubric_criteria.id", ondelete="CASCADE"), index=True)
+    score: Mapped[float] = mapped_column(Float)
+    note: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("submission_id", "criterion_id", name="uq_criterion_override"),)
+
+
 class PresentationScore(Base):
     __tablename__ = "presentation_scores"
 

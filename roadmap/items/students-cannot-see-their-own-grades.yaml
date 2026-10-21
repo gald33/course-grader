@@ -1,7 +1,8 @@
 id: students-cannot-see-their-own-grades
 title: Students cannot see their own grades, feedback or attendance status
-status: ready
+status: done
 priority: now
+claim: null
 blocked_on: []
 refs:
 - 'frontend/components/student-view.tsx'
@@ -22,3 +23,5 @@ evidence: |
   component (HW, project, talks, attendance), the instructor's feedback text,
   and the final score. Nothing shows until the instructor releases it. Test
   students and "view as student" show the same view.
+
+  SHIPPED: #14, merged as 7a00980 and deployed 2026-10-20 (Vercel green, health 200).

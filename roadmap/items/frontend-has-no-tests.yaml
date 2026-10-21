@@ -1,7 +1,8 @@
 id: frontend-has-no-tests
 title: The frontend has no tests; CI only type-checks it
-status: ready
+status: done
 priority: later
+claim: null
 blocked_on: []
 refs:
 - '.github/workflows/ci.yml'
@@ -17,3 +18,5 @@ evidence: |
   Done when: CI runs at least a Playwright smoke test that loads the
   instructor course page and the student review page against a seeded
   backend. Chromium is already available in the cloud sessions.
+
+  SHIPPED: #19, merged as 44c8e7b and deployed 2026-10-20 (Vercel green, health 200).

@@ -33,6 +33,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `roster-reimport-email-conflicts-are-not-shown` — Roster re-import reports email conflicts that the UI never shows
 - `student-portal-is-one-long-scroll` — The student portal is one long scroll with no navigation
 - `students-cannot-see-their-own-grades` — Students cannot see their own grades, feedback or attendance status
+- `students-need-an-assignment-page` — Students have no page for an assignment
 - `team-formation-closes-at-a-deadline` — Let students form their own teams until a deadline, then lock teams automatically
 - `unreleasing-a-peer-round-keeps-its-gradebook-scores` — Un-releasing a peer round leaves its applied scores in the gradebook
 - `unteamed-students-need-instructor-approved-auto-assign` — After teams lock, propose teams for unteamed students and apply them only on the instructor's approval

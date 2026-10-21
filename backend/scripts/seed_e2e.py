@@ -30,8 +30,16 @@ if str(ROOT) not in sys.path:
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models.entities import Enrollment, Student  # noqa: E402
+from app.models.entities import (  # noqa: E402
+    Assignment,
+    Enrollment,
+    RubricDimensionScore,
+    Student,
+    Submission,
+    SubmissionMember,
+)
 from app.services import student_session  # noqa: E402
+from app.services.scoring import COMPONENT_DIMENSIONS  # noqa: E402
 
 COURSE = {"code": "E2E101", "name": "Smoke Test Course", "year": 2026, "semester": "A"}
 STUDENTS = [
@@ -54,6 +62,12 @@ LESSON_STUDENTS = [
     ("resilience", "900000015", "Yael Lesson"),
     ("access", "900000016", "Rina Lesson"),
 ]
+# Assignment pages, in a course of their own so its released grade stays off
+# the main course's pages: an HW1 the student has not submitted, and an HW2
+# they have, scored on the fixed rubric and released.
+ASSIGNMENT_COURSE = {"code": "E2E103", "name": "Assignment Test Course", "year": 2026, "semester": "A"}
+ASSIGNMENT_STUDENT = ("900000021", "Gil Assign")
+ASSIGNMENT_FEEDBACK = "עבודה יפה, כדאי להרחיב את ההשוואה בין המודלים."
 
 
 def _ok(res, status: int = 200):
@@ -106,6 +120,34 @@ def seed() -> dict:
         draft = lesson["draft_version"]
         lesson = _ok(c.post(f"{lessons}/{lesson['id']}/publish", json={"version_id": draft["id"]}))
 
+        assignment_course_id = _ok(c.post("/api/courses", json=ASSIGNMENT_COURSE))["id"]
+        with SessionLocal() as db:
+            s = Student(national_id=ASSIGNMENT_STUDENT[0], name=ASSIGNMENT_STUDENT[1])
+            db.add(s)
+            db.flush()
+            db.add(Enrollment(course_id=assignment_course_id, student_id=s.id, is_test=False))
+            hw1 = Assignment(course_id=assignment_course_id, workcode=1, name="תרגיל 1: היכרות", assignment_type="HW1")
+            hw2 = Assignment(course_id=assignment_course_id, workcode=2, name="תרגיל 2: מודלים", assignment_type="HW2")
+            db.add_all([hw1, hw2])
+            db.flush()
+            sub = Submission(
+                course_id=assignment_course_id,
+                assignment_id=hw2.id,
+                group_identifier=ASSIGNMENT_STUDENT[0],
+                feedback_student=ASSIGNMENT_FEEDBACK,
+            )
+            db.add(sub)
+            db.flush()
+            db.add(SubmissionMember(submission_id=sub.id, student_id=s.id))
+            for d in COMPONENT_DIMENSIONS["hw2_code"]:
+                db.add(RubricDimensionScore(submission_id=sub.id, component="hw2_code", dimension_key=d.key, raw_score=4, adjusted_score=4))
+            db.commit()
+            assignment_student_id, hw1_id, hw2_id = s.id, hw1.id, hw2.id
+        apeer = f"/api/courses/{assignment_course_id}/peer"
+        _ok(c.post(f"{apeer}/links/generate"))
+        assignment_token = next(r["token"] for r in _ok(c.get(f"{apeer}/links")) if r["student_id"] == assignment_student_id)
+        _ok(c.put(f"/api/courses/{assignment_course_id}/grade-releases/hw2", json={"released": True}))
+
     def signed_in(name: str) -> dict:
         student_id = ids[name]
         return {"id": student_id, "name": name, "token": tokens[student_id], "cookie": student_session.issue(student_id)}
@@ -123,6 +165,12 @@ def seed() -> dict:
         },
         "lesson_students": {role: signed_in(name) for role, _nid, name in LESSON_STUDENTS},
         "test_student": {"id": ids[STUDENTS[3][1]], "name": STUDENTS[3][1]},
+        "assignments": {
+            "course_id": assignment_course_id,
+            "student": {"id": assignment_student_id, "name": ASSIGNMENT_STUDENT[1], "token": assignment_token},
+            "hw1": {"id": hw1_id, "name": "תרגיל 1: היכרות"},
+            "hw2": {"id": hw2_id, "name": "תרגיל 2: מודלים", "score": 80, "feedback": ASSIGNMENT_FEEDBACK},
+        },
     }
 
 

@@ -2,6 +2,7 @@
 
 import { FormEvent, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
+import { AssignmentsCard, type AssignmentSummary, type CustomRubric, type PortalFrom } from '@/components/assignment-page';
 import { MyGradesCard, type Grades } from '@/components/my-grades';
 
 /* Student-facing peer review page (Hebrew, RTL, mobile-first). Rendered for
@@ -10,6 +11,13 @@ import { MyGradesCard, type Grades } from '@/components/my-grades';
 
 // True in the instructor preview: everything renders, nothing can be saved.
 const PreviewCtx = createContext(false);
+// Where an assignment's own page lives: /r/<token>/assignments/<id> for the
+// student, a preview route for the instructor.
+type AssignmentHref = (id: number, from: PortalFrom) => string;
+const AssignmentHrefCtx = createContext<AssignmentHref>(() => '#');
+
+export const studentAssignmentHref = (token: string) => (id: number, from: PortalFrom) =>
+  `/r/${token}/assignments/${id}${from === 'home' ? '' : `?from=${from}`}`;
 
 type Criterion = { key: string; label: string; description: string; weight: number; counts?: boolean; max?: number | null };
 const counts = (c: Criterion) => c.counts !== false;
@@ -95,6 +103,11 @@ export type Home = {
   // Published guided lessons and how far the student got; absent on a
   // database without the lessons migration.
   lessons?: LessonLink[];
+  // Every assignment with its rubric; scores only once released. Absent on
+  // an older backend.
+  assignments?: AssignmentSummary[];
+  // Custom rubrics, from a backend that has them (feature-detected).
+  rubrics?: CustomRubric[];
 };
 type LessonLink = {
   slug: string;
@@ -235,12 +248,14 @@ export function StudentView({
   token,
   loader,
   preview = false,
-  banner
+  banner,
+  assignmentHref
 }: {
   token: string;
   loader: () => Promise<Home>;
   preview?: boolean;
   banner?: React.ReactNode;
+  assignmentHref?: AssignmentHref;
 }) {
   const [home, setHome] = useState<Home | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -293,6 +308,7 @@ export function StudentView({
 
   return (
     <PreviewCtx.Provider value={preview}>
+    <AssignmentHrefCtx.Provider value={assignmentHref ?? studentAssignmentHref(token)}>
     <Shell banner={banner}>
       <header className="pb-3 pt-2">
         <div className="text-[12px] tracking-wide text-ink-3">{home.course.name}</div>
@@ -321,6 +337,11 @@ export function StudentView({
         ) : (
           <EmptyNote>עדיין לא פורסמו ציונים. כשהמרצה יפרסם ציון, הוא יופיע כאן.</EmptyNote>
         )}
+        {home.assignments?.length ? (
+          <div className="mt-4">
+            <PortalAssignments assignments={home.assignments} from="grades" />
+          </div>
+        ) : null}
       </TabPanel>
 
       <TabPanel tab="team" active={tab}>
@@ -356,6 +377,7 @@ export function StudentView({
         <CourseInfoTab token={token} home={home} go={go} />
       </TabPanel>
     </Shell>
+    </AssignmentHrefCtx.Provider>
     </PreviewCtx.Provider>
   );
 }
@@ -669,6 +691,8 @@ function CourseInfoTab({ token, home, go }: { token: string; home: Home; go: (t:
     <div className="grid gap-4">
       {home.lessons?.length ? <LessonsCard token={token} lessons={home.lessons} /> : null}
 
+      {home.assignments?.length ? <PortalAssignments assignments={home.assignments} from="info" /> : null}
+
       <section className="rounded-lg border border-border bg-card p-4 shadow-soft">
         <h2 className="font-hebrew text-[20px]">{course.name}</h2>
         {course.code ? (
@@ -742,6 +766,10 @@ function CourseInfoTab({ token, home, go }: { token: string; home: Home; go: (t:
       </section>
     </div>
   );
+}
+
+function PortalAssignments({ assignments, from }: { assignments: AssignmentSummary[]; from: PortalFrom }) {
+  return <AssignmentsCard assignments={assignments} href={useContext(AssignmentHrefCtx)} from={from} />;
 }
 
 const LESSON_STATUS: Record<LessonLink['status'], string> = {

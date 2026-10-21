@@ -1,0 +1,53 @@
+id: students-need-an-assignment-page
+title: Students have no page for an assignment
+status: claimed
+priority: now
+claim:
+  by: claude/students-need-an-assignment-page
+  at: '2026-10-21'
+blocked_on: []
+refs:
+- 'backend/app/models/entities.py'
+- 'backend/app/api/student_review.py'
+- 'backend/app/services/student_grades.py'
+- 'backend/app/services/student_assignments.py'
+- 'backend/app/services/scoring.py'
+- 'frontend/components/student-view.tsx'
+- 'frontend/components/assignment-page.tsx'
+- 'frontend/app/r/[token]/assignments/[id]/page.tsx'
+- 'frontend/app/course/[id]/student-view/assignments/[assignmentId]/page.tsx'
+evidence: |
+  VERIFIED at 89e6d5d. The student portal (#24) has no assignments at all:
+  `GET /api/r/{token}` (backend/app/api/student_review.py:269 `_payload`)
+  returns the course, team, rounds, released grades and lessons, and no
+  assignment list. The Grades tab shows one score and feedback line per
+  released component (backend/app/services/student_grades.py:36
+  `grades_view`), with no rubric and no per-dimension breakdown, though the
+  gradebook scores HW2 and the project on fixed rubric dimensions
+  (backend/app/services/scoring.py:38 `CODE_DIMENSIONS`, :53
+  `REPORT_DIMENSIONS`, summed by `component_score_from_rubric` at :272).
+
+  What the data holds today: `Assignment` (backend/app/models/entities.py:92)
+  is id, course, workcode, name and type (HW1/HW2/PROJECT) only: no
+  description, instructions, deadline, files or links. `Submission` (:107)
+  has `feedback_student` (:118) and `created_at` (:128), which is when the
+  system recorded it (the Moodle zip import), not when the student handed it
+  in. The only deadlines in the model are the team deadline (:39) and the
+  review rounds' (:383).
+
+  Done when: each assignment opens its own page at /r/<token>/assignments/<id>
+  from the portal's Course info and Grades tabs, showing its title, type,
+  submission status and the rubric criteria with their points; once its
+  grade component is released (#14's rules: HW1 -> hw1, HW2 -> hw2,
+  PROJECT -> project) it also shows the score, the per-criterion breakdown
+  with the rationales that still match their score, the instructor's
+  feedback and any applied peer-round part (#15), and un-releasing hides them
+  again; a custom rubric (assignments-need-custom-rubrics, PR #26, not on
+  main yet) renders in place of the fixed code rubric when the payload
+  carries one; test students and "view as student" see the same page; and a
+  Playwright test opens an assignment from the portal and comes back.
+
+  Follow-ups (the data does not exist yet): assignment description and
+  instructions, a deadline (and so "late" and a Home "up next" item when it
+  is near), course files and links per assignment, and the student's real
+  hand-in time.

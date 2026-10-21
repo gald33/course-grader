@@ -17,6 +17,14 @@ export type Seed = {
   /** One student per lesson test that saves something, so no test sees another's progress. */
   lesson_students: Record<'trees' | 'experiments' | 'navigation' | 'insights' | 'resilience' | 'access', SignedInStudent>;
   test_student: { id: number; name: string };
+  /** Assignment pages, in a course of their own: an HW1 without a submission,
+   * and an HW2 scored 4/5 on every fixed dimension (80) and released. */
+  assignments: {
+    course_id: number;
+    student: { id: number; name: string; token: string };
+    hw1: { id: number; name: string };
+    hw2: { id: number; name: string; score: number; feedback: string };
+  };
 };
 
 export function loadSeed(): Seed {

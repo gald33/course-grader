@@ -52,7 +52,14 @@ test('instructor authors, reorders and saves a rubric', async ({ page }) => {
   // Move "Models" first, then save.
   await cards.nth(1).getByRole('button', { name: 'Move up' }).click();
   await expect(cards.nth(0).getByLabel('Criterion name')).toHaveValue('Models');
+  // The first save warns that the gradebook switches to the rubric.
+  let warning = '';
+  page.once('dialog', (dialog) => {
+    warning = dialog.message();
+    void dialog.accept();
+  });
   await page.getByRole('button', { name: 'Save rubric' }).click();
+  await expect.poll(() => warning).toContain('Criteria count as 0 until they are scored');
   await expect(page.getByText('Rubric saved')).toBeVisible();
 
   // Persisted, in the new order, with the Hebrew criterion right-to-left.

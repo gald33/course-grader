@@ -1100,6 +1100,7 @@ def test_migrations_upgrade_downgrade_upgrade(tmp_path):
         return res
 
     alembic("upgrade", "head")
-    alembic("downgrade", "-1")
+    alembic("downgrade", "0023_peer_round_bonus_component")  # through 0024_lessons' downgrade
+    assert "0023_peer_round_bonus_component" in alembic("current").stdout
     alembic("upgrade", "head")
     assert "(head)" in alembic("current").stdout

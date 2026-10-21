@@ -95,13 +95,19 @@ def _delete_criterion_rows(db: Session, criterion_ids: list[int]) -> None:
             db.execute(delete(model).where(model.criterion_id.in_(criterion_ids)))
 
 
-def save_criteria(db: Session, assignment: Assignment, criteria: list[dict[str, Any]]) -> AssignmentRubric:
+def save_criteria(
+    db: Session,
+    assignment: Assignment,
+    criteria: list[dict[str, Any]],
+    copied_from: AssignmentRubric | None = None,
+) -> AssignmentRubric:
     """Make the assignment's rubric exactly `criteria`, in that order.
 
     A criterion carrying the id of one of this rubric's criteria is edited in
     place (its results and overrides stay); one without an id is created;
     existing criteria left out are deleted with their results and overrides.
-    Raises ValueError for an id from another rubric. Commits."""
+    Raises ValueError for an id from another rubric. `copied_from` records
+    the rubric these criteria were copied from. Commits once, at the end."""
     rubric = get_rubric(db, assignment.id)
     if rubric is None:
         rubric = AssignmentRubric(assignment_id=assignment.id)
@@ -131,6 +137,8 @@ def save_criteria(db: Session, assignment: Assignment, criteria: list[dict[str, 
         row = existing[cid]
         rubric.criteria.remove(row)
         db.delete(row)
+    if copied_from is not None:
+        rubric.copied_from_rubric_id = copied_from.id
     rubric.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rubric)
@@ -138,7 +146,10 @@ def save_criteria(db: Session, assignment: Assignment, criteria: list[dict[str, 
 
 
 def copy_rubric(db: Session, target: Assignment, source: AssignmentRubric) -> AssignmentRubric:
-    """Replace the target's rubric with a copy of `source`'s criteria. Commits."""
+    """Replace the target's criteria with copies of `source`'s, in one
+    transaction. The target's old criteria go with their results and
+    overrides; the rubric row itself stays, so rubrics copied from the
+    target keep their provenance."""
     criteria = [
         {
             "name": c.name,
@@ -148,12 +159,7 @@ def copy_rubric(db: Session, target: Assignment, source: AssignmentRubric) -> As
         }
         for c in source.criteria
     ]
-    delete_rubric(db, target.id)
-    rubric = save_criteria(db, target, criteria)
-    rubric.copied_from_rubric_id = source.id
-    db.commit()
-    db.refresh(rubric)
-    return rubric
+    return save_criteria(db, target, criteria, copied_from=source)
 
 
 def delete_rubric(db: Session, assignment_id: int) -> bool:
@@ -405,26 +411,45 @@ def score_submission(db: Session, submission: Submission, run: NotebookRun | Non
         logger.warning("Custom rubric scoring failed for submission %s: %s", submission.id, exc)
         error = str(exc)[:2000] or exc.__class__.__name__
 
+    # A new score replaces the run's earlier rows for that criterion. A
+    # failure never removes a score: it only replaces an earlier failure of
+    # this run, and is stored alongside any scored row, which stays the one
+    # the gradebook counts.
     run_id = run.id if run is not None else None
-    if run_id is not None:
-        for old in db.scalars(
-            select(CriterionResult).where(CriterionResult.submission_id == submission.id, CriterionResult.run_id == run_id)
-        ):
-            db.delete(old)
     for c in criteria:
+        if run_id is not None:
+            stale = select(CriterionResult).where(
+                CriterionResult.submission_id == submission.id,
+                CriterionResult.run_id == run_id,
+                CriterionResult.criterion_id == c.id,
+            )
+            if c.id not in scores:
+                stale = stale.where(CriterionResult.status == NOT_SCORED)
+            for old in db.scalars(stale):
+                db.delete(old)
         if c.id in scores:
             score, rationale = scores[c.id]
             db.add(
                 CriterionResult(
-                    submission_id=submission.id, criterion_id=c.id, run_id=run_id,
-                    status=SCORED, score=score, rationale=rationale, model=model,
+                    submission_id=submission.id,
+                    criterion_id=c.id,
+                    run_id=run_id,
+                    status=SCORED,
+                    score=score,
+                    rationale=rationale,
+                    model=model,
                 )
             )
         else:
             db.add(
                 CriterionResult(
-                    submission_id=submission.id, criterion_id=c.id, run_id=run_id,
-                    status=NOT_SCORED, score=None, rationale="", model=model,
+                    submission_id=submission.id,
+                    criterion_id=c.id,
+                    run_id=run_id,
+                    status=NOT_SCORED,
+                    score=None,
+                    rationale="",
+                    model=model,
                     error=error or "The model returned no score for this criterion",
                 )
             )

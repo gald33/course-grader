@@ -89,7 +89,10 @@ def rubrics_view(db: Session, enrollment: Enrollment) -> list[dict]:
     Each criterion's name, description and max points are always shown, so
     students know what they are graded on. Scores, rationales and the
     instructor's feedback appear only once the assignment's gradebook
-    component is released, under the same rules as grades_view."""
+    component is released, under the same rules as grades_view. An
+    overridden criterion carries no rationale (it was written for the LLM's
+    score, not the instructor's). `counts` marks the assignment whose
+    submission the gradebook counts for that type."""
     released = released_components(db, enrollment.course_id)
     assignments = db.scalars(
         select(Assignment)
@@ -99,6 +102,11 @@ def rubrics_view(db: Session, enrollment: Enrollment) -> list[dict]:
         )
         .order_by(Assignment.assignment_type, Assignment.workcode)
     ).all()
+    counted = set()
+    for assignment_type in RUBRIC_RELEASE_COMPONENT:
+        sub = _get_submission_for_student(db, enrollment.course_id, enrollment.student_id, assignment_type)
+        if sub is not None:
+            counted.add(sub.assignment_id)
     out: list[dict] = []
     for assignment in assignments:
         rubric = custom_rubrics.get_rubric(db, assignment.id)
@@ -109,6 +117,7 @@ def rubrics_view(db: Session, enrollment: Enrollment) -> list[dict]:
             "name": assignment.name,
             "assignment_type": assignment.assignment_type,
             "released": RUBRIC_RELEASE_COMPONENT[assignment.assignment_type] in released,
+            "counts": assignment.id in counted,
             "criteria": [
                 {"name": c.name, "description": c.description, "max_points": c.max_points} for c in rubric.criteria
             ],
@@ -125,7 +134,9 @@ def rubrics_view(db: Session, enrollment: Enrollment) -> list[dict]:
             for item, criterion in zip(entry["criteria"], rubric.criteria):
                 result = scored.get(criterion.id)
                 item["score"] = result["effective_score"] if result else None
-                item["rationale"] = result["rationale"] if result and result["status"] == "scored" else ""
+                item["rationale"] = (
+                    result["rationale"] if result and result["status"] == "scored" and result["source"] == "llm" else ""
+                )
             entry["total"] = breakdown["total"] if breakdown else None
             entry["max_total"] = round(sum(c.max_points for c in rubric.criteria), 4)
             entry["feedback"] = (submission.feedback_student or "").strip() if submission else ""

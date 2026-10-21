@@ -196,8 +196,15 @@ function RubricEditor({
     }
   };
 
+  // Adding a rubric switches the gradebook to it at once, and criteria count
+  // as 0 until they are scored.
+  const SWITCH_WARNING =
+    'From now on the gradebook scores this assignment with the custom rubric instead of the fixed dimensions. ' +
+    'Criteria count as 0 until they are scored, so run "Score all with LLM" before students see the grade. Continue?';
+
   const save = () =>
     run(async () => {
+      if (!state?.rubric && !window.confirm(SWITCH_WARNING)) return;
       const criteria = drafts.map((d) => ({
         ...(d.id != null ? { id: d.id } : {}),
         name: d.name.trim(),
@@ -226,11 +233,10 @@ function RubricEditor({
   const copy = () =>
     run(async () => {
       if (!copyFrom) return;
-      if (
-        state?.rubric &&
-        !window.confirm('Replace this rubric with the copy? Current criteria, their scores and overrides are deleted.')
-      )
-        return;
+      const question = state?.rubric
+        ? 'Replace this rubric with the copy? Current criteria, their scores and overrides are deleted.'
+        : SWITCH_WARNING;
+      if (!window.confirm(question)) return;
       apply(await apiPost<RubricState>(`${base}/copy`, { source_assignment_id: Number(copyFrom) }));
       setCopyFrom('');
       setToast('Rubric copied');

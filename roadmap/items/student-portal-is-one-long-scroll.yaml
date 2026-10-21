@@ -1,0 +1,43 @@
+id: student-portal-is-one-long-scroll
+title: The student portal is one long scroll with no navigation
+status: claimed
+priority: now
+claim:
+  by: claude/student-portal-is-one-long-scroll
+  at: '2026-10-20'
+blocked_on: []
+refs:
+- 'frontend/components/student-view.tsx'
+- 'frontend/components/my-grades.tsx'
+- 'frontend/app/r/[token]/page.tsx'
+- 'frontend/app/course/[id]/student-view/page.tsx'
+- 'frontend/e2e/smoke.spec.ts'
+- 'backend/app/api/student_review.py'
+- 'backend/app/services/lessons.py'
+evidence: |
+  VERIFIED at 022ad17. `StudentView` (frontend/components/student-view.tsx:224)
+  renders everything in one column with no navigation: the greeting header
+  (:275), `MyGradesCard` (:288), `TeamCard` (:290), `AnonymityNote` (:292),
+  then the round pills (:300) and the selected round's `RoundPanel` (:314).
+  Nothing says what the student has to do next; an open review round or a
+  missing presentation slot sits below the grades and team cards. The page
+  keeps no state in the URL, so a link or a refresh always lands at the top.
+  The instructor's "view as student" (frontend/app/course/[id]/student-view/
+  page.tsx:85) renders the same component, and its student picker rewrites
+  the query string to `?student=<id>` (:60).
+
+  Everything the portal needs is already in `GET /api/r/{token}`
+  (backend/app/api/student_review.py:246 `_payload`): course name and code,
+  team and team policy (deadline, max size), every non-draft round with its
+  selection deadline and sessions, review deadline and progress, the team's
+  presentation slot and site links, and the released grades.
+
+  Done when: a student lands on Home, which shows an "up next" strip (open
+  review round with reviews left, presentation slot or "pick one", team
+  deadline or "no team yet", newly released grades), and reaches Grades,
+  Team, Peer review and Course info in one tap each; the active tab is kept
+  in `?tab=` so links, refresh and back/forward work; the guided lessons
+  (#22, `lessons` in the same payload) have a place in the portal that links
+  to the existing /r/<token>/lessons routes, and Home points at a lesson in
+  progress; the instructor preview gets the same portal; and the Playwright
+  smoke test covers switching tabs and the lessons entry point.

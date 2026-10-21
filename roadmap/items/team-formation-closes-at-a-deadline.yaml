@@ -1,7 +1,8 @@
 id: team-formation-closes-at-a-deadline
 title: Let students form their own teams until a deadline, then lock teams automatically
-status: ready
+status: done
 priority: now
+claim: null
 blocked_on: []
 related_to:
 - key: roster-cannot-be-edited-per-student
@@ -39,3 +40,5 @@ evidence: |
        team are listed for the instructor, or auto-assigned to teams with
        space.
     6. Tests cover a change just before and just after the deadline.
+
+  SHIPPED: #13, merged as d02f89d and deployed 2026-10-20 (Vercel green, health 200).

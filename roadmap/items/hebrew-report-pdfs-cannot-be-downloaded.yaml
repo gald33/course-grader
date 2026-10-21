@@ -1,7 +1,8 @@
 id: hebrew-report-pdfs-cannot-be-downloaded
 title: Hebrew student report PDFs are queued but can never be retrieved from the hosted site
-status: ready
+status: done
 priority: now
+claim: null
 blocked_on: []
 refs:
 - 'frontend/app/course/[id]/page.tsx'
@@ -26,3 +27,5 @@ evidence: |
   Done when: the worker stores the PDFs (one zip is fine) through
   `services/storage.py`; the gradebook polls the task and shows done / failed;
   and a done export offers a download link that works on the hosted site.
+
+  SHIPPED: #12, merged as 1acc71f and deployed 2026-10-20 (Vercel green, health 200).

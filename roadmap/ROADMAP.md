@@ -12,21 +12,11 @@ Claim before starting: `roadmap claim <key>`
 
 **In priority order, most important first.** An item with no marker carries no stated priority — take it as unjudged, not as low. The order within a band is alphabetical and means nothing.
 
-- `now` **`hebrew-report-pdfs-cannot-be-downloaded`** — Hebrew student report PDFs are queued but can never be retrieved from the hosted site
-- `now` **`students-cannot-see-their-own-grades`** — Students cannot see their own grades, feedback or attendance status
-- `now` **`team-formation-closes-at-a-deadline`** — Let students form their own teams until a deadline, then lock teams automatically
-  - ↔ related: **`roster-cannot-be-edited-per-student`** — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
-- `next` **`no-button-to-recheck-site-links`** — Add a "re-check all links" button for a round
-- `next` **`peer-round-scores-never-reach-the-gradebook`** — Peer-review round scores have to be copied into the gradebook by hand
-  - ↔ related: **`project-bonus-has-no-editor`** — If peer round scores are pushed into the gradebook as bonus, decide first whether they land in `bonus_points` or as overrides. Otherwise there will be three bonus mechanisms instead of two.
-- `next` **`project-bonus-has-no-editor`** — The per-student project bonus can't be edited directly
-  - ↔ related: **`peer-round-scores-never-reach-the-gradebook`** — If peer round scores are pushed into the gradebook as bonus, decide first whether they land in `bonus_points` or as overrides. Otherwise there will be three bonus mechanisms instead of two.
-- `next` **`roster-cannot-be-edited-per-student`** — Add, remove, withdraw or fix a single student without re-importing the roster
-  - ↔ related: **`team-formation-closes-at-a-deadline`** — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
-- `later` **`courses-and-submissions-cannot-be-deleted`** — Courses, assignments and submissions can't be deleted or archived
-- `later` **`frontend-has-no-tests`** — The frontend has no tests; CI only type-checks it
-- `later` **`onboarding-guide-has-todo-sections`** — ONBOARDING.md still has _TODO_ under Team Tips and Get Started
-- `later` **`readme-describes-a-localhost-only-app`** — README still says "no login, localhost-only" and leaves out recent features
+- `now` **`unteamed-students-need-instructor-approved-auto-assign`** — After teams lock, propose teams for unteamed students and apply them only on the instructor's approval
+  - ↔ related: **`team-formation-closes-at-a-deadline`** — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
+- `later` **`retire-bonus-points-phase-2-drop-column`** — enrollments.bonus_points is zeroed but still in the schema
+- `later` **`roster-reimport-email-conflicts-are-not-shown`** — Roster re-import reports email conflicts that the UI never shows
+- `later` **`unreleasing-a-peer-round-keeps-its-gradebook-scores`** — Un-releasing a peer round leaves its applied scores in the gradebook
 
 ## ⏸ Deferred — startable, deliberately not now
 
@@ -37,6 +27,7 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `assignments-need-custom-rubrics` | claude/assignments-need-custom-rubrics | 2026-10-21T10:25:06Z |
+| `student-portal-is-one-long-scroll` | claude/student-portal-is-one-long-scroll | 2026-10-20T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -56,21 +47,28 @@ graph TD
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
   assignments_need_custom_rubrics["Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::claimed
-  courses_and_submissions_cannot_be_deleted["Courses, assignments and submissions can't be deleted or archived"]:::ready
-  frontend_has_no_tests["The frontend has no tests; CI only type-checks it"]:::ready
-  hebrew_report_pdfs_cannot_be_downloaded["Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::ready
-  no_button_to_recheck_site_links["Add a 're-check all links' button for a round"]:::ready
-  onboarding_guide_has_todo_sections["ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::ready
-  peer_round_scores_never_reach_the_gradebook["Peer-review round scores have to be copied into the gradebook by hand"]:::ready
-  project_bonus_has_no_editor["The per-student project bonus can't be edited directly"]:::ready
-  readme_describes_a_localhost_only_app["README still says 'no login, localhost-only' and leaves out recent features"]:::ready
-  roster_cannot_be_edited_per_student["Add, remove, withdraw or fix a single student without re-importing the roster"]:::ready
-  students_cannot_see_their_own_grades["Students cannot see their own grades, feedback or attendance status"]:::ready
+  autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
+  courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
+  frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
+  hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
+  no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
+  onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
+  peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
+  project_bonus_has_no_editor["✓ The per-student project bonus can't be edited directly"]:::done
+  readme_describes_a_localhost_only_app["✓ README still says 'no login, localhost-only' and leaves out recent features"]:::done
+  retire_bonus_points_phase_2_drop_column["enrollments.bonus_points is zeroed but still in the schema"]:::ready
+  roster_cannot_be_edited_per_student["✓ Add, remove, withdraw or fix a single student without re-importing the roster"]:::done
+  roster_reimport_email_conflicts_are_not_shown["Roster re-import reports email conflicts that the UI never shows"]:::ready
+  student_portal_is_one_long_scroll["The student portal is one long scroll with no navigation"]:::claimed
+  students_cannot_see_their_own_grades["✓ Students cannot see their own grades, feedback or attendance status"]:::done
   suggest_rubrics_per_assignment_from_clusters["Suggest a rubric for a new assignment from clusters of past rubrics"]:::blocked
-  team_formation_closes_at_a_deadline["Let students form their own teams until a deadline, then lock teams automatically"]:::ready
+  team_formation_closes_at_a_deadline["✓ Let students form their own teams until a deadline, then lock teams automatically"]:::done
+  unreleasing_a_peer_round_keeps_its_gradebook_scores["Un-releasing a peer round leaves its applied scores in the gradebook"]:::ready
+  unteamed_students_need_instructor_approved_auto_assign["After teams lock, propose teams for unteamed students and apply them only on the instructor's approval"]:::ready
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
+  team_formation_closes_at_a_deadline -.- unteamed_students_need_instructor_approved_auto_assign
 ```
 
 ## Items
@@ -123,10 +121,49 @@ graph TD
 
 </details>
 
+### `autograder-needs-a-proper-redesign`
+
+- **title:** The notebook autograder needs a proper redesign, once there is enough graded data
+- **status:** done
+- **priority:** later
+- **refs:**
+  - `backend/app/services/notebook_runner.py`
+  - `backend/app/services/code_metrics.py`
+  - `backend/app/services/llm_code_review.py`
+  - `backend/app/services/llm_review.py`
+  - `backend/app/services/scoring.py`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-10-20: "we need to do the auto grader properly. but we do
+> it when we have more data."
+>
+> Today HW2 and project code are scored by this app's notebook autograder:
+> the notebook is run, code metrics plus an LLM review are mapped to a
+> rubric, then a course curve and a run-ratio penalty are applied
+> (notebook_runner, code_metrics, llm_code_review, scoring.apply_curve).
+> Since #15, its score is also the 70% part of any task a peer round
+> feeds.
+>
+> DEFERRED until there is enough real graded data (submissions with
+> autograder scores next to the instructor's own judgement) to design and
+> check against. What "properly" means isn't defined yet. Start with the
+> operator: what is wrong with today's scores, and what the grade should
+> reward.
+>
+> Done when: scoped with the operator against real data, and replaced by
+> concrete items.
+>
+> SUPERSEDED 2026-10-21: the operator asked for the rebuild now. Phase 1 is
+> assignments-need-custom-rubrics (#26); phase 2 is
+> suggest-rubrics-per-assignment-from-clusters (deferred).
+
+</details>
+
 ### `courses-and-submissions-cannot-be-deleted`
 
 - **title:** Courses, assignments and submissions can't be deleted or archived
-- **status:** ready
+- **status:** done
 - **priority:** later
 - **refs:**
   - `backend/app/api/courses.py`
@@ -145,13 +182,15 @@ graph TD
 > Done when: a course can be archived (hidden from the home page, still
 > restorable); a submission can be deleted, with its artifacts removed from
 > storage; and group membership on a submission can be edited.
+>
+> SHIPPED: #18, merged as ab89251 and deployed 2026-10-20 (Vercel green, health 200).
 
 </details>
 
 ### `frontend-has-no-tests`
 
 - **title:** The frontend has no tests; CI only type-checks it
-- **status:** ready
+- **status:** done
 - **priority:** later
 - **refs:**
   - `.github/workflows/ci.yml`
@@ -169,13 +208,15 @@ graph TD
 > Done when: CI runs at least a Playwright smoke test that loads the
 > instructor course page and the student review page against a seeded
 > backend. Chromium is already available in the cloud sessions.
+>
+> SHIPPED: #19, merged as 44c8e7b and deployed 2026-10-20 (Vercel green, health 200).
 
 </details>
 
 ### `hebrew-report-pdfs-cannot-be-downloaded`
 
 - **title:** Hebrew student report PDFs are queued but can never be retrieved from the hosted site
-- **status:** ready
+- **status:** done
 - **priority:** now
 - **refs:**
   - `frontend/app/course/[id]/page.tsx`
@@ -202,13 +243,15 @@ graph TD
 > Done when: the worker stores the PDFs (one zip is fine) through
 > `services/storage.py`; the gradebook polls the task and shows done / failed;
 > and a done export offers a download link that works on the hosted site.
+>
+> SHIPPED: #12, merged as 1acc71f and deployed 2026-10-20 (Vercel green, health 200).
 
 </details>
 
 ### `no-button-to-recheck-site-links`
 
 - **title:** Add a "re-check all links" button for a round
-- **status:** ready
+- **status:** done
 - **priority:** next
 - **refs:**
   - `backend/app/api/peer_review.py`
@@ -226,13 +269,15 @@ graph TD
 > Done when: the round's schedule view has a button that calls the endpoint
 > and shows the returned counts (ok / broken / missing), and the per-team link
 > status updates.
+>
+> SHIPPED: #10, merged as d0d18fa and deployed 2026-10-20 (Vercel green, health 200).
 
 </details>
 
 ### `onboarding-guide-has-todo-sections`
 
 - **title:** ONBOARDING.md still has _TODO_ under Team Tips and Get Started
-- **status:** ready
+- **status:** done
 - **priority:** later
 - **refs:**
   - `ONBOARDING.md`
@@ -245,13 +290,15 @@ graph TD
 > Done when: Get Started names a first task (e.g. `make start`, or pick a
 > `roadmap ready` item) and Team Tips has at least the hosted-worker and
 > migrate-before-deploy rules from the README.
+>
+> SHIPPED: #16, merged as b7d2b11 and deployed 2026-10-20 (Vercel green, health 200).
 
 </details>
 
 ### `peer-round-scores-never-reach-the-gradebook`
 
 - **title:** Peer-review round scores have to be copied into the gradebook by hand
-- **status:** ready
+- **status:** done
 - **priority:** next
 - **related to** (not a dependency — both are startable):
   - `project-bonus-has-no-editor` — If peer round scores are pushed into the gradebook as bonus, decide first whether they land in `bonus_points` or as overrides. Otherwise there will be three bonus mechanisms instead of two.
@@ -272,13 +319,15 @@ graph TD
 > Done when: a released round has an "apply to gradebook" action that writes
 > one override per student (component `peer_round_<n>`, reason naming the
 > round). Running it again updates those overrides instead of duplicating them.
+>
+> SHIPPED: #15, merged as 62c2918 and deployed 2026-10-20 (Vercel green, health 200).
 
 </details>
 
 ### `project-bonus-has-no-editor`
 
 - **title:** The per-student project bonus can't be edited directly
-- **status:** ready
+- **status:** done
 - **priority:** next
 - **related to** (not a dependency — both are startable):
   - `peer-round-scores-never-reach-the-gradebook` — If peer round scores are pushed into the gradebook as bonus, decide first whether they land in `bonus_points` or as overrides. Otherwise there will be three bonus mechanisms instead of two.
@@ -299,13 +348,15 @@ graph TD
 > Done when: either the gradebook's Bonus cell is editable, or
 > `bonus_points` is retired in favour of overrides and the endpoint is
 > removed. Pick one; don't keep both.
+>
+> SHIPPED: #11, merged as dd03863 and deployed 2026-10-20 (Vercel green, health 200). Phase 1 only: the column is zeroed and kept; dropping it is retire-bonus-points-phase-2-drop-column.
 
 </details>
 
 ### `readme-describes-a-localhost-only-app`
 
 - **title:** README still says "no login, localhost-only" and leaves out recent features
-- **status:** ready
+- **status:** done
 - **priority:** later
 - **refs:**
   - `README.md`
@@ -322,13 +373,39 @@ graph TD
 >
 > Done when: the security section describes both the local and hosted setups,
 > and the workflow covers what an instructor actually does this semester.
+>
+> SHIPPED: #17, merged as 86bb5c4 and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `retire-bonus-points-phase-2-drop-column`
+
+- **title:** enrollments.bonus_points is zeroed but still in the schema
+- **status:** ready
+- **priority:** later
+- **refs:**
+  - `backend/alembic/versions/0022_retire_bonus_points.py`
+  - `backend/app/models/entities.py`
+
+<details><summary>evidence</summary>
+
+> Phase 1 (#11, 0022_retire_bonus_points) copied every non-zero
+> bonus_points into a tagged `bonus` component override, zeroed the column
+> and gave it server_default 0, and kept it so the migration could run
+> before the deploy. Code from before #11 could still write the column
+> between that migration and the deploy (bonus editor, roster import).
+>
+> Done when: one migration first re-sweeps any non-zero bonus_points into
+> `bonus` overrides (the same tagged reason as phase 1), then drops the
+> column. No code reads or writes it. The downgrade restores it from the
+> tagged overrides. Safe to deploy code first, migrate right after.
 
 </details>
 
 ### `roster-cannot-be-edited-per-student`
 
 - **title:** Add, remove, withdraw or fix a single student without re-importing the roster
-- **status:** ready
+- **status:** done
 - **priority:** next
 - **related to** (not a dependency — both are startable):
   - `team-formation-closes-at-a-deadline` — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
@@ -350,13 +427,82 @@ graph TD
 > Done when: the instructor can add a student, edit their name and email, and
 > withdraw them (kept for history, excluded from teams, review obligations and
 > the gradebook) from the course UI.
+>
+> SHIPPED: #20, merged as e074e5f and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `roster-reimport-email-conflicts-are-not-shown`
+
+- **title:** Roster re-import reports email conflicts that the UI never shows
+- **status:** ready
+- **priority:** later
+- **refs:**
+  - `backend/app/api/imports.py`
+  - `frontend/app/course/[id]/page.tsx`
+
+<details><summary>evidence</summary>
+
+> From the reviewer's notes on #20. On re-import, students who already have
+> an account keep their email, and the API returns those rows in
+> `email_conflicts`. The frontend ignores the field, so the instructor
+> never learns that a changed email was not applied.
+>
+> Done when: after a roster import, the instructor sees the list of
+> email conflicts (student, current email, email in the file).
+
+</details>
+
+### `student-portal-is-one-long-scroll`
+
+- **title:** The student portal is one long scroll with no navigation
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/student-portal-is-one-long-scroll (since 2026-10-20T00:00:00Z)
+- **refs:**
+  - `frontend/components/student-view.tsx`
+  - `frontend/components/my-grades.tsx`
+  - `frontend/app/r/[token]/page.tsx`
+  - `frontend/app/course/[id]/student-view/page.tsx`
+  - `frontend/e2e/smoke.spec.ts`
+  - `backend/app/api/student_review.py`
+  - `backend/app/services/lessons.py`
+
+<details><summary>evidence</summary>
+
+> VERIFIED at 022ad17. `StudentView` (frontend/components/student-view.tsx:224)
+> renders everything in one column with no navigation: the greeting header
+> (:275), `MyGradesCard` (:288), `TeamCard` (:290), `AnonymityNote` (:292),
+> then the round pills (:300) and the selected round's `RoundPanel` (:314).
+> Nothing says what the student has to do next; an open review round or a
+> missing presentation slot sits below the grades and team cards. The page
+> keeps no state in the URL, so a link or a refresh always lands at the top.
+> The instructor's "view as student" (frontend/app/course/[id]/student-view/
+> page.tsx:85) renders the same component, and its student picker rewrites
+> the query string to `?student=<id>` (:60).
+>
+> Everything the portal needs is already in `GET /api/r/{token}`
+> (backend/app/api/student_review.py:246 `_payload`): course name and code,
+> team and team policy (deadline, max size), every non-draft round with its
+> selection deadline and sessions, review deadline and progress, the team's
+> presentation slot and site links, and the released grades.
+>
+> Done when: a student lands on Home, which shows an "up next" strip (open
+> review round with reviews left, presentation slot or "pick one", team
+> deadline or "no team yet", newly released grades), and reaches Grades,
+> Team, Peer review and Course info in one tap each; the active tab is kept
+> in `?tab=` so links, refresh and back/forward work; the guided lessons
+> (#22, `lessons` in the same payload) have a place in the portal that links
+> to the existing /r/<token>/lessons routes, and Home points at a lesson in
+> progress; the instructor preview gets the same portal; and the Playwright
+> smoke test covers switching tabs and the lessons entry point.
 
 </details>
 
 ### `students-cannot-see-their-own-grades`
 
 - **title:** Students cannot see their own grades, feedback or attendance status
-- **status:** ready
+- **status:** done
 - **priority:** now
 - **refs:**
   - `frontend/components/student-view.tsx`
@@ -379,6 +525,8 @@ graph TD
 > component (HW, project, talks, attendance), the instructor's feedback text,
 > and the final score. Nothing shows until the instructor releases it. Test
 > students and "view as student" show the same view.
+>
+> SHIPPED: #14, merged as 7a00980 and deployed 2026-10-20 (Vercel green, health 200).
 
 </details>
 
@@ -419,10 +567,11 @@ graph TD
 ### `team-formation-closes-at-a-deadline`
 
 - **title:** Let students form their own teams until a deadline, then lock teams automatically
-- **status:** ready
+- **status:** done
 - **priority:** now
 - **related to** (not a dependency — both are startable):
   - `roster-cannot-be-edited-per-student` — A withdrawn student must leave their team, so whichever lands second has to handle a withdrawal after teams have locked.
+  - `unteamed-students-need-instructor-approved-auto-assign` — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
 - **refs:**
   - `backend/app/models/entities.py`
   - `backend/app/services/peer_review.py`
@@ -457,5 +606,87 @@ graph TD
 >      team are listed for the instructor, or auto-assigned to teams with
 >      space.
 >   6. Tests cover a change just before and just after the deadline.
+>
+> SHIPPED: #13, merged as d02f89d and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `unreleasing-a-peer-round-keeps-its-gradebook-scores`
+
+- **title:** Un-releasing a peer round leaves its applied scores in the gradebook
+- **status:** ready
+- **priority:** later
+- **refs:**
+  - `backend/app/api/peer_review.py`
+  - `backend/app/services/scoring.py`
+
+<details><summary>evidence</summary>
+
+> From the reviewer's non-blocking notes on #15 (peer rounds feed a task as
+> (1-w)*autograder + w*peer). An applied round writes peer_round_<n>
+> overrides. Un-releasing the round leaves them, so the gradebook keeps
+> counting a round students can no longer see, until someone clicks
+> "Remove from gradebook".
+>
+> Also from that review: the CSV export carries the peer data as one
+> `peer` dict column, and the Hebrew PDF shows peer info as per-line notes
+> rather than columns.
+>
+> Done when: un-releasing a round either removes its applied scores or asks
+> the instructor first, and the CSV shows the peer data as flat,
+> readable columns.
+
+</details>
+
+### `unteamed-students-need-instructor-approved-auto-assign`
+
+- **title:** After teams lock, propose teams for unteamed students and apply them only on the instructor's approval
+- **status:** ready
+- **priority:** now
+- **related to** (not a dependency — both are startable):
+  - `team-formation-closes-at-a-deadline` — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
+- **refs:**
+  - `backend/app/models/entities.py`
+  - `backend/app/services/peer_review.py`
+  - `backend/app/api/peer_review.py`
+  - `frontend/components/peer-review/peer-review-step.tsx`
+
+<details><summary>evidence</summary>
+
+> REQUESTED by the instructor: "add auto assign but let me approve."
+> Current behaviour VERIFIED by reading the code at 5b530b6.
+>
+> Teams lock for students at `Course.teams_deadline`
+> (backend/app/models/entities.py:39; `teams_locked`,
+> backend/app/services/peer_review.py:421), with a size cap of
+> `Course.max_team_size` (entities.py:37, default 7). After that,
+> `unassigned_students` (peer_review.py:474) lists enrolled students who
+> are not test students, not withdrawn and have no team, and `GET
+> /peer/teams` returns them as `unassigned`
+> (backend/app/api/peer_review.py:283). The Teams view only prints their
+> names ("Teams are locked. Without a team: ...",
+> frontend/components/peer-review/peer-review-step.tsx:1149). Nothing
+> places them. The instructor moves each student by hand through
+> `PUT /peer/students/{id}/team` (api/peer_review.py:356). Each call
+> commits on its own (`set_student_team`, peer_review.py:362;
+> `create_team`, peer_review.py:393), so there is no way to apply a batch
+> of placements all at once.
+>
+> Done when:
+>   1. Once teams are locked, the instructor clicks "Propose" and gets a
+>      proposal. Building it writes nothing. The proposal fills existing
+>      teams that have room first, then forms balanced new teams within
+>      max_team_size, avoiding a team of 1 where possible. Withdrawn and
+>      test students are left out.
+>   2. The proposal is deterministic for a seed, and it returns the seed it
+>      used.
+>   3. The instructor can move a student, drop a student, rename a new team
+>      or re-run the proposal, then click Approve. Approve writes exactly
+>      the shown proposal in one transaction.
+>   4. Approve refuses with 409 when the teams or roster changed since the
+>      proposal was built (state fingerprint). Approving the same proposal
+>      twice is refused the same way.
+>   5. Both endpoints are instructor-only and scoped to the course. Tests
+>      cover all of the above.
 
 </details>

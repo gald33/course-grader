@@ -1,0 +1,36 @@
+{
+  "status": "synthetic proposed future worked example; not an assigned project",
+  "messages": [
+    {
+      "id": "m1",
+      "text": "דנה: למחר בשעה 09:00, ארבע לחמניות ושתי עוגיות."
+    },
+    {
+      "id": "m2",
+      "text": "יואב: למחר בשעה 10:00, שש לחמניות."
+    },
+    {
+      "id": "m3",
+      "text": "מיכל: שלוש עוגיות למחר; שעת האיסוף עדיין לא סוכמה."
+    }
+  ],
+  "expected_total_items": {
+    "לחמניות": 10,
+    "עוגיות": 5
+  },
+  "expected_missing_fields": [
+    {
+      "message_id": "m3",
+      "field": "pickup_time",
+      "expected_value": null,
+      "needs_clarification": true
+    }
+  ],
+  "date_rule": "Tomorrow is relative to an explicit reference date. Do not insert a guessed calendar date; the core example preserves the relative phrase.",
+  "excluded_scope_initially": [
+    "payments",
+    "real customer records",
+    "automatic message-account ingestion",
+    "automatic interpretation of order revisions"
+  ]
+}

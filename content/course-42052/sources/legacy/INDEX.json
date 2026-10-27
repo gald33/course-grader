@@ -1,0 +1,186 @@
+[
+  {
+    "folder": "הרצאה 11",
+    "path": "sources/legacy/lecture-11.txt",
+    "url": "https://docs.google.com/document/d/1M8VYqmy15AVBZ4KsTJaY7DE2ZJfOcKmZcLvWFBbkmwU",
+    "headings": [
+      "GPT וצ’אטבוטים",
+      "אג׳נדה",
+      "הרצאה",
+      " מבוא ל-GPT",
+      "Pre-training",
+      "דוגמה להמחשת Context Window",
+      "חשיבות החלון בטקסטים ארוכים",
+      "דוגמה מוחשית לשיחה",
+      "מאפייני GPT",
+      "מודלי טרנספורמר נוספים",
+      "מהו צ’אטבוט וכיצד GPT משמש בו",
+      "ארכיטקטורת ChatGPT",
+      "ה-Transformer המקורי (“Attention Is All You Need”)",
+      "ארכיטקטורת ChatGPT"
+    ]
+  },
+  {
+    "folder": "הרצאה 10",
+    "path": "sources/legacy/lecture-10.txt",
+    "url": "https://docs.google.com/document/d/1dimIbOES9U2C96klQtDAGRrx5dK6NbXV9c3zU-X8QJo",
+    "headings": [
+      "Transformers",
+      "אג׳נדה",
+      "הרצאה",
+      "המעבר מ-RNN ל-Transformer",
+      "רשתות חוזרות (RNN) וגרסאותיהן",
+      "הצגת ה-Transformer",
+      "יתרונות ה-Transformer על פני RNN",
+      "עיקרון ה-Attention",
+      "דוגמה",
+      "איך מנגנון Attention עובד?",
+      "שלב 1: יצירת וקטורים V, K, Q",
+      "שלב 2: מדידת דמיון בין מילים (Score)",
+      "שלב 3: נורמליזציה (Softmax)",
+      "שלב 4: חישוב ה-Weighted Sum"
+    ]
+  },
+  {
+    "folder": "הרצאה 9",
+    "path": "sources/legacy/lecture-9.txt",
+    "url": "https://docs.google.com/document/d/15bZJFQu_VSUmr5dP8pXpa-aIZ-j_OlXpekcYqDjbLcY",
+    "headings": [
+      "Deep Q-Network - DQN",
+      "אג’נדה",
+      "הרצאה",
+      "תזכורת",
+      "Reinforcement Learning",
+      "Q-Learning",
+      "נוסחת עדכון Q-Learning:",
+      "מעבר מרכיבי Q-Learning ל-DQN",
+      "רכיבי DQN",
+      "האלגוריתם של DQN",
+      "עבודת כתה"
+    ]
+  },
+  {
+    "folder": "הרצאה 6",
+    "path": "sources/legacy/lecture-6.txt",
+    "url": "https://docs.google.com/document/d/1J1aJxxfJDU60TD5tXbrqkI3Yet4OPPSqoecyuTLqfmM",
+    "headings": [
+      "למידת עמוקה (Deep Learning)",
+      "אג׳נדה",
+      "הרצאה",
+      "רכיבי רשת עצבית",
+      "נוירונים (Neurons)",
+      "שכבות (Layers)",
+      "דוגמה פשוטה לקשר בין השכבות",
+      "פונקציות הפעלה (Activation Functions):",
+      "פעפוע אחורי - Backpropagation",
+      "שלבי Backpropagation",
+      "חישוב השגיאה והפצתה לאחור",
+      "Gradient Descent: המנגנון שממזער את השגיאה",
+      "תהליך העבודה",
+      "דגש חשוב"
+    ]
+  },
+  {
+    "folder": "הרצאה 5",
+    "path": "sources/legacy/lecture-5.txt",
+    "url": "https://docs.google.com/document/d/1PySLG84F5z2dVgWJaZra-Yu1dbCbTjFwNNcA7HqM8aM",
+    "headings": [
+      "למידת חיזוק (Reinforcement Learning)",
+      "אג’נדה",
+      "הרצאה",
+      "הרצאה",
+      "למידת חיזוק",
+      "מרכיבי יסוד בלמידת חיזוק",
+      "המחשת מרכיבי יסוד בלמידת חיזוק באמצעות דוגמה",
+      "חשיבות למידת חיזוק",
+      "תהליך החלטה מרקובי (MDP - Markov Decision Process)",
+      "Q-Learning",
+      "מרכיבי Q-Learning",
+      "איך Q-Learning עובד?"
+    ]
+  },
+  {
+    "folder": "הרצאה 4",
+    "path": "sources/legacy/lecture-4.txt",
+    "url": "https://docs.google.com/document/d/1b8Ja36AflozHTqRhLt1spuvzGHFY0UX5VPD1kBKx1QM",
+    "headings": [
+      "למידה לא מונחית",
+      "אג’נדה",
+      "הרצאה",
+      "עבודת כיתה",
+      "הרצאה",
+      "למידה לא מונחית",
+      "יתרונות למידה לא מונחית",
+      "הבדלים בין למידה מונחית ולמידה לא מונחת",
+      "אלגוריתמים בלמידה לא מונחית",
+      "המחשה ויזואלית ל-clustering",
+      "דוגמאות ל-clustering",
+      "הרחבת הדוגמה של סגמנטציה שיווקית",
+      "טכניקת K-Means Clustering",
+      "יתרונות"
+    ]
+  },
+  {
+    "folder": "הרצאה 3",
+    "path": "sources/legacy/lecture-3.txt",
+    "url": "https://docs.google.com/document/d/1y5QZOEEv846Xg79XLK-qNVbDQjvuPix0owbIRhFbezo",
+    "headings": [
+      "מבוא ללמידה מונחית",
+      "מטרות השיעור",
+      "אג׳נדה",
+      "הרצאה",
+      "עבודה עצמית",
+      "הרצאה",
+      "הבנת הלמידה המונחית בהקשר של בינה מלאכותית",
+      "יתרונות בלמידה מונחית:",
+      "הבדלים בין למידה מונחית, לא מונחית ולמידה מחוזקת:",
+      "אלגוריתם K השכנים הקרובים ביותר - kNN",
+      "K-Nearest Neighbors",
+      "איך KNN עובד?",
+      "שימושים של kNN בסיווג ורגרסיה",
+      "יתרונות של kNN"
+    ]
+  },
+  {
+    "folder": "הרצאה 2",
+    "path": "sources/legacy/lecture-2.txt",
+    "url": "https://docs.google.com/document/d/1YPGBkbSVV0kWODLiH4WwUuFlmp9PFTU9uXMIGC6gBDo",
+    "headings": [
+      "נתונים במבנה טבלה",
+      "אג׳נדה",
+      "הרצאה",
+      "עבודה עצמית",
+      "שאלת בונוס",
+      "חזרה על חומר השיעור הקודם",
+      "סקירה קצרה של pandas, numpy ו-scikit-learn",
+      "עבודה עם pandas",
+      "טיפול בנתונים חסרים",
+      "פונקציות שימושיות",
+      "זיהוי נתונים חסרים עם .isnull() ו-.sum():",
+      "איך ידע בתחום משפיע על ההחלטה האם ואיך למלא נתונים חסרים",
+      "מתי להסיר שורות או עמודות עם נתונים חסרים",
+      "ההחלטה להסיר שורות או עמודות עם נתונים חסרים יכולה להיות מושפעת ממספר גורמים, כמו כמות הנתונים החסרים והחשיבות של המידע החסר."
+    ]
+  },
+  {
+    "folder": "הרצאה 1",
+    "path": "sources/legacy/lecture-1.txt",
+    "url": "https://docs.google.com/document/d/16gi6KiCcNSLQOw5YNZ85DOAISvPQ4MLXGLrzdJSaz0I",
+    "headings": [
+      "אג׳נדה",
+      "הרצאה",
+      "עבודה עצמית",
+      "מושגים מרכזיים בלמידת מכונה",
+      "מושגים",
+      "תהליך העבודה",
+      "מבוא לפייתון וקולאב",
+      "למה פייתון?",
+      "דוגמאות לפקודות בסיסיות בפייתון",
+      "ספריות פייתון בסיסיות ללמידת מכונה",
+      "היכרות עם Colab",
+      "עבודה עם chatGPT",
+      "דוגמאות להנחיות והכוונה לשימוש יעיל",
+      "תרגילים לשימוש ב-Colab ו-ChatGPT"
+    ]
+  }
+]

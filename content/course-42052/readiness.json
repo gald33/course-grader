@@ -1,0 +1,180 @@
+[
+  {
+    "lesson": 1,
+    "status": "prepared_assets_plus_adapted_seed",
+    "available": [
+      "Hebrew teaching seed with three checkpoints",
+      "student handout",
+      "dessert-stall notebook",
+      "jokes-website homework",
+      "orientation slides if present"
+    ],
+    "still_needed": [],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 2,
+    "status": "prepared_assets_plus_adapted_seed",
+    "available": [
+      "Hebrew teaching seed with three checkpoints",
+      "current student handout",
+      "executed teaching notebook",
+      "homework 2",
+      "damaged CSV",
+      "actual trained-tree JSON and PNG",
+      "historical website implementation handoff"
+    ],
+    "still_needed": [],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 3,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 4,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 5,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 6,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 7,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 8,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 9,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 10,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 11,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "expand and review student-facing flow",
+      "build runnable demo or clearly labeled mock",
+      "verify current tool/API access",
+      "finalize any homework and submission route"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 12,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "verify final presentation slots and live rubric",
+      "prepare instructor-approved final hand-in requirements"
+    ],
+    "published_or_taught_verified": false
+  },
+  {
+    "lesson": 13,
+    "status": "proposed_teaching_draft",
+    "available": [
+      "Hebrew teaching seed with three checkpoints"
+    ],
+    "still_needed": [
+      "verify final presentation slots and live rubric",
+      "prepare instructor-approved final hand-in requirements"
+    ],
+    "published_or_taught_verified": false
+  }
+]

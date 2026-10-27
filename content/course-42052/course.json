@@ -1,0 +1,201 @@
+{
+  "code": "42052",
+  "title_he": "יישומי בינה מלאכותית AI",
+  "institution": "YVC — Academic College of Emek Yezreel",
+  "instructor": {
+    "name_he": "ד״ר גל דנינו",
+    "research_field_he": "תורת המשחקים",
+    "biography_rule": "Do not restore the disputed Shutterfly statement in course-introduction materials."
+  },
+  "academic_year": "2026-2027 / תשפ״ז",
+  "semester": "A",
+  "session_count": 13,
+  "student_language": "he",
+  "rtl": true,
+  "audience": "Economics/business students; no programming prerequisites",
+  "central_goal_he": "לבנות בצוות מוצר תוכנה שימושי בתחום כלכלי או עסקי ולהבין, לבדוק ולהסביר את פעולתו.",
+  "learning_outcomes": [
+    "Explain core ML and LLM concepts",
+    "Use coding agents to plan, build, test, and publish software",
+    "Integrate an AI API with checked output, permissions and cost controls",
+    "Apply basic version control, debugging, data validation and testing",
+    "Explain privacy, security, ethical limits and evidence",
+    "Work in a team, demonstrate a product, and give individual evidence-based peer feedback"
+  ],
+  "teams": {
+    "anticipated_students": 50,
+    "maximum_teams": 8,
+    "target_members": {
+      "min": 6,
+      "max": 7
+    },
+    "actual_roster_verified": false
+  },
+  "schedule": [
+    {
+      "session": 1,
+      "teaching_title_he": "מבוא: חוקרים, בונים ובודקים עם צ׳טבוט",
+      "presentation_round": null,
+      "formal_presentations": false,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 0,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 2,
+      "teaching_title_he": "מנתונים לחיזוי: למידת מכונה",
+      "presentation_round": 1,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 3,
+      "teaching_title_he": "איך מודלי שפה עובדים?",
+      "presentation_round": 1,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 4,
+      "teaching_title_he": "סוכן קוד: מתכנון להרצה ובדיקה",
+      "presentation_round": 2,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 5,
+      "teaching_title_he": "מגדירים מוצר עסקי קטן",
+      "presentation_round": 2,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 6,
+      "teaching_title_he": "בונים שלד שעובד מקצה לקצה",
+      "presentation_round": 3,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 7,
+      "teaching_title_he": "מחברים יכולת AI למוצר",
+      "presentation_round": 3,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 8,
+      "teaching_title_he": "שומרים נתונים ובודקים קלט",
+      "presentation_round": 4,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 9,
+      "teaching_title_he": "משפרים חוויית שימוש ומאתרים תקלות",
+      "presentation_round": 4,
+      "formal_presentations": true,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 10,
+      "teaching_title_he": "אבטחה, פרטיות, אתיקה ועלויות",
+      "presentation_round": null,
+      "formal_presentations": false,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 0,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 11,
+      "teaching_title_he": "פריסה והנגשה: נותנים קישור שבאמת עובד",
+      "presentation_round": null,
+      "formal_presentations": false,
+      "final_presentation_part": null,
+      "planned_presenting_teams": 0,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 12,
+      "teaching_title_he": "ליטוש והצגות גמר — חלק א׳",
+      "presentation_round": null,
+      "formal_presentations": true,
+      "final_presentation_part": 1,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    },
+    {
+      "session": 13,
+      "teaching_title_he": "הצגות גמר — חלק ב׳ וסיכום",
+      "presentation_round": null,
+      "formal_presentations": true,
+      "final_presentation_part": 2,
+      "planned_presenting_teams": 4,
+      "actual_roster_and_slots_verified": false
+    }
+  ],
+  "grading": {
+    "source": "current written syllabus; live app policy unverified",
+    "final_project_and_presentation_percent": 50,
+    "milestones_and_labs_percent": 30,
+    "theoretical_quiz_percent": 20,
+    "passing_score": 56,
+    "attendance_minimum_percent": 80,
+    "below_attendance_minimum_penalty_points": 10,
+    "peer_review_weight_inside_components": "not specified; do not invent",
+    "formative_lesson_questions_affect_grade": false,
+    "live_gradebook_verified": false
+  },
+  "meeting_time": {
+    "status": "conflicting_sources_verify_before_publication",
+    "written_syllabus": "Wednesday 12:15–14:45",
+    "earlier_context": "Wednesday 08:30–11:00; room 7210",
+    "publish_as_authoritative": false
+  },
+  "course_rules": {
+    "lesson_1_and_homework_1": "chatbot, no coding agent; free-path requirement for homework 1",
+    "main_early_runtime": "Google Colab",
+    "notebook_submission_required": false,
+    "manual_web_search_required": false,
+    "research_with_chatbot": true,
+    "no_required_student_purchase_assumed": true,
+    "paid_agent_or_api_access": "must be resolved/verified before requiring a live service",
+    "content_hierarchy": "understand -> try -> check; concise core, optional depth",
+    "slides_role": "orientation only; practical teaching in the guided material",
+    "future_lessons_auto_publish": false
+  },
+  "peer_review": {
+    "individual": true,
+    "anonymous_to_students": true,
+    "instructor_can_identify_reviewer": true,
+    "self_team_review_allowed": false,
+    "team_product_score_shared": true,
+    "individual_participation_recorded": true,
+    "live_rubric_and_windows_verified": false,
+    "do_not_hardcode_a_rating_scale": true,
+    "release_policy": "follow configured round policy; do not expose identities"
+  },
+  "source_precedence": [
+    "explicit later instructor decisions in this conversation",
+    "current written syllabus for unresolved policy",
+    "prepared lesson assets with revision notes",
+    "new proposed content seeds (draft)",
+    "previous-course references (not this year’s sequence)"
+  ]
+}

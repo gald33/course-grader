@@ -1,0 +1,35 @@
+# Whole-course material handoff — YVC 42052
+Prepared 27 October 2026 for the course-content coding agent.
+
+Read COURSE-HANDOFF.txt first, then course.json, then lessons/lesson-01.json through lesson-13.json.
+
+This package covers the whole CURRENT 13-session syllabus. It combines:
+- the written syllabus, fetched again from Library for this handoff;
+- the instructor's later course decisions from this conversation;
+- existing lesson 1 and lesson 2 assets;
+- new, explicitly PROPOSED Hebrew teaching seeds for lessons 3-13;
+- previous-course lecture texts and a Drive asset catalog, clearly separated as legacy reference.
+
+"Prepared" means an artifact was authored; it does not mean it was taught, published, or deployed. No live site implementation or current roster check was performed for this handoff. No future lesson in this package is approved for automatic publication.
+
+The seeds provide actual introductory explanations, activities, worked examples, and a formative question bank. They are not a claim that complete notebooks, polished student handouts, deployed demos, or final homework briefs already exist for every lesson. Read readiness.json for exact gaps.
+
+The old numbered lecture folders do NOT map directly to the current lesson numbers. In particular, previous lecture 4 is unsupervised learning; current lesson 4 is coding agents. Reinforcement learning, DQN, and detailed neural-network training are legacy enrichment, not required additions to this year's core sequence.
+
+Course policies: written syllabus = 50% final project/presentation, 30% milestones/labs, 20% theoretical quiz. Do not silently substitute an older 70/20/10 formula or a website default. The currently configured live grade formula and peer-review weights are unverified. Resolve these explicitly before publication.
+
+The instructor's current presentation arrangement is rounds in sessions 2-3, 4-5, 6-7, 8-9, then finals in 12-13; no formal presentations in 10-11. Later instructor decisions override the baseline syllabus's single final Demo Day in session 13.
+
+The written syllabus lists Wednesday 12:15-14:45; earlier scheduling context mentioned 08:30-11:00. Room and exact meeting times must be verified before showing them as authoritative. No dates/deadlines are invented here.
+
+Package layout:
+- COURSE-HANDOFF.txt — authority, teaching rules, policies, route to implementation.
+- course.json — machine-readable course, schedule, outcomes, source roles.
+- lessons/ — 13 Hebrew content seeds with status, explanations, activities, checkpoints, and work products.
+- readiness.json — assets available and material still to build for each lesson.
+- fixtures/ — synthetic worked-example inputs/expected outputs and evaluation cases.
+- materials/lesson-01/ and materials/lesson-02/ — prepared downloadable files.
+- sources/ — current syllabus extracts, verified lesson-1 extracts, and legacy references.
+- reference/ — historical lesson-2 website implementation plan; use only after checking current code.
+
+Instructor answer keys and feedback rules in lessons/*.json are PRIVATE authoring content: filter them out of student API responses until the relevant feedback stage. Publish no student identifiers or actual classroom activity from this package.

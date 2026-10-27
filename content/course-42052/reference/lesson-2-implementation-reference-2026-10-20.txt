@@ -1,0 +1,276 @@
+HISTORICAL REFERENCE: this plan was authored on 20 October for lesson 2. Dates, readiness and repository state below are not current verification. Reconcile with COURSE-HANDOFF.txt before use.
+
+# Implement a guided, interactive lesson in course-grader
+
+## 1. Your task and definition of success
+
+Extend the existing gald33/course-grader application with a Hebrew learning flow for lesson 2, "מנתונים לחיזוי". Students should move through explanations, data investigation, a decision-tree demonstration, Colab experiments, short questions, and reflection as one coherent experience. Save individual progress and give the instructor a useful picture of misconceptions.
+
+Deliver a complete, working vertical slice for the class on Wednesday, 21 October 2026. Make reasonable implementation choices and complete the work; do not stop after scaffolding or a design proposal. This document is an implementation specification. Distinguish implemented, tested, deployed, and live-verified work in your handoff.
+
+Do not claim the current production course configuration has been verified: an earlier check reached the public login page, but instructor authentication did not complete. The live roster, team links, presentation slots, rubric, and review window remain unverified.
+
+## 2. Existing application: inspect before editing
+
+Repository: https://github.com/gald33/course-grader
+Frontend: https://course-grader-pi.vercel.app
+API: https://course-grader-api.vercel.app
+
+The inspected checkout uses Next.js App Router, TypeScript, React, FastAPI, SQLAlchemy, and Alembic. Production uses the existing hosted deployment/database configuration; local SQLite remains supported. Read current AGENTS.md files, package files, migrations, and auth code before choosing implementation details. Do not rely on the README's older localhost-only description.
+
+Relevant existing paths:
+- frontend/components/student-view.tsx
+- frontend/components/student-auth.tsx
+- frontend/lib/api.ts
+- frontend/app/r/[token]/page.tsx
+- frontend/app/course/[id]/page.tsx
+- frontend/app/course/[id]/student-view/page.tsx
+- backend/app/models/entities.py
+- backend/app/schemas/api.py
+- backend/app/api/auth.py
+- backend/app/api/student_auth.py
+- backend/app/api/student_review.py
+- backend/app/services/student_session.py
+- backend/app/main.py
+
+Important auth detail: Supabase authenticates the student login; the app then uses its signed cg_student cookie. Existing student course destinations are /r/<enrollment-token>. Instructor middleware currently exempts /api/r/ and /api/student-auth/ from instructor authentication; exemption is NOT authorization. New student lesson routes must resolve a valid signed-in student and enrollment. Do not simply add a new public prefix without endpoint-level checks.
+
+Use existing identity, database access, errors, styling, and first-party API proxy conventions. Inspect the actual /r flow before deciding whether lesson pages can reuse its identity resolver or need an explicit signed-cookie dependency. Protect lesson writes with the signed session and matching enrollment; never trust a student_id supplied by the client. Keep preview read-only.
+
+There is a separate draft PR #9, fix/link-validation-before-network-client. Do not mix its unrelated change into this feature or assume it is deployed.
+
+## 3. Scope and constraints
+
+Required for the first release:
+- One real lesson, fully authored in Hebrew, with draft/published lifecycle.
+- Small reusable typed lesson-block renderer; content authored in version-controlled JSON/TypeScript or Python fixtures with schema validation.
+- One primary step at a time, a visible lesson map, back/next navigation, resume, and autosaved progress.
+- Interactive manual decision tree and a faithful interactive view of the actual fitted tree supplied in this package.
+- Low-stakes practice questions with specific feedback and retries.
+- Individual understanding checks preserving first answers, later revisions, and explanations.
+- Colab handoff, CSV download, copyable chatbot prompts, experiment records, and homework links.
+- Instructor lesson preview, publish action, progress summary, misconception breakdown, and individual drilldown.
+
+Keep these boundaries:
+- Run Python in Colab for this release. Do not add a browser Python runtime or call the existing notebook-grading execution service for lesson exploration.
+- No embedded paid LLM, chatbot integration, automatic essay grading, rich-text CMS, or generic LMS platform is required.
+- No notebook submission requirement. This lesson's progress and understanding checks do not create a new grading component, attendance penalty, or pass threshold.
+- Preserve current peer-review anonymity, presentation scheduling, team membership, gradebook formulas, and assignment links. A lesson may link into peer review; it must not replace it.
+- Team work is encouraged; saved understanding checks belong to individual students.
+- Students use a chatbot to investigate approaches and tools. No manual web search is required. They must still inspect evidence and explain their own conclusions.
+
+## 4. Learning and interface design
+
+The previous PDF was exhausting because explanations, instructions, exceptions, and questions had equal visual weight. Do not reproduce it as a long page or PDF iframe.
+
+Each primary step should contain:
+1. A clear question or learning goal.
+2. A short explanation, normally a few sentences.
+3. One visible action or interactive example.
+4. A small understanding check or reflection.
+5. A clear next action.
+
+Use consistent Hebrew labels: "מבינים", "מנסים", "בודקים". Put extended explanations and troubleshooting behind clearly labeled expanders. Mark optional extensions explicitly and exclude them from the required-progress denominator. Keep code identifiers, formulas, CSV names, and English chart labels in isolated LTR elements inside an RTL page.
+
+Support keyboard operation, visible focus, screen-reader labels, and mobile widths. Correctness cannot depend on color alone. Show saved/saving/error state honestly; never display "saved" before the server acknowledges. Allow revisiting steps, copying prompts, and correcting answers without losing drafts. Do not require a perfect score to continue.
+
+Use explicit completion and understanding indicators. Opening a page is "viewed", not proof of understanding. Completing required actions is "completed"; quiz results are separate evidence. Display these distinctions to the instructor.
+
+## 5. Concrete lesson flow and content
+
+Author the actual content, not placeholder cards. Reuse and adapt the supplied handout and notebook, preserving their latest fixes. All datasets in this package are synthetic.
+
+Step A — Orientation and the business question
+- Title: "מנתונים לחיזוי". Guiding question: "מתי אפשר לסמוך על מודל?"
+- Scenario: a shop wants to predict whether a customer will buy during the following week.
+- Explain one row = one customer at a measurement point; input behavior is measured before the week being predicted.
+- Show a few records with Hebrew column descriptions. Distinguish a feature, historical label, and identifier.
+- Provide a separate link to the existing jokes presentation/peer-review flow, with a clear way back to the current lesson. Review activity does not block learning progression.
+
+Step B — Investigate data with the chatbot
+- Offer the full supplied lesson2-customer-data.csv as a real download.
+- Explain: the chatbot cannot see Colab variables or files until the student supplies them.
+- Flow: download CSV; attach it to the chatbot; send the provided prompt; request checks without modifying data; run suggested code in a new Colab cell after preparation; compare with the notebook's prepared checks.
+- Full copyable prompt must define customer_id, visits_30d, days_since_purchase, bought_next_week, and the exercise's permitted ranges. Ask the chatbot to admit inaccessible data and distinguish inspected findings from unexecuted suggestions.
+- Attachment fallback: paste the notebook's explicitly labeled sample and ask for code to check the full table. Never present sample findings as whole-dataset counts.
+- Expected full-table findings for instructor/feedback: 1,201 rows, 1,200 unique IDs, two missing cells, two rows outside the declared ranges, and one extra duplicate record. The 0–20 visits and 0–60 days ranges are this exercise's declared source ranges, not universal business rules.
+- Explain zero versus missing, duplication versus repeated measurement, and suspicious versus necessarily incorrect.
+- Ask the student to describe one finding and what they would investigate before correcting it.
+- Explain that modeling uses the known clean synthetic source generated by the notebook; the damaged table was not silently repaired. Do not introduce an exercise requiring students to invent labels.
+
+Step C — Understand a decision tree before training
+- Explain question/node, branch, leaf/prediction, and depth with an interactive manual tree.
+- Manual tree: visits <= 5? Yes -> predict no purchase. No -> days since purchase <= 10? Yes -> predict purchase; No -> predict no purchase.
+- Use a consistent convention in both trees: Yes/<= on the left, No/> on the right.
+- Let students select customer A (4 visits, 8 days) or B (12 visits, 7 days). Ask for the next branch before revealing it, and highlight one path at a time.
+- Explain depth as the maximum number of questions along a single path: this tree has depth 2 even though A uses one question.
+- Explain learning: the algorithm compares splits that make the historical labels less mixed; a leaf predicts the most common label among training examples reaching it.
+- Use the notebook's tiny separate illustrative dataset to make that explanation concrete. Clearly distinguish a hand-written illustration from a model learned from data.
+
+Step D — Read the actual fitted model
+- Render supplied decision-tree-actual.json, exported from the executed notebook's model. Do not substitute a plausible hand-drawn tree or manually infer thresholds from an image.
+- Initial configuration: 100 training examples, max depth 2. Root: visits <= 13.5. Left child: visits <= 5.5. Right child: days since purchase <= 59.
+- Leaves, left to right: no purchase, n=28, No/Yes=26/2; no purchase, n=36, No/Yes=24/12; purchase, n=35, No/Yes=3/32; no purchase, n=1, No/Yes=1/0.
+- Display predictions and supporting counts. Explain that two leaves may share a prediction while having different label mixtures. Counts are training evidence, not a calibrated probability or a guaranteed future outcome.
+- Explain that 13.5 splits integer visit counts into <=13 and >=14.
+- Let students trace customers through this exact tree. Example: (12,7) reaches the second leaf; (14,7) reaches the third. The actual tree need not agree with the manual illustration.
+- Interactive traversal can run entirely in the browser against the published snapshot. Changing the live trained model still happens in Colab. Clearly label the website snapshot's settings; it must not pretend to change when Colab is changed externally.
+
+Step E — Experiment in Colab
+- Link to a configured Colab copy and offer notebook download as a fallback. Preserve a visible "return to this step" instruction and restore the student's place on return.
+- Do not invent a hosted Colab URL. If not configured, the complete download/open/upload workflow must work.
+- First run: depth 2, 100 examples; inspect the fitted tree and one path.
+- Next: compare depths 1, 3, and unlimited using 100 examples; then hold depth fixed and change sample count to 300.
+- Before a changed run, save a short prediction of what will happen. Afterward, save depth, training sample count, training accuracy, validation accuracy, baseline validation accuracy, observation, and explanation.
+- Accept manually entered observations; do not imply they were fetched or verified from Colab. Store provenance as student-entered.
+- Allow multiple rows, edit/delete with clear confirmation, and preserve chronology. Validate units explicitly (percentages 0–100 in the UI, normalize once for storage). Treat unlimited depth explicitly rather than mixing a numeric 0 with an actual depth of zero.
+- Compare to a most-frequent-class baseline trained on that run's training subset.
+
+Step F — Evaluate honestly
+- Explain separate roles: training for fitting, validation for choosing settings, final test after choosing. Notebook pool sizes: 720/240/240, with a subset of the training pool used in each experiment.
+- Ask what a training/validation gap suggests; avoid implying that more depth or more data must always worsen or improve every run.
+- Include the 90 non-buyers / 10 buyers question: always predicting no purchase gives 90% accuracy and detects zero buyers.
+- Confusion matrix interpretation may be explained briefly. Precision/recall are extensions, not additional mandatory mastery targets tomorrow.
+- Save the chosen settings and a justification before recording final-test results. The notebook's final-test checkbox and nonempty reason keep Run all from opening it prematurely. Website controls cannot secretly enforce what happens in an external Colab runtime: describe this honestly.
+- If students revise after seeing final scores, retain the earlier commitment and flag that this test has now informed selection. Do not falsely label later evaluations as a fresh untouched test.
+
+Step G — Individual understanding and completion
+- Require a short initial individual response before showing feedback. This is formative, not a new grade.
+- Include a transfer question with a different customer, an overfitting comparison, and an explanation of why a wrong prediction need not be a code bug.
+- Preserve the first answer and all later submitted attempts; autosaved drafts are not attempts.
+- Summarize the student's completed actions, remaining steps, own experiment records, and points worth revisiting. Completion is not a claim of mastery.
+- Link the supplied homework, clearly distinguishing team homework from individual in-lesson checks. No notebook submission or new deployed application is required. Do not overwrite the team's jokes-website URL.
+
+Optional extension — Clustering
+- Explain that this is a different question with no known group labels.
+- Link to notebook section 7; compare 2/3/5 clusters. Group numbers are arbitrary identifiers, and attractive colors do not establish business value.
+- Do not let this extension interrupt the required path or prevent lesson completion.
+
+## 6. Quiz behavior and initial question bank
+
+Support single-choice questions and short explanations. Provide feedback specific to the chosen misconception. No LLM grading is necessary. For free text, record the response and provide an instructor-authored rubric or sample reasoning after submission; do not mark it correct through a superficial keyword match.
+
+Seed at least these questions in natural Hebrew:
+1. A missing visit count means zero visits. Correct: not necessarily; distinguish missing from an observed zero.
+2. Which is the target: visits, customer ID, or bought_next_week? Correct: bought_next_week; it is not a feature available for future prediction.
+3. What is depth? Correct: maximum questions on one path, not total nodes or leaves.
+4. Manual tree: trace customer A; ask one branch at a time, then ask the resulting prediction.
+5. Actual tree: trace (14 visits, 7 days). Correct: purchase. Feedback must explain both threshold decisions.
+6. Does a purchase leaf with 32 buyers out of 35 guarantee the next customer buys? Correct: no; prediction is not certainty.
+7. Compare model A: 100% train/60% validation, model B: 85%/76%. Correct: B has stronger evidence for unseen predictions on this validation set; this is not a universal guarantee.
+8. Why not repeatedly choose using the final test? Correct: it then influences model selection and stops being an independent final check.
+9. The always-no baseline in the 90/10 example: 90% accuracy, zero detected buyers.
+10. Short individual reflection: describe one experiment and distinguish observation from interpretation.
+
+Practice questions allow unlimited attempts with explanations and an explicit revealed-answer state if the student asks to see reasoning. Preserve first answer and attempt counts. Never equate eventual correctness after feedback with independent first-attempt understanding. Optional confidence choices can be added only if they do not delay the first release.
+
+## 7. Suggested data model
+
+Keep this small; adapt naming to current conventions:
+- Lesson: id, course_id, stable slug, title, ordering, draft/published/archived status, active_version_id.
+- LessonVersion: lesson_id, version number, validated content JSON, content hash, published_at. Published snapshots are immutable.
+- LessonProgress: enrollment_id, lesson_version_id, current_step_key, viewed/completed step keys, draft revision, updated_at, completed_at. Unique per enrollment/version.
+- LessonAttempt: enrollment_id, version_id, step_key, question_key, question_version/hash, request_id, attempt number, answer JSON, correctness nullable, feedback type/revealed flag, submitted_at. Append-only; unique idempotency key scoped to enrollment.
+- LessonExperiment: enrollment_id, version_id, run UUID, typed settings/results, hypothesis, observations, provenance, created/updated timestamps and revision.
+- LessonCommitment: enrollment_id, version_id, selected run/settings, justification, committed_at, final results nullable, revised_after_final flag. Preserve prior commitments rather than rewriting history.
+
+Use stable content keys. Make progress updates revision-aware: a stale tab must not overwrite newer work. Return a recoverable conflict with current revision. Retries with the same attempt request_id must return the original result, not append duplicates.
+
+Pin an in-progress student to their published version. Publishing a revision must not silently reinterpret past answers. For tomorrow, instructor preview and seed/version workflow are sufficient; a full content editor and complicated progress migration are not required.
+
+## 8. API and route integration
+
+Suggested instructor routes under /api/courses/{course_id}/lessons:
+- list/create lesson; get/update draft; preview; publish version.
+- GET lesson progress summary; question misconception/first-attempt statistics; individual drilldown; CSV export if straightforward.
+
+Suggested student routes under /api/r/{token}/lessons:
+- GET published lesson list and lesson content safe for students.
+- GET own progress/attempts/experiments/commitment.
+- PATCH progress/drafts with expected revision.
+- POST question attempt with request_id.
+- PUT/DELETE own experiment record with revision.
+- POST commitment; PATCH final-result entry with prior commitment required.
+
+Resolve the signed-in student from cg_student and match the enrollment token/course on every student operation. Apply same-origin/origin and CSRF protections consistent with the existing cookie-based deployment. Unauthenticated requests should lead to login with a return destination, without losing unsent local draft text. Course membership is mandatory; team membership is not required for individual learning.
+
+Suggested frontend pages: /r/[token]/lessons and /r/[token]/lessons/[slug]. Add a visible learning entry point to StudentView, preserving peer-review access. Add lessons and instructor insights to the existing course page. Instructor preview must use instructor credentials and the same renderer without saving student progress, attempts, or experiments.
+
+Instructor answer keys, private rubrics, unpublished versions, other students' data, and administrator credentials must not appear in student payloads. Validate content block types; do not execute arbitrary HTML/JavaScript from content JSON.
+
+## 9. Instructor insight view
+
+Show enrolled students, not only active visitors. Distinguish not-started, in-progress, completed actions, and last saved activity. Exclude designated test enrollments from class aggregates by default. Show optional-step progress separately.
+
+For each question show first-attempt correct / answered, unanswered count, attempts after feedback, and a misconception breakdown by chosen distractor. Show free-text responses as ungraded with a simple review flag. Let the instructor open a student's path and experiments. Do not rank students by time spent or infer attendance from page visits.
+
+## 10. Assets and versioned content
+
+The accompanying package contains:
+- notebooks/lesson-2-machine-learning-he.ipynb: latest teaching notebook, including CSV handoff, tree introduction, learned tree and trace, experiment history, and final-test guard.
+- docs/lesson-2-machine-learning-he.pdf: compact student handout with clear hierarchy.
+- docs/homework-2-machine-learning-he.pdf: team homework.
+- assets/lesson2-customer-data.csv: full damaged synthetic table.
+- assets/decision-tree-actual.json: actual model snapshot and configuration.
+- assets/decision-tree-actual.png: reference rendering of that snapshot.
+
+Make these available through the app's supported asset/storage workflow with correct MIME types and filenames. Do not rely on this ChatGPT workspace's absolute paths. Do not store runtime uploads or progress on an ephemeral serverless filesystem. Store durable progress in the existing database.
+
+Maintain one authored web lesson fixture plus explicit asset versions. A future artifact-generation script may reuse that content, but converting every old PDF automatically is out of scope. Build-time validation must catch missing step references, duplicate IDs, invalid quiz keys, unsupported blocks, and missing assets.
+
+## 11. Implementation order
+
+1. Inspect current branch/auth/deployment/migrations; note existing unrelated changes. Create a focused feature branch.
+2. Implement lesson schema, typed content validation, seed command, and additive migration.
+3. Implement enrollment-scoped student reads/writes and instructor preview.
+4. Build the renderer and fully authored lesson A–G, starting with the decision-tree interaction and CSV/Colab handoff.
+5. Add attempts, meaningful feedback, saved experiments, and commitment/final-result flow.
+6. Add instructor insight view, draft/publish controls, and version pinning.
+7. Run the behavioral tests below, inspect Hebrew layouts on desktop/mobile, and verify deployment on a preview.
+8. Prepare production migration/deployment steps and an authenticated live smoke check. If access is unavailable, report the exact unverified step instead of declaring the lesson live-ready.
+
+Seed idempotently only into the explicitly selected course (code 42052, correct year/semester). Start as draft. Never guess a course ID, overwrite another year's material, or insert fake learning activity into real student accounts.
+
+## 12. Acceptance tests and adversarial checks
+
+Backend and integration:
+- Student A cannot read/write student B's progress or another course's lesson, even with a guessed ID/token. Instructor preview creates no student records.
+- Draft content is not student-visible. Published content stays pinned for existing progress. Stale-tab conflicts and lost-network retries preserve work.
+- A submitted answer is immutable as an attempt; correction creates another attempt. Duplicate requests do not duplicate attempts.
+- Wrong answers permit progression and preserve the misconception; completion is not silently treated as mastery or a grade.
+- Units are unambiguous and valid; reject impossible score ranges without discarding other draft fields.
+- Final results require a prior saved commitment. Later revisions remain visibly distinguishable.
+- Existing peer review, accounts, schedules, and gradebook tests continue to pass.
+
+Frontend and learning flow:
+- Login -> lesson -> complete two steps -> refresh -> resume at the saved position with answers retained.
+- Open Colab -> return -> current step and experiment draft retained.
+- Download CSV -> parse -> assert 1,201 records, two missing cells, one extra duplicate ID, and two out-of-range rows.
+- All notebook and asset links actually work; no placeholder Colab URL is presented as ready.
+- Trace both manual examples and actual-tree examples. Compare traversal against the actual JSON; boundary visits 5/6/13/14 and days 7/10/59/60 must behave correctly.
+- The actual tree stays labeled as a snapshot when external Colab settings change.
+- A student can identify the two settings to edit without reading the implementation code.
+- A student sees useful feedback after a wrong answer, retries, and retains their original answer in instructor statistics.
+- Keyboard-only and narrow mobile-width use work; tree interaction also has a textual path alternative.
+- Hebrew text, English identifiers, arrows, table columns, percentages, and back/next direction are visually inspected.
+- Test the notebook's normal run, rerunning split after drawing the manual tree, unlimited depth, and a default run reaching the final-test section without revealing final scores. A prior bug overwrote y while plotting; preserve that regression check.
+
+Adversarial teaching review before completion:
+- Follow the lesson as someone who does not know what a model, label, decision tree, or validation set is. Flag every concept used before explanation.
+- Try to proceed by clicking without understanding. Ensure the instructor can distinguish that from a correct first explanation.
+- Try wrong, contradictory, missing, duplicated, stale, and revised experiment entries. Show recoverable errors.
+- Check that students are never asked to give the chatbot data they have not been shown how to supply.
+- Check that sample data, clean source data, actual observations, illustrative trees, learned trees, and predicted outcomes are never conflated.
+- Distinguish automated verification and a simulated beginner review from observed student learning; do not claim the latter without actual testing.
+
+## 13. What to deliver
+
+Provide the implemented feature, migration, idempotent lesson seed command, complete Hebrew lesson fixture, included assets, and relevant automated checks. Report:
+- What works end to end and the preview/deployed URL when observed.
+- Commands and results for backend checks, frontend type/build checks, and browser walkthroughs.
+- How the instructor previews, publishes, selects the correct course, and watches progress.
+- How to configure the genuine Colab URL and asset locations; download/upload remains a working fallback.
+- Exact production migration/deployment and rollback steps. Preserve lesson activity when rolling back UI code; do not drop new tables containing student data.
+- Remaining blockers, especially any authenticated live checks not completed.
+
+Keep the first release focused. The success criterion is that a novice can follow one connected lesson, perform a real experiment, explain its result, and resume later — and the instructor can see where understanding breaks down.

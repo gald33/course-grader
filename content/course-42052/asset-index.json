@@ -1,0 +1,243 @@
+{
+  "content_as_of": "2026-10-27",
+  "files": [
+    {
+      "path": "COURSE-HANDOFF.txt",
+      "bytes": 8211,
+      "sha256": "01b2779f4553ef6d098fff7c8f4e910fc732771bcaa12acccf29baff4be28226"
+    },
+    {
+      "path": "START-HERE.txt",
+      "bytes": 3268,
+      "sha256": "3934f3bb07db6bc898379b3f86897086e1e05cf49c425e300d94d25cebaaa508"
+    },
+    {
+      "path": "asset-index.json",
+      "bytes": 7676,
+      "sha256": "da6e267f69c2d5e601007361fe1a5d439e98e8c8181c4801bd1fd33c9927c8cb"
+    },
+    {
+      "path": "course.json",
+      "bytes": 7493,
+      "sha256": "53a28e3a7852b3855cfdb9cc9d38ba75b1b3f578041bf86e1fe4eb4d3fec2b16"
+    },
+    {
+      "path": "fixtures/bakery-orders.json",
+      "bytes": 1052,
+      "sha256": "9975f91cf566f3f5bfa7505f72030e3c4c407f6ff0dff661f00a5dd88281eca8"
+    },
+    {
+      "path": "fixtures/product-test-cases.json",
+      "bytes": 1301,
+      "sha256": "69ed73eb39c76f09b3c1175cdcce216e3543eca2973b75e27f5c3f2142efe88a"
+    },
+    {
+      "path": "lessons/lesson-01.json",
+      "bytes": 5832,
+      "sha256": "b9667a099a56a3278a809b6a814f261cb78548279af20eed843514a928315816"
+    },
+    {
+      "path": "lessons/lesson-02.json",
+      "bytes": 6562,
+      "sha256": "c1030030d7c7a65cc34e0aef2076da3033b6c232b73b64a22680e7083c60e03a"
+    },
+    {
+      "path": "lessons/lesson-03.json",
+      "bytes": 6313,
+      "sha256": "c6a4ae39de1eb2ee970d5701617ac10e9a68190b42c7f5e52fd41888f30ca6c6"
+    },
+    {
+      "path": "lessons/lesson-04.json",
+      "bytes": 5715,
+      "sha256": "e705e7190e33e85fb7df11559a92c377cd72dd1acb7978b889f4cf0521c3136c"
+    },
+    {
+      "path": "lessons/lesson-05.json",
+      "bytes": 5750,
+      "sha256": "f3809825e4b9fde32481842f92ea960a07b013f9d0c7a7d533d5ad90f10038f6"
+    },
+    {
+      "path": "lessons/lesson-06.json",
+      "bytes": 5296,
+      "sha256": "7909ea8171a4fb3c3813891ea7ab4bf3f428cf25116bcd701946fb533f0aee94"
+    },
+    {
+      "path": "lessons/lesson-07.json",
+      "bytes": 5511,
+      "sha256": "b9a56e7caf92d9689368df1d394daca8d794770e67d3bd1e4f0f4170eb128e5c"
+    },
+    {
+      "path": "lessons/lesson-08.json",
+      "bytes": 5381,
+      "sha256": "a095d9e97425164d4b19bd37eb5c540b10f12ed4f1332181c493af0c0dd97df5"
+    },
+    {
+      "path": "lessons/lesson-09.json",
+      "bytes": 5452,
+      "sha256": "359b2ae9e138e8af7740bbcee8cf3dd0f59e8a0a5fa2869edc1f9d4e57e7f52f"
+    },
+    {
+      "path": "lessons/lesson-10.json",
+      "bytes": 5877,
+      "sha256": "346b4691ac1d62bb539c660e35f5d1ac090ef2bb7f92c42dca1ce87dabef2a18"
+    },
+    {
+      "path": "lessons/lesson-11.json",
+      "bytes": 5677,
+      "sha256": "f8a3b39e81c44658152c29b6a068195700e62fc788646a57ce639de88a02a031"
+    },
+    {
+      "path": "lessons/lesson-12.json",
+      "bytes": 5577,
+      "sha256": "19dd03896145839856681c1cd6a587cbabacc16a2e7922454dea3f0bf7f06cc5"
+    },
+    {
+      "path": "lessons/lesson-13.json",
+      "bytes": 5463,
+      "sha256": "093505f07635ae3efe4c3cda4f9454aa552967af2bc637574634a9ae592ec6ad"
+    },
+    {
+      "path": "materials/lesson-01/homework-1-jokes-website-he.pdf",
+      "bytes": 56915,
+      "sha256": "f4e87e8b44ef9d3214bcecd72fcefcd0ebbf086d4d08976bd993fee98cbdfe7c"
+    },
+    {
+      "path": "materials/lesson-01/lesson-1-dessert-stall.ipynb",
+      "bytes": 95891,
+      "sha256": "b89d1b016535b1eeed9850b56ab594f66697132b8472ea6d73159a12875c1be2"
+    },
+    {
+      "path": "materials/lesson-01/orientation-slides.pdf",
+      "bytes": 52806,
+      "sha256": "a1e460e936174d5100ce60db01d49d89d36f7a975d41129173004d858f29ae1a"
+    },
+    {
+      "path": "materials/lesson-01/student-handout.pdf",
+      "bytes": 69254,
+      "sha256": "3257c18f7ac8af3cb1e662a7a777b4563d0f6afed03e769f38131e830fc0907e"
+    },
+    {
+      "path": "materials/lesson-02/assets/decision-tree-actual.json",
+      "bytes": 2580,
+      "sha256": "2aa35ca31cdc19767c12d6a950f4be11ed318c06e8ba9d00bf6f5892db8df032"
+    },
+    {
+      "path": "materials/lesson-02/assets/decision-tree-actual.png",
+      "bytes": 69584,
+      "sha256": "e102fd8725bd16b1e79d5638f2bacd888cd0f2692c8f7de65373ae0afaf1ee6b"
+    },
+    {
+      "path": "materials/lesson-02/assets/lesson2-customer-data.csv",
+      "bytes": 19713,
+      "sha256": "5d91ea83d5224e2e4f34cb24cc29b1c25935111e7cd08512edb3859bcf71e0f2"
+    },
+    {
+      "path": "materials/lesson-02/docs/homework-2-machine-learning-he.pdf",
+      "bytes": 51174,
+      "sha256": "c056443d83249e208fc3ce2d775f7e6fe64de133bb593c16479e5942610de237"
+    },
+    {
+      "path": "materials/lesson-02/docs/lesson-2-machine-learning-he.pdf",
+      "bytes": 65076,
+      "sha256": "5385f7c85a4b6590aa96a85bee5ff76664f049672e642bad0843b42395f3fe3e"
+    },
+    {
+      "path": "materials/lesson-02/notebooks/lesson-2-machine-learning-he.ipynb",
+      "bytes": 870387,
+      "sha256": "db5934609c0a611d5f52fecaa6168728f4f686d71cb29d36f86146073105c8b3"
+    },
+    {
+      "path": "readiness.json",
+      "bytes": 5115,
+      "sha256": "5588bdc8d3e56d4a361d24c7db012e4b286161ba8e9b3b802310b164e0e74441"
+    },
+    {
+      "path": "reference/lesson-2-implementation-reference-2026-10-20.txt",
+      "bytes": 27044,
+      "sha256": "a94958b5c1cef63edda0346d9747dd2d6477a66b83cc9aa5915c3f2b95ac71ea"
+    },
+    {
+      "path": "sources/README.txt",
+      "bytes": 2622,
+      "sha256": "4d9a91d5af5e9b3a9fe98aa729e481a316e81ec97755fee090555702c13f0d53"
+    },
+    {
+      "path": "sources/legacy/INDEX.json",
+      "bytes": 7084,
+      "sha256": "2a35d90bf20a3d27d428c35a30779498bebd58c1afd373cf0374317b32265e01"
+    },
+    {
+      "path": "sources/legacy/lecture-1.txt",
+      "bytes": 30837,
+      "sha256": "38bfd462d4bae5191ffad47f91f5b734e33b5aeb3fcc197e3ba76f8ccc04d9a6"
+    },
+    {
+      "path": "sources/legacy/lecture-10.txt",
+      "bytes": 19335,
+      "sha256": "f72bad44308d346f36dbef2e7566b2c3aaf5da79162c971826132e3516380246"
+    },
+    {
+      "path": "sources/legacy/lecture-11.txt",
+      "bytes": 19632,
+      "sha256": "a43362f3050b1df3219e6123b2a07303114fc539bfdf98f3da499d063b91a87f"
+    },
+    {
+      "path": "sources/legacy/lecture-2.txt",
+      "bytes": 36438,
+      "sha256": "2f6e5d36debb48ed5f3087abe3a7b18e6802ea848617e3db9fe6e1f72de94abf"
+    },
+    {
+      "path": "sources/legacy/lecture-3.txt",
+      "bytes": 22324,
+      "sha256": "af859f4e65082d3c156d9d9c3106f57ec1e65c1f50dcbfbb1486b1ce2dc59b4b"
+    },
+    {
+      "path": "sources/legacy/lecture-4.txt",
+      "bytes": 18445,
+      "sha256": "c4c16b85881054e4ea47bca682d0189ddb49336e14c23560cf6ca3c4a6062b80"
+    },
+    {
+      "path": "sources/legacy/lecture-5.txt",
+      "bytes": 14634,
+      "sha256": "496df299843ca5130dcfab6a6c6f6cf5939cee16940b3b0871719e9e60ffef06"
+    },
+    {
+      "path": "sources/legacy/lecture-6.txt",
+      "bytes": 15616,
+      "sha256": "c7f766a9ac9bc87f9b811ba481a5bc04870d8cc5c480a631e553d5b69d7a6551"
+    },
+    {
+      "path": "sources/legacy/lecture-9.txt",
+      "bytes": 3335,
+      "sha256": "070f49a5d74c80de14a1da38b004a25b35ffb55fb9ad2a31e996123976302fd3"
+    },
+    {
+      "path": "sources/legacy-drive-catalog.json",
+      "bytes": 10760,
+      "sha256": "fd6bb42b14d6d96719c9268d6178daee004222db7b7824e7149bbd1c16271995"
+    },
+    {
+      "path": "sources/lesson-1-handout-current-library-text.txt",
+      "bytes": 34015,
+      "sha256": "c0b084a3338f0b1709ae03fd6de1de66519f9d9a1e3e4ba6c70933a3cc1ed7a6"
+    },
+    {
+      "path": "sources/lesson-1-homework-current-library-text.txt",
+      "bytes": 14253,
+      "sha256": "a75c4e208e5b57536474a7cef9e8b9ea5ee7c9b2ed2c0e3a90315dbef28e9e8d"
+    },
+    {
+      "path": "sources/syllabus-1.txt",
+      "bytes": 5885,
+      "sha256": "4c7c184baafb9b92b1924ded8a88f28a6c689c70dada6017ceeab3faa3a66c08"
+    },
+    {
+      "path": "sources/syllabus-2.txt",
+      "bytes": 13901,
+      "sha256": "0c85a96fa12f161ea45adf6f3952d3d79518cbca51d734cbea6d89bbb07e804f"
+    }
+  ],
+  "lesson_count": 13,
+  "formative_question_count": 39,
+  "contains_real_student_data": false
+}

@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-04",
+  "title": "סוכן קוד: מתכנון להרצה ובדיקה",
+  "guiding_question": "לעבוד בלולאה מבוקרת עם סוכן קוד ולהבין מה השתנה ואיך נבדק.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "agent",
+      "letter": "A",
+      "title": "מה נוסף לסוכן קוד?",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "שימוש בצ׳טבוט; הבחנה בין קוד לסביבת הרצה"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "צ׳טבוט יכול להציע קוד; סוכן קוד שמחובר לסביבה יכול לקרוא ולערוך קבצים ולהריץ כלים במסגרת ההרשאות. יכולת לבצע פעולה אינה מחליפה הגדרת משימה ובדיקה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בקשו מהכלי לתאר את סביבת העבודה ולהציע תוכנית לפני עריכה. השוו את היכולות וההרשאות לכלי שיחה רגיל."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l04-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l04-q1"
+        }
+      ]
+    },
+    {
+      "key": "loop",
+      "letter": "B",
+      "title": "שינוי קטן עם תשובה צפויה",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תוכנית, שינוי, הרצה ובדיקה יוצרים לולאה שאפשר ללמוד ממנה. [[Diff]] מציג אילו קבצים ושורות השתנו; [[commit]] שומר נקודת שינוי מוגדרת שניתן להשוות אליה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הוסיפו הודעת אישור קטנה ליישום תרגול. בדקו לפני השינוי מה המשתמש עושה ומה התוצאה הצפויה, ואז קראו את ההבדל בקבצים ובדקו אותו."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l04-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l04-q2"
+        }
+      ]
+    },
+    {
+      "key": "context",
+      "letter": "C",
+      "title": "נותנים הקשר ואילוצים",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "קובץ הנחיות לפרויקט יכול להסביר מטרות, מבנה, פקודות בדיקה ומגבלות. כתיבת סוד בקובץ הקשר חושפת אותו לכל מי שניגש לקובץ; סודות נשמרים במנגנון מתאים ולא בהוראות."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הכינו קובץ הקשר קצר, בקשו שינוי אחד וסכמו מה שונה, איך נבדק ואיך תחזרו לאחור. השתמשו בכלי שהגישה אליו אושרה בקורס."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l04-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l04-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "בקשה טובה: «הוסף הודעה אחרי לחיצה מוצלחת. קודם הסבר היכן תשנה; אל תשנה את חישוב המחיר. בדוק קלט ריק והצג את ה-[[diff]]»."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-04-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "שינוי קטן עובד, [[diff]], בדיקה מוסברת ונקודת שחזור."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-04-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l04-q1": {
+      "key": "l04-q1",
+      "step": "agent",
+      "mode": "check",
+      "prompt": "מה נדרש גם כשסוכן יכול להריץ בדיקות בעצמו?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "לוותר על הבנת התוצאה"
+        },
+        {
+          "id": "2",
+          "text": "להגדיר מה אמור לקרות ולבדוק ראיות"
+        },
+        {
+          "id": "3",
+          "text": "לתת לו את כל ההרשאות מראש"
+        }
+      ]
+    },
+    "l04-q2": {
+      "key": "l04-q2",
+      "step": "loop",
+      "mode": "check",
+      "prompt": "בדיקה עברה. האם זה מוכיח שכל ההתנהגות נכונה?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; הבדיקה מכסה רק את מה שהוגדר ונבדק"
+        },
+        {
+          "id": "3",
+          "text": "כן, אם הסוכן כתב אותה"
+        }
+      ]
+    },
+    "l04-q3": {
+      "key": "l04-q3",
+      "step": "context",
+      "mode": "check",
+      "prompt": "מה מתאים לקובץ ההקשר?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "מטרת המוצר ופקודת בדיקה"
+        },
+        {
+          "id": "2",
+          "text": "סיסמת מנהל אמיתית"
+        },
+        {
+          "id": "3",
+          "text": "מפתח ספק חי"
+        }
+      ]
+    },
+    "lesson-04-exit": {
+      "key": "lesson-04-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

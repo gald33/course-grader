@@ -1,9 +1,13 @@
 """Content schema for guided lessons. Mirrors LessonContent in
 frontend/components/lessons/types.ts field for field (keep the two in sync).
 
-Authored fixtures (content/*.json) also carry each question's answer key
-(`answer`). Keys never reach a student: sanitize_for_student() strips them, and
-the student API only ever sends feedback derived from them.
+A question's answer key (`answer`) is private. The fixtures shipped in this
+public repository carry none: keys live in the database (lesson_answer_keys,
+loaded from the instructor's private file; see app/services/answer_keys.py)
+and are merged into the question on the server. A lesson version installed
+before keys moved out may still embed them. Either way keys never reach a
+student: sanitize_for_student() strips them, and the student API only ever
+sends feedback derived from them, after an answer.
 
 validate_content() checks the structure (unknown block types or fields fail)
 and then the cross-references a structural check can't see, collecting every
@@ -299,7 +303,7 @@ class LessonStep(_Model):
     key: Key
     letter: Annotated[str, Field(min_length=1, max_length=4)]  # A..G, or a short marker for the optional extension
     title: Inline
-    goal: Inline  # the guiding question of the step
+    goal: Inline | None = None  # the guiding question of the step
     optional: bool | None = None  # optional steps never count toward required progress
     blocks: list[Block]
     completion: list[CompletionRule]
@@ -313,9 +317,9 @@ class ChoiceOption(_Model):
 
 class ChoiceAnswerKey(_Model):
     correct: list[str]
-    feedback: dict[str, Inline]  # per option
+    feedback: dict[str, Inline]  # per option; an option left out gets no specific message
     misconceptions: dict[str, Annotated[str, Field(min_length=1, max_length=120)]]  # per wrong option
-    explanation: Inline
+    explanation: Inline | None = None
 
 
 class FreeTextAnswerKey(_Model):
@@ -333,7 +337,7 @@ class SingleChoiceQuestion(_Model):
     options: Annotated[list[ChoiceOption], Field(min_length=2)]
     explain: Literal["none", "optional", "required"] | None = None
     explain_prompt: Inline | None = None
-    answer: ChoiceAnswerKey  # stripped before anything reaches a student
+    answer: ChoiceAnswerKey | None = None  # private: stripped before anything reaches a student
 
 
 class FreeTextQuestion(_Model):
@@ -345,7 +349,7 @@ class FreeTextQuestion(_Model):
     type: Literal["free_text"]
     min_chars: Annotated[int, Field(ge=1, le=5000)] | None = None
     placeholder: Inline | None = None
-    answer: FreeTextAnswerKey  # stripped before anything reaches a student
+    answer: FreeTextAnswerKey | None = None  # private: stripped before anything reaches a student
 
 
 Question = Annotated[Union[SingleChoiceQuestion, FreeTextQuestion], Field(discriminator="type")]
@@ -663,6 +667,57 @@ def _check_actual_tree(where: str, content: LessonContent, block: ActualTreeBloc
     _check_tree(f"{where} ({asset.path})", root, nodes, set(labels) if isinstance(labels, dict) else None, errors)
 
 
+def choice_key_problems(option_ids: list[str], key: ChoiceAnswerKey) -> list[str]:
+    """What is wrong with a choice answer key for these options (English, for
+    authors; each message starts with the key's field)."""
+    errors: list[str] = []
+    if not key.correct:
+        errors.append("correct is empty")
+    for c in key.correct:
+        if c not in option_ids:
+            errors.append(f"correct '{c}' is not an option")
+    if set(key.correct) >= set(option_ids):
+        errors.append("every option is marked correct")
+    for option_id in key.feedback:
+        if option_id not in option_ids:
+            errors.append(f"feedback for unknown option '{option_id}'")
+    wrong = set(option_ids) - set(key.correct)
+    for option_id in key.misconceptions:
+        if option_id not in wrong:
+            errors.append(f"misconceptions '{option_id}' is not a wrong option")
+    for text in [*key.feedback.values(), key.explanation or ""]:
+        problem = _markup_problem(text)
+        if problem:
+            errors.append(f"feedback or explanation: {problem}")
+            break
+    return errors
+
+
+def answer_key_problems(question: dict, key: Any) -> list[str]:
+    """Why `key` (a stored answer key, JSON) can't serve as this question's
+    answer key, or []. The question is the stored content dict."""
+    model = ChoiceAnswerKey if question.get("type") == "single_choice" else FreeTextAnswerKey
+    try:
+        parsed = model.model_validate(key)
+    except ValidationError as exc:
+        return [f"{_loc(e['loc'])}: {e['msg']}" for e in exc.errors()]
+    if isinstance(parsed, ChoiceAnswerKey):
+        return choice_key_problems([o["id"] for o in question.get("options", [])], parsed)
+    problems = []
+    for text in [*parsed.sample_reasoning, *parsed.rubric]:
+        problem = _markup_problem(text)
+        if problem:
+            problems.append(problem)
+            break
+    return problems
+
+
+def needs_answer_key(question: dict) -> bool:
+    """A single-choice question can't be checked without its key; free text is
+    never graded, so its sample reasoning and rubric are optional."""
+    return question.get("type") == "single_choice"
+
+
 def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[str]:
     errors: list[str] = []
     steps = content.steps
@@ -695,24 +750,8 @@ def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[s
             ids = [o.id for o in q.options]
             for dup in dict.fromkeys(i for i in ids if ids.count(i) > 1):
                 errors.append(f"{where}: duplicate option id '{dup}'")
-            key = q.answer
-            if not key.correct:
-                errors.append(f"{where}: answer.correct is empty")
-            for c in key.correct:
-                if c not in ids:
-                    errors.append(f"{where}: answer.correct '{c}' is not an option")
-            if set(key.correct) >= set(ids):
-                errors.append(f"{where}: every option is marked correct")
-            for option_id in ids:
-                if option_id not in key.feedback:
-                    errors.append(f"{where}: answer.feedback missing for option '{option_id}'")
-            for option_id in key.feedback:
-                if option_id not in ids:
-                    errors.append(f"{where}: answer.feedback for unknown option '{option_id}'")
-            wrong = set(ids) - set(key.correct)
-            for option_id in key.misconceptions:
-                if option_id not in wrong:
-                    errors.append(f"{where}: answer.misconceptions '{option_id}' is not a wrong option")
+            if q.answer is not None:
+                errors += [f"{where}: answer.{e}" for e in choice_key_problems(ids, q.answer)]
             if q.explain_prompt is not None and q.explain in (None, "none"):
                 errors.append(f"{where}: explain_prompt without explain")
 

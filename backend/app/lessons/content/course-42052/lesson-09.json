@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-09",
+  "title": "משפרים חוויית שימוש ומאתרים תקלות",
+  "guiding_question": "לבסס שיפור מוצר על תצפית ולתקן תקלה באמצעות ראיות.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "observe",
+      "letter": "A",
+      "title": "צופים במשתמש לפני שמסבירים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "מסלול מוצר עובד ונתונים שמורים"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בדיקת שימוש בוחנת אם אדם אחר מבין ומצליח לפעול. הסבר של המפתח בזמן הבדיקה יכול להסתיר בעיה בממשק. תצפית היא מה שקרה; פרשנות היא הסבר אפשרי לכך."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בקשו מאדם שאינו בצוות לבצע משימה בלי הדרכה. רשמו היכן עצר, מה לחץ ומה קיבל, והפרידו בין התצפית להסבר שלכם."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l09-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l09-q1"
+        }
+      ]
+    },
+    {
+      "key": "debug",
+      "letter": "B",
+      "title": "משחזרים לפני שמשנים",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תיקון טוב מתחיל בקלט, תוצאה בפועל, תוצאה צפויה ודרך שחזור. [[Logs]] מספקים רמזים על התהליך; יש להסיר סודות ומידע אישי לפני שיתוף."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תנו לסוכן מקרה כשל קטן ומוגדר. בקשו להסביר את הסיבה המשוערת, שינוי אחד ובדיקה שמבחינה בין התיקון לאותו כשל."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l09-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l09-q2"
+        }
+      ]
+    },
+    {
+      "key": "iterate",
+      "letter": "C",
+      "title": "שיפור דורש בדיקה חוזרת",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תיקון עיצוב או לוגיקה יכול לשנות מסלולים אחרים. בדקו מחדש את המשימה וגם התנהגות בסיסית שכבר עבדה, כולל מסך קטן ו-[[RTL]]."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "יישמו שיפור אחד בעקבות הבדיקה החיצונית ובדקו שוב עם אותו תרחיש. הראו מה השתנה ומה נשאר מוגבל."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l09-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l09-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "לחיצה כפולה לפני הופעת אישור יוצרת בלבול: הוסיפו מצב שליחה ואישור, ובדקו שלא נוצרה הזמנה כפולה גם כשהמשתמש לוחץ שוב."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-09-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "תצפית חיצונית, תיקון קטן ובדיקה חוזרת עם ראיה."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-09-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l09-q1": {
+      "key": "l09-q1",
+      "step": "observe",
+      "mode": "check",
+      "prompt": "איזה ממצא הוא תצפית?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "המשתמש לא טכנולוגי"
+        },
+        {
+          "id": "2",
+          "text": "המשתמש לחץ פעמיים; לא הופיעה הודעת אישור"
+        },
+        {
+          "id": "3",
+          "text": "העיצוב גרוע"
+        }
+      ]
+    },
+    "l09-q2": {
+      "key": "l09-q2",
+      "step": "debug",
+      "mode": "check",
+      "prompt": "מה מועיל יותר לבקשת תיקון?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "«זה לא עובד» בלבד"
+        },
+        {
+          "id": "2",
+          "text": "קלט, צעדי שחזור, תוצאה בפועל ותוצאה צפויה"
+        },
+        {
+          "id": "3",
+          "text": "כל הסיסמאות של המערכת"
+        }
+      ]
+    },
+    "l09-q3": {
+      "key": "l09-q3",
+      "step": "iterate",
+      "mode": "check",
+      "prompt": "שינוי חדש עובד. מה עוד כדאי לבדוק?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "מסלול בסיסי שכבר עבד"
+        },
+        {
+          "id": "2",
+          "text": "רק את צבע הכפתור"
+        },
+        {
+          "id": "3",
+          "text": "אין צורך לבדוק דבר נוסף"
+        }
+      ]
+    },
+    "lesson-09-exit": {
+      "key": "lesson-09-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

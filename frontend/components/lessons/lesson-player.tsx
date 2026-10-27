@@ -900,10 +900,12 @@ export function LessonPlayer({
               <span className="sr-only">שלב {step.letter}: </span>
               <InlineText text={step.title} />
             </h2>
-            <p className="mt-2 rounded-md border-s-4 border-forest bg-forest-tint px-3 py-2 text-[15px] leading-relaxed">
-              <span className="font-semibold">שאלת השלב: </span>
-              <InlineText text={step.goal} />
-            </p>
+            {step.goal ? (
+              <p className="mt-2 rounded-md border-s-4 border-forest bg-forest-tint px-3 py-2 text-[15px] leading-relaxed">
+                <span className="font-semibold">שאלת השלב: </span>
+                <InlineText text={step.goal} />
+              </p>
+            ) : null}
             {step.optional ? (
               <p className="mt-2 text-[14px] text-ink-2">
                 הרחבה לבחירה – לא נדרשת כדי להשלים את השיעור, ולא נספרת ב״{requiredDone} מתוך {required.length}״.

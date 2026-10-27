@@ -17,6 +17,8 @@ export type Seed = {
   /** One student per lesson test that saves something, so no test sees another's progress. */
   lesson_students: Record<'trees' | 'experiments' | 'navigation' | 'insights' | 'resilience' | 'access', SignedInStudent>;
   test_student: { id: number; name: string };
+  /** The imported 42052 course plan's draft lessons (slug -> lesson id), with FAKE answer keys loaded. */
+  plan_lessons: Record<string, number>;
 };
 
 export function loadSeed(): Seed {

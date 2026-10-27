@@ -4,6 +4,10 @@
     python scripts/seed_lesson.py --course-id 7            # install as a draft
     python scripts/seed_lesson.py --course-id 7 --publish  # install and publish
 
+Publishing needs the lesson's private answer keys loaded first
+(scripts/load_answer_keys.py): fixtures carry none, and a version whose
+questions can't be checked is refused.
+
 --course-id falls back to the LESSON_COURSE_ID environment variable; with
 neither it refuses (the course is never guessed). It prints the database it is
 connected to (from DATABASE_URL, password masked), the course it is about to

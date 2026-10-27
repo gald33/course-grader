@@ -1,0 +1,511 @@
+{
+  "format": 1,
+  "course_code": "42052",
+  "title": "יישומי בינה מלאכותית AI",
+  "academic_year": "2026-2027 / תשפ״ז",
+  "semester": "A",
+  "session_count": 13,
+  "source": "content/course-42052",
+  "sessions": [
+    {
+      "session": 1,
+      "title": "מבוא: חוקרים, בונים ובודקים עם צ׳טבוט",
+      "lesson_slug": "lesson-01",
+      "fixture_key": "42052-lesson-01",
+      "existing_fixture_keys": [],
+      "presentation_round": null,
+      "final_presentation_part": null,
+      "formal_presentations": false,
+      "planned_presenting_teams": 0
+    },
+    {
+      "session": 2,
+      "title": "מנתונים לחיזוי: למידת מכונה",
+      "lesson_slug": "lesson-02",
+      "fixture_key": "42052-lesson-02",
+      "existing_fixture_keys": [
+        "lesson-2"
+      ],
+      "presentation_round": 1,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 3,
+      "title": "איך מודלי שפה עובדים?",
+      "lesson_slug": "lesson-03",
+      "fixture_key": "42052-lesson-03",
+      "existing_fixture_keys": [],
+      "presentation_round": 1,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 4,
+      "title": "סוכן קוד: מתכנון להרצה ובדיקה",
+      "lesson_slug": "lesson-04",
+      "fixture_key": "42052-lesson-04",
+      "existing_fixture_keys": [],
+      "presentation_round": 2,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 5,
+      "title": "מגדירים מוצר עסקי קטן",
+      "lesson_slug": "lesson-05",
+      "fixture_key": "42052-lesson-05",
+      "existing_fixture_keys": [],
+      "presentation_round": 2,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 6,
+      "title": "בונים שלד שעובד מקצה לקצה",
+      "lesson_slug": "lesson-06",
+      "fixture_key": "42052-lesson-06",
+      "existing_fixture_keys": [],
+      "presentation_round": 3,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 7,
+      "title": "מחברים יכולת AI למוצר",
+      "lesson_slug": "lesson-07",
+      "fixture_key": "42052-lesson-07",
+      "existing_fixture_keys": [],
+      "presentation_round": 3,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 8,
+      "title": "שומרים נתונים ובודקים קלט",
+      "lesson_slug": "lesson-08",
+      "fixture_key": "42052-lesson-08",
+      "existing_fixture_keys": [],
+      "presentation_round": 4,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 9,
+      "title": "משפרים חוויית שימוש ומאתרים תקלות",
+      "lesson_slug": "lesson-09",
+      "fixture_key": "42052-lesson-09",
+      "existing_fixture_keys": [],
+      "presentation_round": 4,
+      "final_presentation_part": null,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 10,
+      "title": "אבטחה, פרטיות, אתיקה ועלויות",
+      "lesson_slug": "lesson-10",
+      "fixture_key": "42052-lesson-10",
+      "existing_fixture_keys": [],
+      "presentation_round": null,
+      "final_presentation_part": null,
+      "formal_presentations": false,
+      "planned_presenting_teams": 0
+    },
+    {
+      "session": 11,
+      "title": "פריסה והנגשה: נותנים קישור שבאמת עובד",
+      "lesson_slug": "lesson-11",
+      "fixture_key": "42052-lesson-11",
+      "existing_fixture_keys": [],
+      "presentation_round": null,
+      "final_presentation_part": null,
+      "formal_presentations": false,
+      "planned_presenting_teams": 0
+    },
+    {
+      "session": 12,
+      "title": "ליטוש והצגות גמר — חלק א׳",
+      "lesson_slug": "lesson-12",
+      "fixture_key": "42052-lesson-12",
+      "existing_fixture_keys": [],
+      "presentation_round": null,
+      "final_presentation_part": 1,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    },
+    {
+      "session": 13,
+      "title": "הצגות גמר — חלק ב׳ וסיכום",
+      "lesson_slug": "lesson-13",
+      "fixture_key": "42052-lesson-13",
+      "existing_fixture_keys": [],
+      "presentation_round": null,
+      "final_presentation_part": 2,
+      "formal_presentations": true,
+      "planned_presenting_teams": 4
+    }
+  ],
+  "lessons": {
+    "lesson-01": {
+      "number": 1,
+      "title": "מבוא: חוקרים, בונים ובודקים עם צ׳טבוט",
+      "content_status": "prepared_assets_plus_adapted_seed",
+      "checks": [
+        "l01-q1",
+        "l01-q2",
+        "l01-q3"
+      ],
+      "readiness": {
+        "status": "prepared_assets_plus_adapted_seed",
+        "available": [
+          "Hebrew teaching seed with three checkpoints",
+          "student handout",
+          "dessert-stall notebook",
+          "jokes-website homework",
+          "orientation slides if present"
+        ],
+        "still_needed": [],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "existing_assignment",
+        "text": "מטלה 1 הקיימת: אתר בדיחות צוותי בקישור עובד, באמצעות צ׳טבוט וכלים במסלול חינמי וללא סוכן קוד. כוללים מחקר פרסום, חלופות, בדיקה חיצונית וחלוקת תפקידים. אין הגשת מחברת הקינוחים."
+      }
+    },
+    "lesson-02": {
+      "number": 2,
+      "title": "מנתונים לחיזוי: למידת מכונה",
+      "content_status": "prepared_assets_plus_adapted_seed",
+      "checks": [
+        "l02-q1",
+        "l02-q2",
+        "l02-q3"
+      ],
+      "readiness": {
+        "status": "prepared_assets_plus_adapted_seed",
+        "available": [
+          "Hebrew teaching seed with three checkpoints",
+          "current student handout",
+          "executed teaching notebook",
+          "homework 2",
+          "damaged CSV",
+          "actual trained-tree JSON and PNG",
+          "historical website implementation handoff"
+        ],
+        "still_needed": [],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "existing_assignment",
+        "text": "מטלה 2 הקיימת: סיכום צוותי של בדיקת נתונים ושלוש ריצות סיווג, בחירה ומבחן סופי, פרשנות והנגשה. אין חובת הגשת קוד או מחברת."
+      }
+    },
+    "lesson-03": {
+      "number": 3,
+      "title": "איך מודלי שפה עובדים?",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l03-q1",
+        "l03-q2",
+        "l03-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: הכינו בצוות הוראות למשימת טקסט עסקית, שני מקרי בדיקה ופלט צפוי. מועד ומשקל אינם נקבעים בחבילה זו."
+      }
+    },
+    "lesson-04": {
+      "number": 4,
+      "title": "סוכן קוד: מתכנון להרצה ובדיקה",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l04-q1",
+        "l04-q2",
+        "l04-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: יישמו שינוי קטן במאגר תרגול ותעדו תוכנית, שינוי, הרצה ובדיקה. אין להניח גישה חינמית או רישיון לכל ספק."
+      }
+    },
+    "lesson-05": {
+      "number": 5,
+      "title": "מגדירים מוצר עסקי קטן",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l05-q1",
+        "l05-q2",
+        "l05-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה לפי אבן הדרך שבסילבוס: מסמך אפיון צוותי קצר, דרך לבדוק צורך וחלוקת אחריות. אל תפרסמו אותה כמטלה שכבר הוקצתה."
+      }
+    },
+    "lesson-06": {
+      "number": 6,
+      "title": "בונים שלד שעובד מקצה לקצה",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l06-q1",
+        "l06-q2",
+        "l06-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: השלימו מסלול קטן שניתן להרצה בידי חבר אחר; תעדו מגבלה אמיתית אחת."
+      }
+    },
+    "lesson-07": {
+      "number": 7,
+      "title": "מחברים יכולת AI למוצר",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l07-q1",
+        "l07-q2",
+        "l07-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: השלימו חיבור מורשה, בדיקות לפלט ומגבלות שימוש. בהיעדר מפתח, הדמיה מסומנת מאפשרת למידה אך אינה ראיה לחיבור חי."
+      }
+    },
+    "lesson-08": {
+      "number": 8,
+      "title": "שומרים נתונים ובודקים קלט",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l08-q1",
+        "l08-q2",
+        "l08-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: השלימו מסלול נתונים בסיסי ובדקו שחזור, קלט שגוי, כפילות והרשאות."
+      }
+    },
+    "lesson-09": {
+      "number": 9,
+      "title": "משפרים חוויית שימוש ומאתרים תקלות",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l09-q1",
+        "l09-q2",
+        "l09-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: סיכום בדיקת שימוש ושיפור אחד, כולל צעדי שחזור של תקלה ובדיקת נסיגה."
+      }
+    },
+    "lesson-10": {
+      "number": 10,
+      "title": "אבטחה, פרטיות, אתיקה ועלויות",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l10-q1",
+        "l10-q2",
+        "l10-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: סגרו סיכון ממשי אחד, הציגו ראיה לבדיקה ורשמו מגבלה שנותרה. מפגש זה אינו סבב הצגות רשמי נוסף."
+      }
+    },
+    "lesson-11": {
+      "number": 11,
+      "title": "פריסה והנגשה: נותנים קישור שבאמת עובד",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l11-q1",
+        "l11-q2",
+        "l11-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "expand and review student-facing flow",
+          "build runnable demo or clearly labeled mock",
+          "verify current tool/API access",
+          "finalize any homework and submission route"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: השלימו בדיקות לפני finals. זהו העמקת מחקר הפרסום שהחל באתר הבדיחות, ולא הנושא הראשון שבו חושבים על הנגשה."
+      }
+    },
+    "lesson-12": {
+      "number": 12,
+      "title": "ליטוש והצגות גמר — חלק א׳",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l12-q1",
+        "l12-q2",
+        "l12-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "verify final presentation slots and live rubric",
+          "prepare instructor-approved final hand-in requirements"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "הצעה: השלמת מסירה, הוראות שימוש ותיעוד תרומות לפי הנחיות המרצה. אין ליצור אוטומטית מטלה נפרדת חדשה לכל צוות."
+      }
+    },
+    "lesson-13": {
+      "number": 13,
+      "title": "הצגות גמר — חלק ב׳ וסיכום",
+      "content_status": "proposed_teaching_draft",
+      "checks": [
+        "l13-q1",
+        "l13-q2",
+        "l13-q3"
+      ],
+      "readiness": {
+        "status": "proposed_teaching_draft",
+        "available": [
+          "Hebrew teaching seed with three checkpoints"
+        ],
+        "still_needed": [
+          "verify final presentation slots and live rubric",
+          "prepare instructor-approved final hand-in requirements"
+        ],
+        "published_or_taught_verified": false
+      },
+      "homework": {
+        "status": "proposal_not_yet_assigned",
+        "text": "אין מטלת המשך מחייבת חדשה בחבילה. הבוחן העיוני הוא רכיב נפרד בסילבוס; מועדו ומתכונתו אינם נקבעים כאן."
+      }
+    }
+  },
+  "syllabus_grading": {
+    "final_project_and_presentation_percent": 50,
+    "milestones_and_labs_percent": 30,
+    "theoretical_quiz_percent": 20,
+    "passing_score": 56
+  }
+}

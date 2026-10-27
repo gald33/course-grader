@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-07",
+  "title": "מחברים יכולת AI למוצר",
+  "guiding_question": "לשלב קריאה לשירות [[AI]] עם פלט נבדק וטיפול במגבלות.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "contract",
+      "letter": "A",
+      "title": "הבקשה והפלט הם חוזה עבודה",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "שלד מוצר עובד; הבנה בסיסית של [[LLM]]"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "[[API]] מקבל בקשה ומחזיר תגובה או שגיאה. פלט [[JSON]] הוא מבנה שאפשר לבדוק, אך עצם תקינות המבנה אינה מבטיחה שהתוכן נאמן למקור."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הגדירו סכימה להזמנה: לקוח, פריטים וכמויות, שעה שיכולה להיות חסרה וסימון בירור. בדקו דוגמה מלאה ודוגמה ללא שעה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l07-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l07-q1"
+        }
+      ]
+    },
+    {
+      "key": "secrets",
+      "letter": "B",
+      "title": "מחברים שירות בלי לחשוף מפתח",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "מפתח שירות מעניק גישה ומחייב שמירה מתאימה. דפדפן מקבל קוד ונתונים שהמשתמש יכול לבדוק; מפתח ספק סודי אינו נשמר בו."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "השתמשו בחשבון הוראה מאושר ובמנגנון סודות מתאים. עקבו אחרי בקשה אחת דרך המוצר, בלי להציג מפתח או להכניסו למאגר."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l07-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l07-q2"
+        }
+      ]
+    },
+    {
+      "key": "failure",
+      "letter": "C",
+      "title": "כשל חיצוני הוא מצב שימוש",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "שירות יכול להחזיר שגיאה, להתעכב או להגיע למגבלה. יש להציג מצב המתנה וכשל ברור ולתכנן ניסיון חוזר מוגבל. [[Tool calling]] מתאר בקשת פעולה; השרת צריך לאמת ולהרשות אותה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בדקו תגובה פגומה, זמן המתנה ושגיאת מכסה באמצעות הדמיה מסומנת. תעדו מה המשתמש רואה ואיך מונעים שליחה כפולה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l07-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l07-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "הודעת מיכל ללא שעה מחזירה [[pickup_time]]=[[null]] ו-[[needs_clarification]]=[[true]]. תגובת [[JSON]] עם [[quantity]]=-2 נדחית גם אם היא תקינה תחבירית."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-07-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "תכונת [[AI]] אחת עובדת מקצה לקצה, עם פלט נבדק ותרחיש כשל."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-07-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l07-q1": {
+      "key": "l07-q1",
+      "step": "contract",
+      "mode": "check",
+      "prompt": "[[JSON]] תקין מבטיח שהכמויות נכונות?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; צריך לבדוק גם את התוכן מול המקור"
+        },
+        {
+          "id": "3",
+          "text": "רק אם הוא ארוך"
+        }
+      ]
+    },
+    "l07-q2": {
+      "key": "l07-q2",
+      "step": "secrets",
+      "mode": "check",
+      "prompt": "איפה לא שומרים מפתח ספק סודי?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "בקוד הדפדפן שנשלח לכל משתמש"
+        },
+        {
+          "id": "2",
+          "text": "במנגנון סודות בצד השרת"
+        },
+        {
+          "id": "3",
+          "text": "בהגדרה מוגנת לפי הסביבה"
+        }
+      ]
+    },
+    "l07-q3": {
+      "key": "l07-q3",
+      "step": "failure",
+      "mode": "check",
+      "prompt": "המודל הציע להפעיל כלי. האם מותר לבצע בלי בדיקה?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; נדרשים אימות והרשאה של המערכת"
+        },
+        {
+          "id": "3",
+          "text": "כן אם הפלט הוא [[JSON]]"
+        }
+      ]
+    },
+    "lesson-07-exit": {
+      "key": "lesson-07-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

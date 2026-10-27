@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { AnswerKeysCard, CoursePlanCard, type AnswerKeyStatus } from '@/components/lessons/course-plan';
 import { InlineText, plainInline } from '@/components/lessons/inline';
 import type { Answer, Commitment, DepthKind, Experiment, Progress, StepStatus } from '@/components/lessons/types';
 import { BilingualName } from '@/components/ui/bilingual-name';
@@ -46,6 +47,7 @@ export type LessonSummary = {
   versions: VersionRow[]; // oldest first
   fixture_hash: string | null;
   fixture_update_available: boolean;
+  answer_keys: AnswerKeyStatus; // counts and question keys only, never a key
 };
 type FixtureRow = {
   key: string;
@@ -57,6 +59,7 @@ type FixtureRow = {
   content_hash: string | null;
   valid: boolean;
   errors: string[];
+  plan_code: string | null; // installed with its course plan, not on its own card
 };
 
 type StudentStatus = 'not_started' | 'in_progress' | 'completed';
@@ -389,7 +392,10 @@ export function LessonsStep({
         </div>
       </div>
 
-      {fixtures.map((f) => (
+      <CoursePlanCard courseId={courseId} course={course} reloadLessons={load} setToast={setToast} />
+      <AnswerKeysCard courseId={courseId} reloadLessons={load} setToast={setToast} />
+
+      {fixtures.filter((f) => !f.plan_code).map((f) => (
         <FixtureCard
           key={f.key}
           base={base}
@@ -706,6 +712,8 @@ function LessonCard({
         </tbody>
       </TableCard>
 
+      <MissingKeys lesson={lesson} />
+
       <ColabUrlField base={base} lesson={lesson} run={run} />
 
       <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-4">
@@ -726,6 +734,43 @@ function LessonCard({
         ) : null}
       </div>
     </Card>
+  );
+}
+
+/** Questions without a loaded answer key can't be checked: the live version's
+ * students get no feedback on them, and a version missing keys can't be published. */
+function MissingKeys({ lesson }: { lesson: LessonSummary }) {
+  const { latest, live } = lesson.answer_keys ?? { latest: null, live: null };
+  const published = lesson.status === 'published' && live != null;
+  const liveMissing = published ? live.missing : [];
+  // The latest version, unless it is the live one (already covered above).
+  const draft = latest && !(published && latest.version_number === live.version_number) ? latest : null;
+  const draftMissing = draft?.missing ?? [];
+  if (!liveMissing.length && !draftMissing.length) return null;
+  return (
+    <div className="hint hint-warm" role="alert">
+      <span className="hint-icon">!</span>
+      <div className="grid gap-1">
+        {liveMissing.length ? (
+          <div>
+            <span className="font-semibold text-ink">
+              Students on version {live?.version_number} get no feedback on {liveMissing.length} question(s):
+            </span>{' '}
+            no answer key is loaded for <span className="font-mono text-[12px]">{liveMissing.join(', ')}</span>.
+          </div>
+        ) : null}
+        {draftMissing.length ? (
+          <div>
+            <span className="font-semibold text-ink">
+              Version {draft?.version_number} can’t be published yet: {draftMissing.length} of {draft?.needed} question(s)
+              have no answer key loaded
+            </span>{' '}
+            (<span className="font-mono text-[12px]">{draftMissing.join(', ')}</span>).
+          </div>
+        ) : null}
+        <div className="text-[13px] text-ink-2">Import the private answer keys above; the file is never stored in the app’s code.</div>
+      </div>
+    </div>
   );
 }
 

@@ -26,6 +26,7 @@ _Nothing deferred._
 
 | item | held by | since |
 |---|---|---|
+| `course-42052-whole-syllabus` | claude/course-42052-whole-syllabus | 2026-10-27T16:00:00Z |
 | `student-portal-is-one-long-scroll` | claude/student-portal-is-one-long-scroll | 2026-10-20T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
@@ -45,6 +46,7 @@ graph TD
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
+  course_42052_whole_syllabus["The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::claimed
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
@@ -104,6 +106,54 @@ graph TD
 > SUPERSEDED 2026-10-21: the operator asked for the rebuild now. Phase 1 is
 > assignments-need-custom-rubrics (#26); phase 2 is
 > suggest-rubrics-per-assignment-from-clusters (deferred).
+
+</details>
+
+### `course-42052-whole-syllabus`
+
+- **title:** The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/course-42052-whole-syllabus (since 2026-10-27T16:00:00Z)
+- **refs:**
+  - `content/course-42052/COURSE-HANDOFF.txt`
+  - `backend/app/lessons/schema.py`
+  - `backend/app/lessons/content/lesson-2.json`
+  - `backend/app/services/lessons.py`
+  - `frontend/components/lessons/instructor-lessons.tsx`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-10-27: implement the whole-course handoff
+> (content/course-42052, merged with this PR's base) in the existing lesson
+> engine (#22). Private fields (39 checks' correct_choice_id and
+> feedback_he, instructor.email) were removed from the handoff; they live in
+> the database, never in the repository, which is public.
+>
+> VERIFIED at 75f4b90. The app has one lesson fixture, lesson-2.json, and it
+> embeds every question's answer key (correct, feedback, misconceptions,
+> explanation). Nothing models the 13 sessions, presentation rounds or
+> per-lesson readiness.
+>
+> Phase 1 (this item): the 13 topic slots and seeds as draft lessons in the
+> existing schema (extended, not forked); a plan of 13 sessions with rounds
+> in 2-3, 4-5, 6-7, 8-9 and finals in 12-13, inventing no dates, rooms,
+> teams, slots or deadlines; private answer keys and the instructor contact
+> in the database, loaded by an instructor-only upload or a local script;
+> lesson 2's keys moved out with a one-time export; publishing blocked and a
+> warning shown while keys are missing; a readiness table keeping drafted /
+> reviewed / runnable / published / live verified apart. The grade formula
+> is not touched (the syllabus' 50/30/20 differs from the app: operator's
+> call).
+>
+> Done when: all 13 lessons import as drafts and preview in Hebrew RTL on
+> desktop and phone; keys load from the private file and are never in a
+> student response before an answer (tested on every student lesson
+> endpoint and /api/r/<token>); lesson 2 works with its keys in the
+> database; the readiness table renders; CI is green.
+>
+> Later phases, not in this item: runnable exercises and notebooks for
+> lessons 3-13 per readiness.json, and homework briefs.
 
 </details>
 

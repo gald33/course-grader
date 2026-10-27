@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-08",
+  "title": "שומרים נתונים ובודקים קלט",
+  "guiding_question": "להבין מה נשמר, מי רשאי לגשת ומה קורה לקלט שגוי.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "persist",
+      "letter": "A",
+      "title": "שמירה שונה מהצגה על המסך",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "מסלול מוצר ו-[[API]]"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "מידע בזיכרון הדפדפן עשוי להיעלם ברענון; מסד נתונים שומר רשומות לפי מבנה מוגדר. מזהה רשומה עוזר לעדכון ומניעת כפילות."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "שמרו הזמנה בדויה, רעננו את העמוד ופתחו אותה שוב. הגדירו אילו שדות נדרשים, אילו יכולים להיות חסרים ואיך מזהים אותה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l08-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l08-q1"
+        }
+      ]
+    },
+    {
+      "key": "validate",
+      "letter": "B",
+      "title": "בודקים גם בשרת",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בדיקת קלט בממשק עוזרת למשתמש, אך בקשות יכולות להגיע גם בלי הממשק. כללים מהותיים נבדקים במקום שבו הנתונים נשמרים או הפעולה מבוצעת."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בדקו כמות שלילית, כמות לא שלמה, מוצר לא מוכר וכפילות של אותה בקשה. תעדו הודעה ברורה ושמירה ללא כפילות."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l08-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l08-q2"
+        }
+      ]
+    },
+    {
+      "key": "ownership",
+      "letter": "C",
+      "title": "זהות וגישה הן חלק מהנתון",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "כניסה לחשבון אינה נותנת גישה לכל רשומה. הרשאה צריכה לבדוק שהמשתמש רשאי לפעול על הרשומה המבוקשת, ולא לסמוך על מזהה שנשלח מהדפדפן."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הכינו שני משתמשי בדיקה בדויים ובדקו שאחד אינו יכול לפתוח או לשנות הזמנה של האחר. אל תשתמשו בחשבונות אמת של סטודנטים לניסוי."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l08-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l08-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "בקשה כפולה עם אותו מזהה פעולה אמורה להחזיר את אותה הזמנה, ולא ליצור שתי הזמנות. החלטת היישום המדויקת מתועדת ונבדקת."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-08-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "שמירה ושחזור, אימות קלט ובדיקת הרשאה, עם תוצאות צפויות."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-08-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l08-q1": {
+      "key": "l08-q1",
+      "step": "persist",
+      "mode": "check",
+      "prompt": "רואים הזמנה במסך. האם הוכח שנשמרה?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; צריך לבדוק שחזור לאחר רענון או פתיחה מחדש"
+        },
+        {
+          "id": "3",
+          "text": "כן אם לחצו על כפתור"
+        }
+      ]
+    },
+    "l08-q2": {
+      "key": "l08-q2",
+      "step": "validate",
+      "mode": "check",
+      "prompt": "הכפתור חוסם כמות שלילית. האם השרת יכול לסמוך על כך?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; אפשר לשלוח בקשה ישירות"
+        },
+        {
+          "id": "3",
+          "text": "רק אם משתמשים בסוכן"
+        }
+      ]
+    },
+    "l08-q3": {
+      "key": "l08-q3",
+      "step": "ownership",
+      "mode": "check",
+      "prompt": "משתמש מחובר שינה את מזהה ההזמנה בכתובת. מה צריך לבדוק?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "רק שהוא מחובר"
+        },
+        {
+          "id": "2",
+          "text": "שהוא מורשה לגשת להזמנה הזאת"
+        },
+        {
+          "id": "3",
+          "text": "שהכתובת ארוכה מספיק"
+        }
+      ]
+    },
+    "lesson-08-exit": {
+      "key": "lesson-08-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

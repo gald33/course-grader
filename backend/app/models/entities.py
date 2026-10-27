@@ -39,6 +39,9 @@ class Course(Base):
     teams_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Archived courses are hidden from the home page; clearing this restores them.
     archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Private: loaded with the answer keys (app/services/answer_keys.py), shown
+    # to no one but the instructor routes, never in a student payload.
+    instructor_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="course", cascade="all, delete-orphan")
     assignments: Mapped[list[Assignment]] = relationship(back_populates="course", cascade="all, delete-orphan")
@@ -700,3 +703,56 @@ class LessonCommitment(Base):
     final_recorded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint("enrollment_id", "request_id", name="uq_lesson_commitment_request"),)
+
+
+class LessonAnswerKey(Base):
+    """A question's private answer key, kept out of the public repository and
+    out of lesson versions: merged into the question on the server for
+    checking and feedback (app/services/answer_keys.py). Keyed by the
+    lesson's slug, so it applies to every version of that lesson in the
+    course; a version that embeds its own key keeps it."""
+
+    __tablename__ = "lesson_answer_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    lesson_slug: Mapped[str] = mapped_column(String(64))
+    question_key: Mapped[str] = mapped_column(String(64))
+    # The key as the schema's ChoiceAnswerKey / FreeTextAnswerKey JSON.
+    answer_json: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16), default="upload")  # upload | script
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("course_id", "lesson_slug", "question_key", name="uq_lesson_answer_key"),
+    )
+
+
+class CoursePlanSession(Base):
+    """One session of an imported course plan (app/lessons/course_plan.py):
+    its topic, presentation round or final part, the draft lesson that teaches
+    it and that lesson's readiness. No dates, rooms or slots: the plan has
+    none. reviewed_at and live_verified_at are set by the instructor."""
+
+    __tablename__ = "course_plan_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    course_id: Mapped[int] = mapped_column(ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    plan_code: Mapped[str] = mapped_column(String(64))
+    session_number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(255))
+    lesson_slug: Mapped[str] = mapped_column(String(64))
+    fixture_key: Mapped[str] = mapped_column(String(64))
+    presentation_round: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    final_presentation_part: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    formal_presentations: Mapped[bool] = mapped_column(Boolean, default=False)
+    planned_presenting_teams: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The plan's entry for the lesson: readiness, homework status, checks.
+    details_json: Mapped[str] = mapped_column(Text, default="{}")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    live_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    imported_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("course_id", "session_number", name="uq_course_plan_session"),)

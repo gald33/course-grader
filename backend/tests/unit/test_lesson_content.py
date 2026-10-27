@@ -9,6 +9,7 @@ from lesson_samples import sample_content, write_assets
 from app.lessons import ASSETS_ROOT, FIXTURES, assets_root, load_fixture
 from app.lessons.schema import (
     ContentError,
+    answer_key_problems,
     canonical_hash,
     parse_content_json,
     question_hash,
@@ -55,7 +56,30 @@ def test_real_lesson_fixture_validates_with_assets():
         "orientation", "data", "tree", "actual-tree", "colab", "evaluate", "wrap-up", "clustering"
     ]
     assert set(content.assets) == {"csv", "tree_json", "tree_png", "notebook", "handout", "homework"}
-    assert not ANSWER_KEYS & _keys(sanitize_for_student(raw)["questions"])
+    # The repository is public: the fixture carries no answer keys (they live
+    # in the database), so sanitizing has nothing left to strip.
+    assert not ANSWER_KEYS & _keys(raw["questions"])
+    assert sanitize_for_student(raw) == raw
+
+
+def test_keys_are_optional_and_checked_when_given():
+    """A question without a key validates (keys come from the database); a
+    key that is given must fit the question's options."""
+    content = sample_content()
+    for q in content["questions"].values():
+        q.pop("answer")
+    validate_content(content)
+    pick = sample_content()["questions"]["q_pick"]
+    assert answer_key_problems(pick, pick["answer"]) == []
+    assert answer_key_problems(pick, {"correct": ["zz"], "feedback": {}, "misconceptions": {}}) == [
+        "correct 'zz' is not an option"
+    ]
+    assert answer_key_problems(pick, {"correct": ["a"], "feedback": {}, "misconceptions": {}, "explanation": "**x"}) == [
+        "feedback or explanation: unbalanced ** (bold)"
+    ]
+    assert answer_key_problems(pick, {"correct": "a"})  # wrong JSON shape
+    free = sample_content()["questions"]["q_free"]
+    assert answer_key_problems(free, free["answer"]) == []
 
 
 def _mutate(path_fn):
@@ -89,9 +113,9 @@ MUTATIONS = [
     ("duplicate option id", lambda c: c["questions"]["q_pick"]["options"].append({"id": "a", "text": "again"}), "duplicate option id 'a'"),
     ("correct not an option", lambda c: c["questions"]["q_pick"]["answer"].update(correct=["zz"]), "answer.correct 'zz' is not an option"),
     ("correct empty", lambda c: c["questions"]["q_pick"]["answer"].update(correct=[]), "answer.correct is empty"),
-    ("feedback missing", lambda c: c["questions"]["q_pick"]["answer"]["feedback"].pop("c"), "feedback missing for option 'c'"),
+    ("feedback for unknown option", lambda c: c["questions"]["q_pick"]["answer"]["feedback"].update(z="?"), "feedback for unknown option 'z'"),
     ("misconception on correct option", lambda c: c["questions"]["q_pick"]["answer"]["misconceptions"].update(a="x"), "'a' is not a wrong option"),
-    ("answer key missing", lambda c: c["questions"]["q_free"].pop("answer"), "questions.q_free.free_text.answer: Field required"),
+    ("answer key null", lambda c: c["questions"]["q_free"].update(answer=None), "'answer' may be left out but not null"),
     ("download asset missing", lambda c: _block(c, "write", "download").update(asset="pdf"), "unknown asset 'pdf'"),
     ("colab asset missing", lambda c: _block(c, "lab", "colab").update(notebook_asset="nb"), "unknown asset 'nb'"),
     ("actual tree asset missing", lambda c: _block(c, "write", "actual_tree").update(asset="png"), "unknown asset 'png'"),

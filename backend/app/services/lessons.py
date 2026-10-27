@@ -6,7 +6,9 @@ here.
 
 Answer keys never leave the server except as feedback: students get content
 through sanitize_for_student() and see answer-key text only via feedback_for(),
-for a question they answered or revealed. Completion is computed from evidence
+for a question they answered or revealed. Keys are private and live in the
+database (app/services/answer_keys.py); keyed_content() merges them into a
+version's questions wherever checking or feedback needs them. Completion is computed from evidence
 (attempts, acknowledgements, experiments, commitments), never reported by the
 client; viewing a step is "viewed", never "completed".
 """
@@ -31,6 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.lessons import (
     FIXTURES,
+    PLAN_FIXTURES,
     ContentError,
     assets_root,
     canonical_hash,
@@ -62,6 +65,7 @@ from app.models.entities import (
     LessonVersion,
     Student,
 )
+from app.services import answer_keys
 from app.services.peer_review import utcnow
 
 MAX_EXPERIMENTS = 30
@@ -162,7 +166,14 @@ def iso(dt: datetime | None) -> str | None:
 
 
 def content_of(version: LessonVersion) -> dict:
+    """The stored content, without the database's answer keys."""
     return json.loads(version.content_json)
+
+
+def keyed_content(db: Session, lesson: Lesson, version: LessonVersion) -> dict:
+    """The version's content with the lesson's stored answer keys merged in
+    (server side only: checking, feedback, question hashes, insights)."""
+    return answer_keys.with_keys(content_of(version), answer_keys.keys_for(db, lesson.course_id, lesson.slug))
 
 
 def step_keys(content: dict) -> list[str]:
@@ -304,7 +315,9 @@ def _answer(row: LessonAttempt) -> dict | None:
 
 
 def is_correct(question: dict, answer: dict | None) -> bool | None:
-    if question["type"] != "single_choice" or not answer or answer.get("choice") is None:
+    """None for free text, a missing answer, or a question whose key isn't
+    loaded (it can't be checked)."""
+    if question["type"] != "single_choice" or not answer or answer.get("choice") is None or "answer" not in question:
         return None
     return answer["choice"] in question["answer"]["correct"]
 
@@ -313,16 +326,20 @@ def feedback_for(question: dict, answer: dict | None, *, reveal: bool) -> dict:
     """Feedback for an answer, or for a reveal (answer = the latest answer,
     if any). Practice: a wrong answer gets only its option's message; a
     correct answer, a reveal, or any check-mode answer also gets the
-    explanation and the correct options. Free text is never graded."""
-    key = question["answer"]
+    explanation and the correct options. Free text is never graded. Without
+    a loaded key there is nothing to give (correct: null)."""
+    key = question.get("answer")
+    if key is None:
+        return {"correct": None}
     if question["type"] == "free_text":
         return {"correct": None, "sample_reasoning": list(key["sample_reasoning"]), "rubric": list(key["rubric"])}
     correct = is_correct(question, answer)
     feedback: dict = {"correct": correct}
-    if correct is not None:
-        feedback["message"] = key["feedback"].get(answer["choice"], "")
+    if correct is not None and key["feedback"].get(answer["choice"]):
+        feedback["message"] = key["feedback"][answer["choice"]]
     if correct or reveal or question["mode"] == "check":
-        feedback["explanation"] = key["explanation"]
+        if key.get("explanation"):
+            feedback["explanation"] = key["explanation"]
         feedback["correct_options"] = list(key["correct"])
     return feedback
 
@@ -605,6 +622,15 @@ def publish_version(db: Session, lesson: Lesson, version_id: int) -> Lesson:
         validate_content(json.loads(version.content_json), assets_root())
     except ContentError as exc:
         raise LessonError("invalid_content", "The lesson content has errors", 422, errors=exc.errors) from None
+    missing = answer_keys.missing_keys(keyed_content(db, lesson, version))
+    if missing:
+        raise LessonError(
+            "missing_answer_keys",
+            f"{len(missing)} question(s) have no answer key loaded, so students' answers couldn't be checked. "
+            "Import the private answer keys first.",
+            422,
+            questions=missing,
+        )
     now = utcnow()
     if version.status != "published":
         version.status = "published"
@@ -711,6 +737,7 @@ def lesson_summary(db: Session, lesson: Lesson, fixture_hashes: dict[str, str | 
         ],
         "fixture_hash": f_hash,
         "fixture_update_available": bool(f_hash and latest is not None and f_hash != latest.content_hash),
+        "answer_keys": answer_keys.lesson_key_status(db, lesson),
     }
 
 
@@ -733,6 +760,8 @@ def fixtures_overview(db: Session, course: Course) -> list[dict]:
             "content_hash": None,
             "valid": False,
             "errors": [],
+            # Installed with its course plan (course_plan.import_plan), not on its own card.
+            "plan_code": PLAN_FIXTURES.get(key),
         }
         try:
             raw = load_fixture(key)
@@ -786,6 +815,8 @@ def preview_payload(db: Session, lesson: Lesson, version_id: int | None = None) 
     content = content_of(version)
     course = db.get(Course, lesson.course_id)
     return {
+        # Instructor-only: questions the preview (and students) can't check.
+        "missing_answer_keys": answer_keys.missing_keys(keyed_content(db, lesson, version)),
         "mode": "preview",
         "lesson": {"id": lesson.id, "slug": lesson.slug, "title": lesson.title, "status": lesson.status},
         "version": version_view(version),
@@ -812,7 +843,7 @@ def preview_evaluate(
     prior_answers: int,
 ) -> dict:
     """Feedback by exactly the student rules, for the instructor preview. Writes nothing."""
-    question = content_of(_version_or_latest(db, lesson, version_id))["questions"].get(question_key)
+    question = keyed_content(db, lesson, _version_or_latest(db, lesson, version_id))["questions"].get(question_key)
     if question is None:
         raise LessonError("question_not_found", "Question not found in this version", 404)
     if reveal:
@@ -986,7 +1017,7 @@ def student_payload(db: Session, enrollment: Enrollment, lesson: Lesson) -> dict
     """LessonPayload for the student. Writes nothing."""
     progress = _progress(db, enrollment.id, lesson.id)
     version = _version_for(db, lesson, progress)
-    content = content_of(version)
+    content = keyed_content(db, lesson, version)
     attempts = _attempts(db, enrollment.id, lesson.id)
     experiments = _experiments(db, enrollment.id, lesson.id)
     commitments = _commitments(db, enrollment.id, lesson.id)
@@ -1115,7 +1146,7 @@ def _attempt_by_request(db: Session, enrollment_id: int, request_id: str) -> Les
 
 def _attempt_result(db: Session, enrollment: Enrollment, lesson: Lesson, question_key: str, write: bool = True) -> dict:
     progress = _progress(db, enrollment.id, lesson.id)
-    content = content_of(_version_for(db, lesson, progress))
+    content = keyed_content(db, lesson, _version_for(db, lesson, progress))
     if write:
         steps = _steps_and_completion(db, enrollment.id, lesson.id, progress, content)
     else:
@@ -1154,7 +1185,7 @@ def _record_attempt(db: Session, enrollment: Enrollment, lesson: Lesson, row: Le
 
 def _question(db: Session, enrollment: Enrollment, lesson: Lesson, question_key: str) -> dict:
     """The question in the version this student is (or will be) pinned to."""
-    content = content_of(_version_for(db, lesson, _progress(db, enrollment.id, lesson.id)))
+    content = keyed_content(db, lesson, _version_for(db, lesson, _progress(db, enrollment.id, lesson.id)))
     question = content["questions"].get(question_key)
     if question is None:
         raise LessonError("question_not_found", MSG["question_not_found"], 404)
@@ -1631,15 +1662,18 @@ def _course_activity(db: Session, lesson: Lesson) -> list[_Activity]:
 
 
 class _Contents:
-    """Parsed content per version id, loaded once per request."""
+    """Parsed content per version id, with the lesson's stored answer keys
+    merged in, loaded once per request."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, lesson: Lesson):
         self.db = db
+        self.keys = answer_keys.keys_for(db, lesson.course_id, lesson.slug)
         self.cache: dict[int, dict] = {}
 
     def get(self, version_id: int) -> dict:
         if version_id not in self.cache:
-            self.cache[version_id] = content_of(self.db.get(LessonVersion, version_id))
+            content = content_of(self.db.get(LessonVersion, version_id))
+            self.cache[version_id] = answer_keys.with_keys(content, self.keys)
         return self.cache[version_id]
 
 
@@ -1778,7 +1812,7 @@ def insights(db: Session, lesson: Lesson, include_test: bool = False) -> dict:
     gets: the active published one, or the latest draft before any publish);
     see _question_stats for how attempts on other versions count."""
     reference = _reference_version(db, lesson)  # what a student starting now gets
-    contents = _Contents(db)
+    contents = _Contents(db, lesson)
     ref_content = contents.get(reference.id) if reference else {"steps": [], "questions": {}}
     activities = _course_activity(db, lesson)
     totals = {"enrolled": 0, "not_started": 0, "in_progress": 0, "completed": 0, "excluded_test": 0, "withdrawn": 0}
@@ -1867,7 +1901,7 @@ def student_detail(db: Session, lesson: Lesson, student_id: int) -> dict:
     attempts = _attempts(db, enrollment.id, lesson.id)
     experiments = _experiments(db, enrollment.id, lesson.id, include_deleted=True)
     commitments = _commitments(db, enrollment.id, lesson.id)
-    contents = _Contents(db)
+    contents = _Contents(db, lesson)
     steps = None
     status = "not_started"
     if version is not None:
@@ -1929,7 +1963,7 @@ def _csv_cell(value: Any) -> Any:
 def export_csv(db: Session, lesson: Lesson) -> str:
     """Per-student CSV (UTF-8 with BOM, so Excel shows Hebrew names)."""
     reference = _reference_version(db, lesson)
-    contents = _Contents(db)
+    contents = _Contents(db, lesson)
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(

@@ -234,10 +234,11 @@ def test_install_is_idempotent_and_versions_published_content(env):
     assert _rows(env, LessonProgress) == 0 and _rows(env, LessonAttempt) == 0
 
 
-def test_reinstall_syncs_the_lesson_title_from_the_fixture(env):
-    """The lesson row's title follows the fixture on every install path
-    (update_draft, new_version, and unchanged content installed before the
-    sync existed); published versions keep their content."""
+def test_lesson_title_follows_the_published_version_else_the_fixture(env):
+    """Students see the lesson row's title over the active version's content.
+    A never-published lesson follows the fixture on every install; once a
+    version is published, the title is that version's until another one is
+    published (a new draft behind it doesn't rename the lesson)."""
     course = _course(env, "AI", [])
     first = _install(env, course)
     assert first["title"] == "שיעור ניסוי"
@@ -245,16 +246,28 @@ def test_reinstall_syncs_the_lesson_title_from_the_fixture(env):
     content = sample_content()
     content["title"] = "כותרת חדשה"
     _write_fixture(env, content)
-    updated = _install(env, course)  # update_draft
+    updated = _install(env, course)  # update_draft of a never-published lesson
     assert updated["title"] == "כותרת חדשה" and [v["number"] for v in updated["versions"]] == [1]
+    assert updated["active_version"] is None and updated["draft_version"]["number"] == 1
+    # Live course 3's case: a draft-only lesson whose row kept its first title
+    # though v1 was updated in place; re-importing (now "unchanged") renames it.
+    with env.Session() as db:
+        db.get(Lesson, first["id"]).title = "שיעור ניסוי"
+        db.commit()
+    with env.Session() as db:
+        plan = lessons_svc.plan_install(db, db.get(Course, course.id), "test-lesson")
+        assert plan.action == "unchanged" and plan.lesson_title == "כותרת חדשה"
+    assert _install(env, course)["title"] == "כותרת חדשה"
     published = _publish(env, course, updated)
+    assert published["title"] == "כותרת חדשה"
 
     content["title"] = "כותרת שלישית"
     _write_fixture(env, content)
-    v2 = _install(env, course)  # new_version
-    assert v2["title"] == "כותרת שלישית"
+    v2 = _install(env, course)  # new_version: a draft behind the published v1
     assert [(v["number"], v["status"]) for v in v2["versions"]] == [(1, "published"), (2, "draft")]
-    with env.Session() as db:  # the published snapshot keeps its own title
+    assert v2["title"] == "כותרת חדשה"  # still v1's, which students see
+    assert _install(env, course)["title"] == "כותרת חדשה"  # unchanged: still v1's
+    with env.Session() as db:  # the published snapshot is untouched
         v1 = db.get(LessonVersion, published["active_version"]["id"])
         assert json.loads(v1.content_json)["title"] == "כותרת חדשה"
 
@@ -264,14 +277,20 @@ def test_reinstall_syncs_the_lesson_title_from_the_fixture(env):
         db.commit()
     with env.Session() as db:
         plan = lessons_svc.plan_install(db, db.get(Course, course.id), "test-lesson")
-        assert plan.action == "unchanged" and plan.renames
-    again = _install(env, course)  # unchanged content, title still synced
-    assert again["title"] == "כותרת שלישית" and again["versions"] == v2["versions"]
+        assert plan.action == "unchanged" and plan.renames and plan.lesson_title == "כותרת חדשה"
+    assert _install(env, course)["title"] == "כותרת חדשה"  # synced to the published title
     with env.Session() as db:
         stamp = db.get(Lesson, first["id"]).updated_at
-    assert _install(env, course)["title"] == "כותרת שלישית"  # idempotent
+    assert _install(env, course)["title"] == "כותרת חדשה"  # idempotent
     with env.Session() as db:
         assert db.get(Lesson, first["id"]).updated_at == stamp
+
+    v2_id = next(v["id"] for v in v2["versions"] if v["number"] == 2)
+    live = _publish(env, course, v2, version_id=v2_id)  # publishing v2 moves the title on
+    assert live["title"] == "כותרת שלישית" and live["active_version"]["number"] == 2
+    assert _install(env, course)["title"] == "כותרת שלישית"
+    back = _publish(env, course, live, version_id=published["active_version"]["id"])  # re-activate v1
+    assert back["title"] == "כותרת חדשה"
 
 
 def test_install_refuses_another_course_and_invalid_content(env):

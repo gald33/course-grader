@@ -39,9 +39,8 @@ def _choice_keys(fixture_key: str) -> list[str]:
     return [k for k, q in load_fixture(fixture_key)["questions"].items() if q["type"] == "single_choice"]
 
 
-# Lesson 3's checks (a generated lesson here: its seed's three).
+# Lessons 3 and 4 are authored in the repository (more checks than their seeds' three).
 L03_CHECKS = _choice_keys("42052-lesson-03")
-# Lesson 4 is authored in the repository (more checks than its seed's three).
 L04_CHECKS = _choice_keys("42052-lesson-04")
 
 
@@ -190,9 +189,10 @@ def test_import_plan_installs_13_drafts_and_publishes_nothing(penv):
     ready = sessions[2]["readiness"]
     assert ready["drafted"] is True and ready["reviewed_at"] is None and ready["published"] is False
     assert ready["live_verified_at"] is None and ready["handoff_says_taught"] is False
-    assert ready["runnable"]["state"] == "not_built" and ready["still_needed"]
+    assert ready["runnable"]["state"] == "built_not_reviewed" and ready["still_needed"]  # lesson 3: authored here
     four = sessions[3]["readiness"]["runnable"]  # lesson 4: authored here
     assert four["state"] == "built_not_reviewed" and "not run in Antigravity" in four["note"]
+    assert sessions[4]["readiness"]["runnable"]["state"] == "not_built"
     assert sessions[0]["readiness"]["runnable"]["state"] == "prepared_not_rerun"
 
     marked = _ok(env.client.patch(f"/api/courses/{course.id}/plan/sessions/3", json={"reviewed": True}))
@@ -304,7 +304,7 @@ def test_the_whole_plan_file_loads_13_lessons_and_every_check(penv):
     _import(env, course)
     data = fake_key_file(PLAN_KEYS)
     total = sum(len(_choice_keys(k)) for k in PLAN_KEYS)  # three per generated lesson, more in an authored one
-    assert total == 36 + len(L04_CHECKS)
+    assert total == 33 + len(L03_CHECKS) + len(L04_CHECKS)
     assert sum(len(v) for v in data["lessons"].values()) == total and len(data["lessons"]) == 13
     result = _ok(_upload(env, course, data))
     assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (total, total, [], "set")

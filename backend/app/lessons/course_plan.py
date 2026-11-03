@@ -198,6 +198,11 @@ _PREPARED: dict[str, dict] = {
 # product survive in it unchanged. "runnable" is what this repository built and
 # ran; the instructor's own review is still the reviewed/live-verified marks.
 AUTHORED: dict[str, dict] = {
+    "lesson-03": {
+        "runnable": "Colab notebook built and executed end to end in this repository on CPU, no API key or paid "
+        "service (real tokenizers, a small open model, a labeled attention illustration); not yet run by the "
+        "instructor in Colab",
+    },
     "lesson-04": {
         "runnable": "Starter web app (zip) built here; its check (node check.js, and check.html in a browser) runs "
         "in CI with the documented output. The Google Antigravity steps were checked against Google's docs on "

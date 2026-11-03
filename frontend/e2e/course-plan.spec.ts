@@ -10,9 +10,10 @@ import { loadSeed, type Seed } from './seed';
  * private: last option "right", first "wrong", texts say FAKE; see fake_keys
  * in backend/scripts/seed_e2e.py). Here: the instructor's readiness table
  * keeps its five states apart, a draft lesson previews in Hebrew RTL on a
- * desktop and a phone, and students can't reach any of the drafts. Lesson 4
- * is authored in the repository and has its own walkthrough (lesson-4.spec.ts);
- * the generated drafts are represented here by lesson 5. */
+ * desktop and a phone, and students can't reach any of the drafts. Lessons 3
+ * and 4 are authored in the repository and have their own walkthroughs
+ * (lesson-3.spec.ts, lesson-4.spec.ts); the generated drafts are represented
+ * here by lesson 5. */
 
 let seed: Seed;
 test.beforeAll(() => {
@@ -71,18 +72,22 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await expect(row(2)).toContainText(`also the existing lesson ${seed.lesson.slug}`);
 
   // Drafted, but not published or verified; the seed's FAKE keys are loaded.
-  // Lesson 4 was built here (its starter's check ran); a generated lesson was not.
+  // Lessons 3 and 4 were built here (notebook, starter check); a generated lesson was not.
   const three = row(3);
   await expect(three).toContainText('✓ v1');
-  await expect(three).toContainText('not built');
-  await expect(three).toContainText('3/3 loaded');
+  await expect(three).toContainText('built here, not reviewed');
+  await expect(three).toContainText('8/8 loaded');
   await expect(row(4)).toContainText('built here, not reviewed');
   await expect(row(4)).toContainText('8/8 loaded');
-  // Lesson 4's homework stays a proposal, visible to the instructor only.
-  const proposal = page.getByTestId('homework-proposal-4');
-  await expect(proposal).toContainText('proposal not yet assigned');
-  await expect(proposal).toContainText('no deadline or weight');
-  await expect(proposal).toContainText('Antigravity');
+  await expect(row(5)).toContainText('not built');
+  await expect(row(5)).toContainText('3/3 loaded');
+  // Their homework stays a proposal, visible to the instructor only.
+  for (const session of [3, 4]) {
+    const proposal = page.getByTestId(`homework-proposal-${session}`);
+    await expect(proposal).toContainText('proposal not yet assigned');
+    await expect(proposal).toContainText('no deadline or weight');
+  }
+  await expect(page.getByTestId('homework-proposal-4')).toContainText('Antigravity');
   await expect(three.getByRole('checkbox', { name: 'Session 3 reviewed' })).not.toBeChecked();
   await expect(three.getByRole('checkbox', { name: 'Session 3 live verified' })).not.toBeChecked();
 

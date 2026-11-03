@@ -233,6 +233,9 @@
       "homework": {
         "status": "proposal_not_yet_assigned",
         "text": "הצעה: הכינו בצוות הוראות למשימת טקסט עסקית, שני מקרי בדיקה ופלט צפוי. מועד ומשקל אינם נקבעים בחבילה זו."
+      },
+      "authored": {
+        "runnable": "Colab notebook built and executed end to end in this repository on CPU, no API key or paid service (real tokenizers, a small open model, a labeled attention illustration); not yet run by the instructor in Colab"
       }
     },
     "lesson-04": {

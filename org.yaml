@@ -1,0 +1,97 @@
+# course-grader's org-core manifest. Drafted by `org init` (org-core 0.74.0) and filled 2026-11-03 by the org-core CEO
+# session, with the operator's answers of 2026-11-03 (~11:35 IST) where the tool would not guess. A value nobody has read
+# says so instead of borrowing another org's answer.
+schema_version: 1
+manifest_version: 1
+org:
+  id: course-grader
+  repo: gald33/course-grader
+  default_branch: main
+  checkout: /home/user/course-grader
+  operator: { name: Gal, github: gald33, timezone: Asia/Jerusalem }
+  # The operator, 2026-11-03: course-grader's seats go on the `gal` account (fleet/accounts.yaml in org-core, pool MAIN).
+  # Display-only (routine.py); gal's uuid has not been read (item measure-every-account), so the label stands in for it.
+  account: gal
+  pool: MAIN
+  paths:
+    watchlist: docs/ai/ceo-watchlist.md
+ports:
+  work_store:
+    # course-grader's roadmap runs on roadmap-core's SQLite floor (roadmap/README.md, .github/workflows/roadmap.yml):
+    # items are YAML files, claims are written into them, and CI runs `roadmap sync --check` with ROADMAP_SOURCE=local.
+    tool: roadmap-core
+    mode: files
+    files: roadmap/
+    cli: roadmap
+  coordination:
+    tool: switchboard
+    url: https://switchboard.lucille-ai.com
+    workspace: gald33/course-grader
+  code_context:
+    tool: repoctx
+    ranker: lexical
+  checks:
+    # absent: no checks registry, no checks/ directory, no in-app runner (org init, 2026-11-03)
+    tool: absent
+  tickets:
+    # absent: measured 2026-11-03, gald33/course-grader has 0 issues ever and no `ticket` label
+    tool: absent
+  # course-grader is deployed: every push to main deploys the frontend (course-grader-pi.vercel.app) and the API
+  # (course-grader-api.vercel.app) on Vercel, so the code in production is main's. The hosted Supabase database has no
+  # read-only path from a session (SUPABASE_POOL_URL lives in the operator's local .env; ONBOARDING.md), so data in
+  # production is not read from here.
+  prod_read:
+    method: "git-ref: origin/main, which Vercel deploys (frontend and API); the hosted Supabase database is not readable from a session"
+  vcs:
+    tool: github
+    workflows_owned: []
+  sessions:
+    tool: claude-code-remote
+  operator_surface: docs/human/state-of-the-org.md
+# merge_to_main is the CEO's (SPEC §16 decision 10); the operator, 2026-11-03: "a marshal to handle the builds, link merges".
+operator_owns: {}
+roles:
+  # The operator, 2026-11-03: the core loop — Marshal dispatches builders, Mason builds, Reed reviews, Link merges on Reed's
+  # SOUND verdict. Enabling a role is a declaration, not a start: each reads ABSENT or IDLE until a session records, and
+  # Link binds each routine and parks each listener after this install merges.
+  ceo:
+    name: Link
+    # the floor under its listener, as in org-core: with no cadence the doctor has no clock to age its record by
+    cadence: "35 */2 * * *"
+    cadence_label: "every 2 h at :35 — a floor; it listens between"
+  dispatcher:
+    name: Marshal
+    # it spawns builders and reviewers with create_session, which only a connector carries into a routine (SPEC §5 rule 4)
+    connectors: [claude-code-remote]
+  builder:
+    name: Mason
+  reviewer:
+    name: Reed
+  # LEFT OFF on the operator's choice of the core loop (2026-11-03); each can be enabled by a later manifest PR.
+  verifier:        { name: Vera, enabled: false }
+  # LEFT OFF: no checks registry (ports.checks is absent), so nothing for it to read.
+  checks-watch:    { name: Gus,  enabled: false }
+  registrar:       { name: Nora, enabled: false }
+  # LEFT OFF: no ticket port (0 issues ever, measured 2026-11-03), so no loop to own.
+  account-manager: { name: Ruth, enabled: false }
+  methods:         { name: Ida,  enabled: false }
+  doctor:          { name: Hale, enabled: false }
+  planner:         { name: Drew, enabled: false }
+budget:
+  # the operator, 2026-11-03
+  daily_usd: 50
+  at_80_percent: warn
+  at_100_percent: pause
+knobs:
+  dispatcher.cap:
+    default: 3
+    range:
+    - 0
+    - 6
+fleet:
+  report_to: gald33/org-core/fleet/course-grader
+  sends:
+  - doctor_report
+  - run_ledger_delta
+  - knob_overrides
+  - install_log

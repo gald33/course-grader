@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { apiDelete, apiGet, apiPut, errorMessage } from '@/lib/api';
+import { courseSectionHref } from '@/lib/course-sections';
 
 type CourseStudent = { student_id: number; national_id: string; name: string };
 
@@ -65,7 +66,7 @@ export function SubmissionAdmin({
     setBusy(true);
     try {
       await apiDelete(`/api/submissions/${submissionId}`);
-      router.push(`/course/${courseId}`);
+      router.push(courseSectionHref(courseId, 'queue'));
     } catch (e) {
       setToast(`Couldn't delete submission: ${errorMessage(e)}`);
       setBusy(false);

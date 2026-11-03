@@ -28,6 +28,7 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `course-42052-whole-syllabus` | claude/course-42052-whole-syllabus | 2026-10-27T16:00:00Z |
+| `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -51,6 +52,7 @@ graph TD
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
+  instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
@@ -295,6 +297,69 @@ graph TD
 > and a done export offers a download link that works on the hosted site.
 >
 > SHIPPED: #12, merged as 1acc71f and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `instructor-course-page-is-organized-as-fake-steps`
+
+- **title:** The instructor course page is eight numbered "steps" that aren't steps, with student tools in three places
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/practical-ride-d2lxpj (since 2026-11-03T00:00:00Z)
+- **refs:**
+  - `frontend/app/course/[id]/page.tsx`
+  - `frontend/app/page.tsx`
+  - `frontend/components/peer-review/peer-review-step.tsx`
+  - `frontend/app/course/[id]/submission/[submissionId]/page.tsx`
+  - `frontend/app/course/[id]/student-view/page.tsx`
+  - `frontend/e2e/teams.spec.ts`
+  - `frontend/e2e/smoke.spec.ts`
+
+<details><summary>evidence</summary>
+
+> VERIFIED at b03bb04. The course page sidebar (frontend/app/course/[id]/
+> page.tsx:136 `STEPS`) numbers eight items and the header says "Step N of
+> 8", but only part of it is a sequence: Lessons, Peer review and Course
+> settings are not steps, and step 1 (Grading queue) comes before step 2
+> (Imports), whose own hint says "Start here at the beginning of the term".
+> The cross-references disagree with the sidebar: the home page hint
+> (frontend/app/page.tsx:143) lists "six steps: Imports → Queue → Curve →
+> Overrides → Gradebook → Settings"; the gradebook hint (:1547) says "the
+> curve in step 3, or add an override in step 4" (they are 5 and 6); the
+> rubric hint on the submission page (:1466) says "the curve in step 3".
+>
+> Everything about students is split three ways: the roster upload and the
+> add/edit/withdraw card are under Imports; sign-in accounts, teams and the
+> personal portal links are under Peer review → Teams & links (the links
+> open the whole portal — grades, team, lessons — not only reviews); "View
+> as student" is a button in the peer-review tab bar. Assignment ZIPs, the
+> only thing that fills the grading queue, are imported on a different page
+> from the queue.
+>
+> The open step is kept in localStorage under one key for every course
+> (`cg-course-step`, :162), not in the URL, so no section can be linked,
+> back/forward doesn't move between sections, and opening course B lands on
+> whatever step was last open in course A. teams.spec.ts has to plant that
+> key to reach Peer review. The sidebar footer always says "Localhost · No
+> auth needed", also on the hosted app; the Archive button in Course
+> settings has no handler; and on the Imports page the upload buttons
+> overflow their cards at 1440px.
+>
+> Done when: the sidebar groups its pages by job — Students (Students,
+> Teams), Teaching (Lessons, Peer review), Grading (Grading queue,
+> Rubrics, Curve & calibration, Overrides, Gradebook) — with Course
+> settings at the bottom and no step numbers; each import sits with what
+> it feeds (roster on
+> Students, assignment ZIPs and Google on the Grading queue, the
+> presentation sheet on Gradebook) and there is no Imports page; Students
+> holds the roster, accounts and personal links, and Teams is its own page;
+> the open section is in `?section=` so links, refresh and back/forward
+> work, and a course with no students opens on Students; links back from a
+> submission, a lesson preview and "view as student" return to the section
+> they came from; the hints name pages instead of step numbers; the footer
+> links to "View as student"; Archive archives; the README's walkthroughs
+> name the new places; and the Playwright smoke test covers switching
+> sections through the URL.
 
 </details>
 

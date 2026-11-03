@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { StudentView, type Home } from '@/components/student-view';
 import { apiGet, errorMessage } from '@/lib/api';
+import { courseSectionHref } from '@/lib/course-sections';
 
 /* "View as student": the exact page a student sees, rendered read-only for
  * the instructor. Data comes from the instructor API, so no student link or
@@ -45,7 +46,7 @@ export default function StudentViewPreview({ params }: { params: { id: string } 
   const banner = (
     <div dir="ltr" className="sticky top-0 z-40 border-b border-terracotta-soft bg-terracotta-tint px-4 py-2.5 text-[13px]">
       <div className="mx-auto flex max-w-[960px] flex-wrap items-center gap-x-4 gap-y-2">
-        <Link href={`/course/${courseId}`} className="text-forest hover:underline">
+        <Link href={courseSectionHref(courseId, 'students')} className="text-forest hover:underline">
           ← Back to course
         </Link>
         <span className="font-semibold">Student view · preview only — nothing you do here is saved</span>
@@ -79,7 +80,7 @@ export default function StudentViewPreview({ params }: { params: { id: string } 
   if (!current) {
     return (
       <div className="p-10 text-ink-3">
-        No students in this course yet. <Link href={`/course/${courseId}`} className="text-forest underline">Back</Link>
+        No students in this course yet. <Link href={courseSectionHref(courseId, 'students')} className="text-forest underline">Back</Link>
       </div>
     );
   }

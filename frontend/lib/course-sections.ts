@@ -15,3 +15,7 @@ export type CourseSection =
 
 export const courseSectionHref = (courseId: number, section: CourseSection, tab?: string) =>
   `/course/${courseId}?section=${section}${tab ? `&tab=${encodeURIComponent(tab)}` : ''}`;
+
+/* The Lessons section's lesson list (its "lessons" tab), or one lesson's own page. */
+export const lessonsHref = (courseId: number, lessonId?: number) =>
+  lessonId == null ? courseSectionHref(courseId, 'lessons', 'lessons') : `/course/${courseId}/lessons/${lessonId}`;

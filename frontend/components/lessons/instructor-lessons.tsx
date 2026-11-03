@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnswerKeysCard, CoursePlanCard, type AnswerKeyStatus } from '@/components/lessons/course-plan';
@@ -13,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiBase, apiGet, apiPatch, apiPost, errorMessage } from '@/lib/api';
+import { courseSectionHref, lessonsHref } from '@/lib/course-sections';
 
 /* Guided lessons, instructor side: install the lesson file bundled with the
  * app into this course as a draft, preview any version exactly as students
@@ -315,32 +317,111 @@ function StepLabel({ step, fallback }: { step: StepStats | undefined; fallback: 
 
 /* =============== Step =============== */
 
+/* What the lesson list needs from the course plan: which session each lesson
+ * belongs to, and that session's readiness. The plan view has more (see
+ * course-plan.tsx); this reads only these fields. */
+type PlanLessonRef = { id: number };
+type PlanSessionRef = {
+  session: number;
+  lesson: PlanLessonRef | null;
+  existing_lessons: PlanLessonRef[];
+  enrichment_lessons?: PlanLessonRef[];
+  readiness: { drafted: boolean; reviewed_at: string | null; published: boolean; live_verified_at: string | null };
+};
+type PlanRef = { plan_code: string | null; sessions: PlanSessionRef[] };
+
+type IndexEntry = {
+  lesson: LessonSummary;
+  session: number | null;
+  /** Its session's own plan lesson (readiness speaks to it), an existing lesson the session also names, or optional enrichment. */
+  role: 'plan' | 'existing' | 'enrichment' | null;
+  readiness: PlanSessionRef['readiness'] | null;
+};
+
+const ROLE_RANK = { plan: 0, existing: 1, enrichment: 2 } as const;
+
+/** Every lesson once, in session order; lessons no session names come last, by position. */
+function indexEntries(lessons: LessonSummary[], plan: PlanRef | null): IndexEntry[] {
+  const found = new Map<number, Omit<IndexEntry, 'lesson'>>();
+  for (const s of plan?.sessions ?? []) {
+    const put = (id: number | undefined, role: NonNullable<IndexEntry['role']>) => {
+      if (id == null || found.has(id)) return;
+      found.set(id, { session: s.session, role, readiness: role === 'plan' ? s.readiness : null });
+    };
+    put(s.lesson?.id, 'plan');
+    (s.existing_lessons ?? []).forEach((l) => put(l.id, 'existing'));
+    (s.enrichment_lessons ?? []).forEach((l) => put(l.id, 'enrichment'));
+  }
+  return lessons
+    .map((lesson) => ({ lesson, ...(found.get(lesson.id) ?? { session: null, role: null, readiness: null }) }))
+    .sort(
+      (a, b) =>
+        (a.session ?? Infinity) - (b.session ?? Infinity) ||
+        (a.role ? ROLE_RANK[a.role] : 3) - (b.role ? ROLE_RANK[b.role] : 3) ||
+        a.lesson.position - b.lesson.position ||
+        a.lesson.id - b.lesson.id
+    );
+}
+
+/** The furthest readiness state reached and the next one not yet reached; the
+ * five states stay apart in the plan's readiness table. */
+function readinessShort(r: IndexEntry['readiness']): { text: string; title: string } | null {
+  if (!r) return null;
+  const title =
+    `drafted: ${r.drafted ? 'yes' : 'no'} · reviewed: ${r.reviewed_at ? fmtShortDate(r.reviewed_at) : 'no'} · ` +
+    `published: ${r.published ? 'yes' : 'no'} · live verified: ${r.live_verified_at ? fmtShortDate(r.live_verified_at) : 'no'}`;
+  if (r.live_verified_at) return { text: 'live verified', title };
+  if (r.published) return { text: 'published · not verified live', title };
+  if (r.reviewed_at) return { text: 'reviewed · not published', title };
+  if (r.drafted) return { text: 'drafted · not reviewed', title };
+  return { text: 'not imported', title };
+}
+
+function keysShort(lesson: LessonSummary): { text: string; pill: string } | null {
+  const latest = lesson.answer_keys?.latest;
+  if (!latest || !latest.needed) return null;
+  const loaded = latest.needed - latest.missing.length;
+  return { text: `keys ${loaded}/${latest.needed}`, pill: loaded === latest.needed ? 'pill pill-ok' : 'pill pill-warn' };
+}
+
+const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-1';
+
+/** The Lessons section: its tabs, or with `view` (from /course/[id]/lessons/[lessonId]) one lesson's own page. */
 export function LessonsStep({
   courseId,
   course,
+  view,
   setToast
 }: {
   courseId: number;
   course: CourseInfo;
+  view?: string;
   setToast: (m: string) => void;
 }) {
   const base = `/api/courses/${courseId}/lessons`;
   const [lessons, setLessons] = useState<LessonSummary[] | null>(null);
   const [fixtures, setFixtures] = useState<FixtureRow[]>([]);
+  const [plan, setPlan] = useState<PlanRef | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [tab, setTab] = useUrlTab(['plan', 'lessons', 'insights'] as const);
 
   const load = useCallback(async () => {
-    const [list, fx] = await Promise.all([apiGet<LessonSummary[]>(base), apiGet<FixtureRow[]>(`${base}/fixtures`)]);
+    const [list, fx, pl] = await Promise.all([
+      apiGet<LessonSummary[]>(base),
+      apiGet<FixtureRow[]>(`${base}/fixtures`),
+      // Only orders the list; the Course plan tab reports its own errors.
+      apiGet<PlanRef>(`/api/courses/${courseId}/plan`).catch(() => null)
+    ]);
     setLessons(list);
     setFixtures(fx);
+    setPlan(pl);
     setLoadError(null);
     setSelected((cur) => {
       if (cur && list.some((l) => l.id === cur)) return cur;
       return (list.find((l) => l.status === 'published') ?? list[0])?.id ?? null;
     });
-  }, [base]);
+  }, [base, courseId]);
 
   useEffect(() => {
     void load().catch((e) => setLoadError(errorMessage(e)));
@@ -358,6 +439,8 @@ export function LessonsStep({
     },
     [load, setToast]
   );
+
+  const entries = useMemo(() => indexEntries(lessons ?? [], plan), [lessons, plan]);
 
   if (loadError && !lessons) {
     return (
@@ -378,6 +461,28 @@ export function LessonsStep({
   }
   if (!lessons) return <div className="pt-6 text-ink-3">Loading…</div>;
 
+  if (view != null) {
+    const at = entries.findIndex((e) => String(e.lesson.id) === view);
+    if (at < 0) {
+      return (
+        <div className="grid gap-4 pt-5">
+          <BackToList courseId={courseId} />
+          <Card>
+            <div className="text-[14px] text-ink-2">This lesson isn’t part of this course.</div>
+          </Card>
+        </div>
+      );
+    }
+    const e = entries[at];
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pt-5">
+        <LessonNav courseId={courseId} entries={entries} at={at} />
+        <LessonCard key={e.lesson.id} base={base} courseId={courseId} course={course} entry={e} page run={run} />
+        <InsightsPanel key={`insights-${e.lesson.id}`} courseId={courseId} lesson={e.lesson} setToast={setToast} />
+      </div>
+    );
+  }
+
   const selectedLesson = lessons.find((l) => l.id === selected) ?? null;
   const live = lessons.filter((l) => l.status === 'published').length;
   const drafts = lessons.filter((l) => l.draft_version).length;
@@ -388,7 +493,7 @@ export function LessonsStep({
   ] as const;
 
   return (
-    <div className="grid gap-4 pt-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pt-5">
       <SubTabs label="Lessons" tabs={tabs} active={tab} onChange={setTab} />
 
       {tab === 'plan' ? (
@@ -423,16 +528,16 @@ export function LessonsStep({
               <div className="text-[14px] text-ink-3">No lesson files are bundled with this server, and no lessons are installed.</div>
             </Card>
           ) : null}
-          <div className="grid gap-2">
-            {lessons.map((l) => (
+          <div className="grid gap-2" data-testid="lessons-index">
+            {entries.map((e) => (
               <LessonCard
-                key={l.id}
+                key={e.lesson.id}
                 base={base}
                 courseId={courseId}
                 course={course}
-                lesson={l}
+                entry={e}
                 onInsights={() => {
-                  setSelected(l.id);
+                  setSelected(e.lesson.id);
                   setTab('insights');
                 }}
                 run={run}
@@ -451,7 +556,7 @@ export function LessonsStep({
               value={selectedLesson?.id ?? ''}
               onChange={(e) => setSelected(Number(e.target.value))}
             >
-              {lessons.map((l) => (
+              {entries.map(({ lesson: l }) => (
                 <option key={l.id} value={l.id}>
                   {l.title} ({l.status})
                 </option>
@@ -472,6 +577,54 @@ export function LessonsStep({
         </>
       ) : null}
     </div>
+  );
+}
+
+function BackToList({ courseId }: { courseId: number }) {
+  return (
+    <div className="text-[14px]">
+      <Link href={lessonsHref(courseId)} className={`rounded text-forest hover:underline ${FOCUS}`}>
+        ← All lessons
+      </Link>
+    </div>
+  );
+}
+
+/** Back to the lesson list, where this lesson sits in it, and the lessons either side. */
+function LessonNav({ courseId, entries, at }: { courseId: number; entries: IndexEntry[]; at: number }) {
+  const prev = entries[at - 1]?.lesson;
+  const next = entries[at + 1]?.lesson;
+  const link = `inline-flex min-w-0 max-w-full items-baseline gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-ink no-underline hover:bg-paper-2 ${FOCUS}`;
+  return (
+    <nav aria-label="Lesson navigation" className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <Link href={lessonsHref(courseId)} className={`rounded text-[14px] text-forest hover:underline ${FOCUS}`}>
+        ← All lessons
+      </Link>
+      <span className="text-[13px] text-ink-3">
+        Lesson {at + 1} of {entries.length}
+        {entries[at].session != null ? ` · session ${entries[at].session}` : ''}
+      </span>
+      <span className="flex min-w-0 max-w-full flex-wrap gap-2 sm:ml-auto">
+        {prev ? (
+          <Link href={lessonsHref(courseId, prev.id)} className={link} rel="prev" aria-label={`Previous lesson: ${prev.title}`}>
+            <span aria-hidden>←</span>
+            <span className="shrink-0">Previous</span>
+            <span dir="rtl" className="min-w-0 max-w-[16rem] truncate text-ink-3">
+              {prev.title}
+            </span>
+          </Link>
+        ) : null}
+        {next ? (
+          <Link href={lessonsHref(courseId, next.id)} className={link} rel="next" aria-label={`Next lesson: ${next.title}`}>
+            <span className="shrink-0">Next</span>
+            <span dir="rtl" className="min-w-0 max-w-[16rem] truncate text-ink-3">
+              {next.title}
+            </span>
+            <span aria-hidden>→</span>
+          </Link>
+        ) : null}
+      </span>
+    </nav>
   );
 }
 
@@ -599,18 +752,23 @@ function LessonCard({
   base,
   courseId,
   course,
-  lesson,
+  entry,
+  page = false,
   onInsights,
   run
 }: {
   base: string;
   courseId: number;
   course: CourseInfo;
-  lesson: LessonSummary;
-  onInsights: () => void;
+  entry: IndexEntry;
+  /** On the lesson's own page: everything shown. In the list: one row that links to that page. */
+  page?: boolean;
+  onInsights?: () => void;
   run: Run;
 }) {
-  const [open, setOpen] = useState(false);
+  const { lesson } = entry;
+  const keys = keysShort(lesson);
+  const ready = readinessShort(entry.readiness);
   const live = lesson.status === 'published' ? lesson.active_version : null;
   const latest = lesson.versions[lesson.versions.length - 1] ?? null;
   const previewHref = (n: number) => `/course/${courseId}/lessons/${lesson.id}/preview?version=${n}`;
@@ -637,33 +795,55 @@ function LessonCard({
   };
 
   return (
-    <div className="grid gap-3 rounded-lg border border-border bg-card px-5 py-3.5 shadow-soft">
+    <div
+      className="grid gap-3 rounded-lg border border-border bg-card px-4 py-3.5 shadow-soft md:px-5"
+      data-lesson-id={lesson.id}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="font-display text-[18px] leading-tight">
-            <span dir="rtl">{lesson.title}</span>
-          </h2>
-          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-ink-3">
-            <span className="font-mono text-[12px]">{lesson.slug}</span>
-            <span className={LESSON_STATUS_PILL[lesson.status]}>{lesson.status}</span>
-            {live ? (
-              <span title={`published ${fmtDate(live.published_at)}`}>v{live.number} live</span>
-            ) : lesson.active_version ? (
-              <span title="saved progress is kept">unpublished; v{lesson.active_version.number} was live</span>
-            ) : null}
-            {lesson.draft_version ? <span>{live ? '· ' : ''}v{lesson.draft_version.number} not published yet</span> : null}
+        <div className="flex min-w-0 items-baseline gap-3">
+          <span
+            className="w-7 shrink-0 font-display text-[20px] leading-none text-ink-3 tnum"
+            title={entry.session != null ? `Session ${entry.session}` : 'Not in the course plan'}
+          >
+            {entry.session ?? '—'}
+          </span>
+          <div className="min-w-0">
+            <h2 className={`font-display leading-tight ${page ? 'text-[24px]' : 'text-[18px]'}`}>
+              {page ? (
+                <span dir="rtl">{lesson.title}</span>
+              ) : (
+                <Link href={lessonsHref(courseId, lesson.id)} className={`rounded text-ink no-underline hover:underline ${FOCUS}`}>
+                  <span dir="rtl">{lesson.title}</span>
+                </Link>
+              )}
+            </h2>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-ink-3">
+              <span className="font-mono text-[12px]">{lesson.slug}</span>
+              {entry.role === 'existing' ? <span>existing lesson</span> : entry.role === 'enrichment' ? <span>enrichment (optional)</span> : null}
+              <span className={LESSON_STATUS_PILL[lesson.status]}>{lesson.status}</span>
+              {live ? (
+                <span title={`published ${fmtDate(live.published_at)}`}>v{live.number} live</span>
+              ) : lesson.active_version ? (
+                <span title="saved progress is kept">unpublished; v{lesson.active_version.number} was live</span>
+              ) : null}
+              {lesson.draft_version ? <span>{live ? '· ' : ''}v{lesson.draft_version.number} not published yet</span> : null}
+              {keys ? <span className={keys.pill}>{keys.text}</span> : null}
+              {ready ? (
+                <span className="pill" title={ready.title}>
+                  {ready.text}
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {latest ? (
-            <a
+            <Link
               href={previewHref(latest.number)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center rounded-md border border-terracotta-soft bg-terracotta-tint px-2.5 py-1 text-[13px] text-ink hover:border-terracotta"
+              className={`inline-flex items-center rounded-md border border-terracotta-soft bg-terracotta-tint px-2.5 py-1 text-[13px] text-ink no-underline hover:border-terracotta ${FOCUS}`}
             >
-              👁 Preview version {latest.number} ↗
-            </a>
+              👁 Preview version {latest.number}
+            </Link>
           ) : null}
           {lesson.draft_version ? (
             <Button
@@ -681,18 +861,28 @@ function LessonCard({
               Unpublish
             </Button>
           ) : null}
-          <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-            {open ? 'Less ▴' : 'Versions ▾'}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onInsights}>
-            Insights →
-          </Button>
+          {!page ? (
+            <>
+              <Link
+                href={lessonsHref(courseId, lesson.id)}
+                className={`inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium text-ink no-underline hover:bg-paper-2 ${FOCUS}`}
+                aria-label={`Open lesson: ${lesson.title}`}
+              >
+                Open →
+              </Link>
+              {onInsights ? (
+                <Button size="sm" variant="ghost" onClick={onInsights}>
+                  Insights →
+                </Button>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </div>
 
-      <MissingKeys lesson={lesson} />
+      <MissingKeys courseId={courseId} lesson={lesson} />
 
-      {open ? (
+      {page ? (
         <div className="grid gap-4 border-t border-line-soft pt-3">
           <TableCard>
             <thead>
@@ -722,14 +912,13 @@ function LessonCard({
                     <Td className="text-[13px] text-ink-2">{fmtDate(v.published_at)}</Td>
                     <Td className="pr-5 text-right">
                       <div className="flex justify-end gap-2">
-                        <a
+                        <Link
                           href={previewHref(v.number)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center rounded-md px-2.5 py-1 text-[13px] text-forest hover:bg-paper-2"
+                          className={`inline-flex items-center rounded-md px-2.5 py-1 text-[13px] text-forest hover:bg-paper-2 ${FOCUS}`}
+                          aria-label={`Preview version ${v.number}`}
                         >
-                          Preview ↗
-                        </a>
+                          Preview
+                        </Link>
                         {!isLive ? (
                           <Button size="sm" variant={v.status === 'draft' ? 'default' : 'outline'} onClick={() => publish(v)}>
                             {v.status === 'published' ? `Make version ${v.number} live` : `Publish version ${v.number}`}
@@ -765,7 +954,7 @@ function LessonCard({
 
 /** Questions without a loaded answer key can't be checked: the live version's
  * students get no feedback on them, and a version missing keys can't be published. */
-function MissingKeys({ lesson }: { lesson: LessonSummary }) {
+function MissingKeys({ courseId, lesson }: { courseId: number; lesson: LessonSummary }) {
   const { latest, live } = lesson.answer_keys ?? { latest: null, live: null };
   const published = lesson.status === 'published' && live != null;
   const liveMissing = published ? live.missing : [];
@@ -803,7 +992,13 @@ function MissingKeys({ lesson }: { lesson: LessonSummary }) {
             . It isn’t used (never marking answers wrong against an option that’s gone); import a corrected key.
           </div>
         ) : null}
-        <div className="text-[13px] text-ink-2">Import the private answer keys above; the file is never stored in the app’s code.</div>
+        <div className="text-[13px] text-ink-2">
+          Import the private answer keys on the Lessons{' '}
+          <Link href={courseSectionHref(courseId, 'lessons')} className="text-forest hover:underline">
+            Course plan
+          </Link>{' '}
+          tab; the file is never stored in the app’s code.
+        </div>
       </div>
     </div>
   );
@@ -973,7 +1168,7 @@ function InsightsPanel({
   };
 
   return (
-    <section className="grid gap-4" aria-label="Class insights">
+    <section id="class-insights" className="grid gap-4" aria-label="Class insights">
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-6">
         <div className="min-w-0">
           <div className="label-eyebrow mb-1">Class insights</div>

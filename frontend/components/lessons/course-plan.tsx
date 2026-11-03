@@ -253,7 +253,7 @@ function ReadinessTable({
   const th = 'px-2.5 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-3';
   const td = 'px-2.5 py-2 align-top text-[13px]';
   return (
-    <div>
+    <div className="min-w-0">
       <h3 className="mb-1 font-semibold">Schedule and readiness</h3>
       <p className="mb-2 text-[13px] text-ink-3">
         Five separate states, never one “ready”: <b>drafted</b> (a lesson version exists), <b>reviewed</b> (you checked

@@ -7,7 +7,7 @@ import type { LessonSummary } from '@/components/lessons/instructor-lessons';
 import { LessonPlayer } from '@/components/lessons/lesson-player';
 import { previewLessonBackend } from '@/components/lessons/preview-backend';
 import { apiGet, errorMessage } from '@/lib/api';
-import { courseSectionHref } from '@/lib/course-sections';
+import { lessonsHref } from '@/lib/course-sections';
 
 /* Lesson preview: the student player, on any version of the lesson, fed by
  * the instructor preview endpoints. Answers get the real feedback, but nothing
@@ -53,8 +53,8 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
   );
 
   const back = (
-    <Link href={courseSectionHref(courseId, 'lessons')} className="text-forest hover:underline">
-      ← Back to course
+    <Link href={lessonsHref(courseId, lessonId)} className="text-forest hover:underline">
+      ← Back to lesson
     </Link>
   );
 

@@ -25,6 +25,15 @@ export type Seed = {
     hw1: { id: number; name: string };
     hw2: { id: number; name: string; score: number; feedback: string };
   };
+  /** Custom rubrics, in a course of their own: an HW2 without one, and a
+   * project whose submission has one criterion scored by the LLM and one not. */
+  rubrics: {
+    course_id: number;
+    hw2_id: number;
+    project_id: number;
+    project_submission_id: number;
+    criteria: { id: number; name: string; description: string; max_points: number }[];
+  };
 };
 
 export function loadSeed(): Seed {

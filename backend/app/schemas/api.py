@@ -259,6 +259,8 @@ class SubmissionDetail(BaseModel):
     artifacts: list[ArtifactRead] = []
     llm_review: LLMReviewRead | None = None
     code_review: CodeReviewRead | None = None
+    # Per-criterion scores when the assignment has a custom rubric.
+    custom_rubric: dict | None = None
 
 
 class NotesUpdate(BaseModel):
@@ -348,6 +350,27 @@ class StudentTeamJoin(BaseModel):
 
 class StudentTeamUpdate(BaseModel):
     team_id: int | None = None
+
+
+class AutoAssignProposeIn(BaseModel):
+    # Omit for a fresh random seed; pass one back to rebuild the same proposal.
+    seed: int | None = Field(default=None, ge=0, lt=2**31)
+
+
+class AutoAssignExistingTeam(BaseModel):
+    team_id: int
+    student_ids: list[int] = Field(default_factory=list, max_length=200)
+
+
+class AutoAssignNewTeam(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    student_ids: list[int] = Field(default_factory=list, max_length=200)
+
+
+class AutoAssignApproveIn(BaseModel):
+    fingerprint: str = Field(min_length=1, max_length=128)
+    existing: list[AutoAssignExistingTeam] = Field(default_factory=list, max_length=500)
+    new_teams: list[AutoAssignNewTeam] = Field(default_factory=list, max_length=500)
 
 
 class RubricCriterionIn(BaseModel):

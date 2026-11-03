@@ -4,6 +4,7 @@ import DOMPurify from 'dompurify';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { CustomRubricCard, type CustomRubricView } from '@/components/custom-rubric-card';
 import { SubmissionAdmin } from '@/components/submission-admin';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -143,6 +144,8 @@ type SubmissionDetail = {
   artifacts: ArtifactRef[];
   llm_review: LLMReview | null;
   code_review: CodeReview | null;
+  // Set when the assignment has a custom rubric; it replaces the code dimensions.
+  custom_rubric: CustomRubricView | null;
 };
 
 type CourseSubmission = {
@@ -429,7 +432,11 @@ export default function SubmissionReviewPage({
   const prev = myIdx > 0 ? sameTypeQueue[myIdx - 1] : null;
   const next = myIdx >= 0 && myIdx < sameTypeQueue.length - 1 ? sameTypeQueue[myIdx + 1] : null;
 
-  const components = detail ? RUBRIC_COMPONENTS_BY_TYPE[detail.submission.assignment_type] || [] : [];
+  // A custom rubric grades the code (see CustomRubricCard); the other
+  // components keep their dimensions.
+  const components = (detail ? RUBRIC_COMPONENTS_BY_TYPE[detail.submission.assignment_type] || [] : []).filter(
+    (c) => !detail?.custom_rubric || (c !== 'hw2_code' && c !== 'project_code')
+  );
   const allDims = components.flatMap((c) => (DIMENSIONS[c] || []).map((d) => `${c}:${d}`));
   const filledCount = allDims.filter((k) => rubricValues[k] != null).length;
 
@@ -1434,6 +1441,16 @@ function EmptyArtifact({ title, body }: { title: string; body: string }) {
 
 function RubricPanel(props: SharedProps & { embedded?: boolean }) {
   const { components, rubricValues, setRubricValues, saveRubric, embedded } = props;
+  const custom = props.detail.custom_rubric;
+  const customCard = custom ? (
+    <CustomRubricCard
+      submissionId={props.detail.submission.id}
+      view={custom}
+      refresh={props.refresh}
+      setToast={props.setToast}
+    />
+  ) : null;
+  if (custom && components.length === 0) return customCard;
   if (components.length === 0) {
     return (
       <div className={embedded ? '' : 'mb-3.5 rounded-lg border border-border bg-card p-[22px] shadow-soft'}>
@@ -1446,6 +1463,8 @@ function RubricPanel(props: SharedProps & { embedded?: boolean }) {
   }
 
   return (
+    <>
+    {customCard}
     <div className={embedded ? '' : 'mb-3.5 rounded-lg border border-border bg-card p-[22px] shadow-soft'}>
       {!embedded ? (
         <>
@@ -1518,6 +1537,7 @@ function RubricPanel(props: SharedProps & { embedded?: boolean }) {
         </div>
       ) : null}
     </div>
+    </>
   );
 }
 

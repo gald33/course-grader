@@ -32,6 +32,8 @@ from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.entities import (  # noqa: E402
     Assignment,
+    Assignment,
+    CriterionResult,
     Enrollment,
     RubricDimensionScore,
     Student,
@@ -68,6 +70,10 @@ LESSON_STUDENTS = [
 ASSIGNMENT_COURSE = {"code": "E2E103", "name": "Assignment Test Course", "year": 2026, "semester": "A"}
 ASSIGNMENT_STUDENT = ("900000021", "Gil Assign")
 ASSIGNMENT_FEEDBACK = "עבודה יפה, כדאי להרחיב את ההשוואה בין המודלים."
+# Custom rubrics are seeded in a second course (see seed()).
+RUBRIC_COURSE = {"code": "E2E102", "name": "Rubric Test Course", "year": 2026, "semester": "A"}
+RUBRIC_SCORED = {"name": "השוואת מודלים", "description": "Three or more models, compared on one metric", "max_points": 20}
+RUBRIC_UNSCORED = {"name": "Plots", "description": "Results plotted and explained", "max_points": 10}
 
 
 def _ok(res, status: int = 200):
@@ -142,11 +148,55 @@ def seed() -> dict:
             for d in COMPONENT_DIMENSIONS["hw2_code"]:
                 db.add(RubricDimensionScore(submission_id=sub.id, component="hw2_code", dimension_key=d.key, raw_score=4, adjusted_score=4))
             db.commit()
-            assignment_student_id, hw1_id, hw2_id = s.id, hw1.id, hw2.id
+            assignment_student_id, a_hw1_id, a_hw2_id = s.id, hw1.id, hw2.id
         apeer = f"/api/courses/{assignment_course_id}/peer"
         _ok(c.post(f"{apeer}/links/generate"))
         assignment_token = next(r["token"] for r in _ok(c.get(f"{apeer}/links")) if r["student_id"] == assignment_student_id)
         _ok(c.put(f"/api/courses/{assignment_course_id}/grade-releases/hw2", json={"released": True}))
+
+        # Custom rubrics, in a course of their own so its submission stays off
+        # the main course's pages: an HW2 with none (the tests author one), and
+        # a project whose rubric has one criterion the LLM scored and one it
+        # could not, on one submission.
+        rubric_course_id = _ok(c.post("/api/courses", json=RUBRIC_COURSE))["id"]
+        with SessionLocal() as db:
+            hw2 = Assignment(course_id=rubric_course_id, workcode=2, name="HW2 smoke", assignment_type="HW2")
+            project = Assignment(course_id=rubric_course_id, workcode=3, name="Project smoke", assignment_type="PROJECT")
+            db.add_all([hw2, project])
+            db.flush()
+            submission = Submission(course_id=rubric_course_id, assignment_id=project.id, group_identifier="Alpha")
+            db.add(submission)
+            db.commit()
+            hw2_id, project_id, submission_id = hw2.id, project.id, submission.id
+        rubric = _ok(
+            c.put(
+                f"/api/courses/{rubric_course_id}/assignments/{project_id}/rubric",
+                json={"criteria": [RUBRIC_SCORED, RUBRIC_UNSCORED]},
+            )
+        )["rubric"]
+        scored, unscored = (crit["id"] for crit in rubric["criteria"])
+        with SessionLocal() as db:
+            db.add(
+                CriterionResult(
+                    submission_id=submission_id,
+                    criterion_id=scored,
+                    status="scored",
+                    score=14,
+                    rationale="[cell 3] שלושה מודלים הושוו",
+                    model="seed",
+                )
+            )
+            db.add(
+                CriterionResult(
+                    submission_id=submission_id,
+                    criterion_id=unscored,
+                    status="not_scored",
+                    rationale="",
+                    model="seed",
+                    error="ANTHROPIC_API_KEY is not set",
+                )
+            )
+            db.commit()
 
     def signed_in(name: str) -> dict:
         student_id = ids[name]
@@ -168,8 +218,15 @@ def seed() -> dict:
         "assignments": {
             "course_id": assignment_course_id,
             "student": {"id": assignment_student_id, "name": ASSIGNMENT_STUDENT[1], "token": assignment_token},
-            "hw1": {"id": hw1_id, "name": "תרגיל 1: היכרות"},
-            "hw2": {"id": hw2_id, "name": "תרגיל 2: מודלים", "score": 80, "feedback": ASSIGNMENT_FEEDBACK},
+            "hw1": {"id": a_hw1_id, "name": "תרגיל 1: היכרות"},
+            "hw2": {"id": a_hw2_id, "name": "תרגיל 2: מודלים", "score": 80, "feedback": ASSIGNMENT_FEEDBACK},
+        },
+        "rubrics": {
+            "course_id": rubric_course_id,
+            "hw2_id": hw2_id,
+            "project_id": project_id,
+            "project_submission_id": submission_id,
+            "criteria": [{"id": scored, **RUBRIC_SCORED}, {"id": unscored, **RUBRIC_UNSCORED}],
         },
     }
 

@@ -43,8 +43,9 @@ def _choice_keys(fixture_key: str) -> list[str]:
     return [k for k, q in load_fixture(fixture_key)["questions"].items() if q["type"] == "single_choice"]
 
 
-# Lesson 3 is authored in the repository (more checks than its seed's three).
+# Lessons 3 and 4 are authored in the repository (more checks than their seeds' three).
 L03_CHECKS = _choice_keys("42052-lesson-03")
+L04_CHECKS = _choice_keys("42052-lesson-04")
 
 
 def _script(name: str):
@@ -193,7 +194,9 @@ def test_import_plan_installs_13_drafts_and_publishes_nothing(penv):
     assert ready["drafted"] is True and ready["reviewed_at"] is None and ready["published"] is False
     assert ready["live_verified_at"] is None and ready["handoff_says_taught"] is False
     assert ready["runnable"]["state"] == "built_not_reviewed" and ready["still_needed"]  # lesson 3: authored here
-    assert sessions[3]["readiness"]["runnable"]["state"] == "not_built"
+    four = sessions[3]["readiness"]["runnable"]  # lesson 4: authored here
+    assert four["state"] == "built_not_reviewed" and "not run in Antigravity" in four["note"]
+    assert sessions[4]["readiness"]["runnable"]["state"] == "not_built"
     assert sessions[0]["readiness"]["runnable"]["state"] == "prepared_not_rerun"
 
     marked = _ok(env.client.patch(f"/api/courses/{course.id}/plan/sessions/3", json={"reviewed": True}))
@@ -284,7 +287,8 @@ def test_key_upload_shapes_dry_run_and_status_never_return_a_key(penv):
     assert _upload(env, course, per_option).json()["detail"]["errors"] == ["lessons.lesson-04.l04-q1: feedback_he must be a text"]
     partial = {"lessons": {"lesson-04": {"l04-q1": fake_entry(q)}}}
     result = _ok(_upload(env, course, partial))
-    assert result["added"] == 1 and result["not_in_file"][:2] == ["lesson-04/l04-q2", "lesson-04/l04-q3"]
+    assert result["added"] == 1 and {"lesson-04/l04-q2", "lesson-04/l04-q3"} <= set(result["not_in_file"])
+    assert "lesson-04/l04-q1" not in result["not_in_file"]
 
     status = env.client.get(f"/api/courses/{course.id}/answer-keys")
     body = _ok(status)
@@ -303,7 +307,8 @@ def test_the_whole_plan_file_loads_13_lessons_and_every_check(penv):
     course = _plan_course(env)
     _import(env, course)
     data = fake_key_file(INSTALLED_KEYS)
-    total = 36 + len(L03_CHECKS) + len(_choice_keys("42052-lesson-03-deeper"))  # three per generated lesson
+    total = sum(len(_choice_keys(k)) for k in INSTALLED_KEYS)  # three per generated lesson, more in an authored one
+    assert total == 33 + len(L03_CHECKS) + len(_choice_keys("42052-lesson-03-deeper")) + len(L04_CHECKS)
     assert sum(len(v) for v in data["lessons"].values()) == total and len(data["lessons"]) == 14
     result = _ok(_upload(env, course, data))
     assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (total, total, [], "set")

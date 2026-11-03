@@ -277,7 +277,10 @@
       },
       "homework": {
         "status": "proposal_not_yet_assigned",
-        "text": "הצעה: יישמו שינוי קטן במאגר תרגול ותעדו תוכנית, שינוי, הרצה ובדיקה. אין להניח גישה חינמית או רישיון לכל ספק."
+        "text": "הצעה: בצוות, יישמו שינוי קטן אחד בתיקייה או במאגר של הפרויקט שלכם בעזרת Google Antigravity, ותעדו תוכנית, נקודת שמירה, שינוי, diff, הרצה ובדיקה. אין להניח גישה חינמית או רישיון לכל ספק."
+      },
+      "authored": {
+        "runnable": "Starter web app (zip) built here; its check (node check.js, and check.html in a browser) runs in CI with the documented output. The Google Antigravity steps were checked against Google's docs on 2026-11-03 but not run in Antigravity, here or by the instructor"
       }
     },
     "lesson-05": {

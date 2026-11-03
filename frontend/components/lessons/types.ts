@@ -95,7 +95,12 @@ export type Block =
       learning_rate: number;
     }
   | { type: 'embedding_map'; asset: string; caption?: Inline; start?: string }
-  | { type: 'image'; asset: string; alt: string; caption?: Inline };
+  | { type: 'image'; asset: string; alt: string; caption?: Inline }
+  | { type: 'architecture_map'; caption?: Inline; parts: ArchitecturePart[]; items: ArchitectureItem[] };
+
+export type ArchitecturePart = { id: string; label: Inline };
+/** model_part: the lesson's own mapping, shown only when asked (a self-check, never graded). */
+export type ArchitectureItem = { id: string; label: Inline; model_part: string; reason: Inline };
 
 export type AttentionSentence = {
   id: string;

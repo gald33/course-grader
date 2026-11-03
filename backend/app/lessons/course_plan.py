@@ -212,6 +212,14 @@ AUTHORED: dict[str, dict] = {
         "homework_he": "הצעה: בצוות, יישמו שינוי קטן אחד בתיקייה או במאגר של הפרויקט שלכם בעזרת Google Antigravity, "
         "ותעדו תוכנית, נקודת שמירה, שינוי, diff, הרצה ובדיקה. אין להניח גישה חינמית או רישיון לכל ספק.",
     },
+    "lesson-05": {
+        "runnable": "SPEC.md template (download, sha256 in the lesson's assets) and an in-browser architecture-map "
+        "self-check, built and tested here. The agent's spec interview in Google Antigravity was not run, here "
+        "or by the instructor; AI API access is left to lesson 7",
+        # The syllabus milestone (project proposal + spec), as a proposal for
+        # the instructor's readiness table only: no deadline, weight or route.
+        "homework_he": "הצעת פרויקט + SPEC.md (לפי התבנית)",
+    },
 }
 
 # Optional extra lessons ("go deeper") taught alongside a session's lesson,

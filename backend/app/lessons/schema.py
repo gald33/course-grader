@@ -328,6 +328,30 @@ class EmbeddingMapBlock(_Model):
     start: str | None = None  # the word id selected first
 
 
+class ArchitecturePart(_Model):
+    id: Key
+    label: Inline
+
+
+class ArchitectureItem(_Model):
+    id: Key
+    label: Inline
+    # The lesson's own mapping, shown only when the student asks to compare.
+    # A self-check, not a keyed question: nothing is recorded or graded.
+    model_part: Key
+    reason: Inline
+
+
+class ArchitectureMapBlock(_Model):
+    """Sort product pieces into parts (frontend, backend, data, AI API) with
+    selects; a button reveals the lesson's mapping with a reason per item."""
+
+    type: Literal["architecture_map"]
+    caption: Inline | None = None
+    parts: Annotated[list[ArchitecturePart], Field(min_length=2, max_length=6)]
+    items: Annotated[list[ArchitectureItem], Field(min_length=2, max_length=12)]
+
+
 class ImageBlock(_Model):
     type: Literal["image"]
     asset: str
@@ -363,6 +387,7 @@ Block = Annotated[
         TrainingDemoBlock,
         EmbeddingMapBlock,
         ImageBlock,
+        ArchitectureMapBlock,
     ],
     Field(discriminator="type"),
 ]
@@ -907,6 +932,15 @@ def _check_widget(where: str, content: LessonContent, block: Any, assets_root: P
     elif isinstance(block, TrainingDemoBlock):
         if len({p.label for p in block.points}) < 2:
             errors.append(f"{where}: the points need both labels")
+    elif isinstance(block, ArchitectureMapBlock):
+        parts = [p.id for p in block.parts]
+        items = [i.id for i in block.items]
+        for kind, ids in (("part", parts), ("item", items)):
+            for dup in dict.fromkeys(i for i in ids if ids.count(i) > 1):
+                errors.append(f"{where}: duplicate {kind} id '{dup}'")
+        for item in block.items:
+            if item.model_part not in parts:
+                errors.append(f"{where}: item '{item.id}' maps to an unknown part '{item.model_part}'")
     elif isinstance(block, ImageBlock):
         asset = content.assets.get(block.asset)
         if asset is None:
@@ -915,7 +949,8 @@ def _check_widget(where: str, content: LessonContent, block: Any, assets_root: P
             errors.append(f"{where}: asset '{block.asset}' is not an image")
 
 
-_WIDGETS = (NextWordGuessBlock, EmbeddingMapBlock, AttentionViewBlock, NeuronPlaygroundBlock, TrainingDemoBlock, ImageBlock)
+_WIDGETS = (NextWordGuessBlock, EmbeddingMapBlock, AttentionViewBlock, NeuronPlaygroundBlock, TrainingDemoBlock, ImageBlock,
+            ArchitectureMapBlock)
 
 
 def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[str]:

@@ -31,6 +31,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `lesson-3-part-b-deeper` — Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser
 - `lesson-3-review-fixes` — Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)
 - `lesson-4-coding-agent` — Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
+- `lesson-5-product-definition` — Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice
 - `lessons-one-page-per-lesson` — The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page
 - `no-button-to-recheck-site-links` — Add a "re-check all links" button for a round
 - `onboarding-guide-has-todo-sections` — ONBOARDING.md still has _TODO_ under Team Tips and Get Started

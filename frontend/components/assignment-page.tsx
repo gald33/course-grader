@@ -242,6 +242,18 @@ function AssignmentBody({ assignment: a, custom, courseName }: { assignment: Ass
 
       {result ? <ResultCard assignment={a} /> : null}
 
+      {/* The instructor's words come right after the grade, before the breakdown. */}
+      {feedback ? (
+        <section aria-labelledby="feedback" className="mt-4 rounded-lg border border-border bg-card p-4 shadow-soft">
+          <h2 id="feedback" className="font-hebrew text-[18px]">
+            משוב מהמרצה
+          </h2>
+          <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed" dir="auto">
+            {feedback}
+          </p>
+        </section>
+      ) : null}
+
       <section aria-labelledby="rubric" className="mt-4 rounded-lg border border-border bg-card p-4 shadow-soft">
         <h2 id="rubric" className="font-hebrew text-[20px]">
           על מה מקבלים ניקוד
@@ -260,16 +272,6 @@ function AssignmentBody({ assignment: a, custom, courseName }: { assignment: Ass
         {a.released && !a.submission ? <p className="mt-3 text-[13px] text-ink-3">הציון פורסם, אך לא נמצאה לך הגשה במטלה הזו.</p> : null}
       </section>
 
-      {feedback ? (
-        <section aria-labelledby="feedback" className="mt-4 rounded-lg border border-border bg-card p-4 shadow-soft">
-          <h2 id="feedback" className="font-hebrew text-[18px]">
-            משוב מהמרצה
-          </h2>
-          <p className="mt-2 whitespace-pre-line text-[15px] leading-relaxed" dir="auto">
-            {feedback}
-          </p>
-        </section>
-      ) : null}
     </>
   );
 }

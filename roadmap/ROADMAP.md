@@ -55,7 +55,7 @@ graph TD
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
-  instructor_pages_are_walls_of_text["Instructor pages are walls of text, with no sign of what needs attention"]:::claimed
+  instructor_pages_are_walls_of_text["Instructor and student pages are walls of text, with no sign of what needs attention"]:::claimed
   lesson_3_how_language_models_work["Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::claimed
   lesson_3_part_b_deeper["Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::claimed
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
@@ -374,7 +374,7 @@ graph TD
 
 ### `instructor-pages-are-walls-of-text`
 
-- **title:** Instructor pages are walls of text, with no sign of what needs attention
+- **title:** Instructor and student pages are walls of text, with no sign of what needs attention
 - **status:** claimed
 - **priority:** now
 - **claimed by:** claude/practical-ride-d2lxpj (since 2026-11-03T00:00:00Z)
@@ -404,6 +404,15 @@ graph TD
 > one page). Every page opened with a paragraph-long hint, and the course
 > opened on the grading queue whatever was actually waiting.
 >
+> The operator, the same day: "the student pages too". MEASURED on the
+> same seed with a realistic mid-term payload (3 rounds, 8 presentations
+> to review, 13 published lessons, released grades), 390×844: Peer review
+> 2,079px / 265 words (a list of the teams still to review repeating the
+> cards below it, a paragraph on how shares are normalised, and every
+> later session's cards open); Course info 2,318px / 353 words (all 13
+> lessons listed). The assignment page put the instructor's feedback
+> last, under a 12-row score breakdown.
+>
 > Done when: the course opens on an Overview that lists only what needs
 > the instructor now (failed runs, missing files, a closed round not
 > released, a live lesson missing answer keys, students without a team or
@@ -416,6 +425,11 @@ graph TD
 > "How this works"; lesson cards are one row with versions folded; the
 > readiness table's still-needed lists are folded; and the smoke test
 > covers the Overview, the tabs in the URL and back/forward across them.
+> On the student side: Course info lists the lesson in progress and the
+> next ones (three at most) with a "completed X of Y" line, the full list
+> one tap away; Peer review drops the repeated team list, folds the
+> shares explanation and later sessions with nothing open to review; the
+> assignment page shows the feedback right after the grade.
 
 </details>
 

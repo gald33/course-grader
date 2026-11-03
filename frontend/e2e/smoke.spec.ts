@@ -230,6 +230,28 @@ test('student portal links to the guided lessons and points at one in progress',
   expect(problems).toEqual([]);
 });
 
+test('Course info lists the lesson in progress and the next ones, not every lesson', async ({ page }) => {
+  const problems = await watchForErrors(page);
+  const lesson = (n: number, status: string, done: number) => ({ slug: `l-${n}`, title: `שיעור ${n}`, status, required_done: done, required_total: 4 });
+  await page.route(`**/api/r/${seed.student.token}`, async (route) => {
+    const res = await route.fetch();
+    const home = await res.json();
+    home.lessons = [lesson(1, 'completed', 4), lesson(2, 'completed', 4), lesson(3, 'not_started', 0), lesson(4, 'in_progress', 2), lesson(5, 'not_started', 0), lesson(6, 'not_started', 0)];
+    await route.fulfill({ response: res, json: home });
+  });
+  await page.goto(`/r/${seed.student.token}?tab=info`);
+  const lessons = page.getByRole('region', { name: 'למידה בשיעור' });
+  await expect(lessons).toContainText('הושלמו 2 מתוך 6 שיעורים.');
+  const links = lessons.getByRole('listitem');
+  await expect(links).toHaveCount(3);
+  // The lesson in progress first, then the next not started, in course order.
+  await expect(links.nth(0)).toContainText('שיעור 4');
+  await expect(links.nth(1)).toContainText('שיעור 3');
+  await expect(links.nth(2)).toContainText('שיעור 5');
+  await expect(lessons.getByRole('link', { name: 'כל השיעורים' })).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
 test('Home lists reviews still owed only while the review deadline is ahead', async ({ page }) => {
   const problems = await watchForErrors(page);
   // Rounds close only when the instructor closes them, so a round past its

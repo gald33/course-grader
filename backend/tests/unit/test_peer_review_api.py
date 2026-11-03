@@ -808,10 +808,12 @@ def test_teams_lock_at_the_deadline(env, monkeypatch):
     base = f"/api/courses/{course_id}/peer"
     r = lambda i, path="", **kw: c.post(f"/api/r/{tokens[i]}/team{path}", **kw)  # noqa: E731
 
-    # Deadline given with a time zone offset is stored as UTC.
+    # Deadline given with a time zone offset is stored as UTC. The server clock
+    # is pinned before the deadline: the real clock has passed it.
+    deadline = datetime(2026, 11, 1, 10, 0)
+    monkeypatch.setattr(svc, "utcnow", lambda: deadline - timedelta(days=1))
     settings = _ok(c.put(f"{base}/team-settings", json={"teams_deadline": "2026-11-01T12:00:00+02:00"}))
     assert settings["teams_deadline"] == "2026-11-01T10:00:00Z" and settings["teams_locked"] is False
-    deadline = datetime(2026, 11, 1, 10, 0)
 
     # Just before the deadline (server clock) students can still change teams.
     monkeypatch.setattr(svc, "utcnow", lambda: deadline - timedelta(seconds=1))

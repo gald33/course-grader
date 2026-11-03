@@ -12,8 +12,8 @@ export default function StudentLessonPage({ params }: { params: { token: string;
   const { token } = params;
   const slug = safeDecode(params.slug);
   const backend = useMemo(() => studentLessonBackend(token, slug), [token, slug]);
-  // The published lessons, in course order: the lesson's number and the next
-  // one, asked for when the lesson has just been completed.
+  // The published lessons, in course order: the next one, asked for when the
+  // lesson has just been completed.
   const loadNav = useCallback(async (): Promise<LessonNav> => {
     const list = await listStudentLessons(token);
     const slugs = list.map((l) => l.slug);
@@ -23,7 +23,7 @@ export default function StudentLessonPage({ params }: { params: { token: string;
       lessons: `/r/${token}/lessons`,
       home: `/r/${token}`,
       next: next ? { href: `/r/${token}/lessons/${encodeURIComponent(next.slug)}`, title: next.title } : null,
-      number: lessonNumber(slug, slugs)
+      number: lessonNumber(slug)
     };
   }, [token, slug]);
   // Keyed: the player takes its backend once, so another lesson is a fresh player.

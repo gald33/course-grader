@@ -975,7 +975,9 @@ test('completing the last required step celebrates once, with the way back; a re
   await answer(last, right('check_transfer'));
   const dialog = celebration(page);
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading')).toHaveText(`כל הכבוד! סיימתם את שיעור 1 – ${seed.lesson.title}`);
+  await expect(dialog.getByRole('heading')).toHaveText(`כל הכבוד! סיימתם את השיעור – ${seed.lesson.title}`);
+  // Its slug carries no session number, so none is shown (never its place in the list).
+  await expect(dialog.getByTestId('celebration-badge')).toHaveText('✓');
   await expect(dialog).toContainText('השלמתם 7 מתוך 7 שלבי חובה');
   await expect(dialog).not.toContainText(/ציון|נקודות/);
   await expect(dialog.getByTestId('celebration-confetti')).toBeAttached();

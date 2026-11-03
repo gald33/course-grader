@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 import { Ltr } from '@/components/lessons/inline';
 
@@ -27,12 +27,12 @@ export type CelebrationSummary = {
   questionsTotal: number;
 };
 
-/** The lesson's number: lesson-06 → 6, otherwise its place in the course's list (1-based). */
-export function lessonNumber(slug: string, orderedSlugs: string[]): number | null {
+/** The lesson's session number, when its slug carries one (lesson-06 → 6).
+ * Never its place in a list: the published list skips sessions (the live
+ * lesson 2 is first in it), so a position would name the wrong lesson. */
+export function lessonNumber(slug: string): number | null {
   const m = /^lesson-0*(\d+)(?:$|-)/.exec(slug);
-  if (m) return Number(m[1]);
-  const i = orderedSlugs.indexOf(slug);
-  return i >= 0 ? i + 1 : null;
+  return m ? Number(m[1]) : null;
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -83,12 +83,21 @@ export function LessonCelebration({
   const reduced = usePrefersReducedMotion();
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstRef = useRef<HTMLAnchorElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const summaryId = useId();
 
-  // Focus in on open, back where it was on close.
+  // Focus in on open, back where it was on close; the page behind is inert meanwhile.
   useEffect(() => {
     const before = document.activeElement as HTMLElement | null;
+    const overlay = overlayRef.current;
+    const behind = Array.from(overlay?.parentElement?.children ?? []).filter(
+      (el): el is HTMLElement => el !== overlay && el instanceof HTMLElement && !el.hasAttribute('inert')
+    );
+    behind.forEach((el) => el.setAttribute('inert', ''));
     firstRef.current?.focus();
     return () => {
+      behind.forEach((el) => el.removeAttribute('inert'));
       if (before && document.contains(before)) before.focus({ preventScroll: true });
     };
   }, []);
@@ -124,6 +133,7 @@ export function LessonCelebration({
 
   return (
     <div
+      ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -133,8 +143,8 @@ export function LessonCelebration({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="lesson-celebration-title"
-        aria-describedby="lesson-celebration-summary"
+        aria-labelledby={titleId}
+        aria-describedby={summaryId}
         dir="rtl"
         lang="he"
         onKeyDown={onKeyDown}
@@ -182,10 +192,10 @@ export function LessonCelebration({
           </div>
         </div>
 
-        <h2 id="lesson-celebration-title" className="mt-3 font-hebrew text-[21px] leading-snug">
+        <h2 id={titleId} className="mt-3 font-hebrew text-[21px] leading-snug">
           {heading}
         </h2>
-        <p id="lesson-celebration-summary" className="mt-2 text-[14px] leading-relaxed text-ink-2">
+        <p id={summaryId} className="mt-2 text-[14px] leading-relaxed text-ink-2">
           השלמתם <Ltr>{summary.stepsDone}</Ltr> מתוך <Ltr>{summary.stepsTotal}</Ltr> שלבי חובה
           {summary.questionsTotal > 0 ? (
             <>

@@ -45,7 +45,7 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
           lessons: lessonsHref(courseId),
           home: `/course/${courseId}`,
           next: next ? { href: `/course/${courseId}/lessons/${next.id}/preview`, title: next.title } : null,
-          number: lessonNumber(found.slug, ordered.map((l) => l.slug))
+          number: lessonNumber(found.slug)
         });
       })
       .catch((e) => setError(errorMessage(e)));

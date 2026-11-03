@@ -128,6 +128,17 @@ def test_no_fake_colab_link_and_no_paid_or_keyed_service(lesson):
             assert secret not in nb, f"{path.name}: {secret}"
 
 
+def test_no_absolute_workspace_path_in_any_lesson_3_file(lesson):
+    """COURSE-HANDOFF §5: no stale absolute workspace paths. Executed outputs
+    (warnings, tracebacks) are where they slip in."""
+    files = [STUDENT_NB, EXECUTED_NB, BACKEND / "app" / "lessons" / "content" / "course-42052" / "lesson-03.json"]
+    files += sorted(NOTEBOOK_DIR.glob("*"))
+    for path in dict.fromkeys(files):
+        text = path.read_text(encoding="utf-8")
+        for marker in ("/tmp/", "/home/", "/root/", "/Users/", "scratchpad", "site-packages", "C:\\"):
+            assert marker not in text, f"{path.name}: {marker}"
+
+
 def _all_blocks(blocks):
     for block in blocks:
         yield block

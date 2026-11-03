@@ -141,7 +141,14 @@ for (const device of [
     await expectStepContract(page, 'תשובה רהוטה עדיין דורשת ראיות', 'איך בודקים שהצ׳טבוט לא השלים פרט שלא נמסר לו?', player);
     await expect(player.getByText('בקשה 1 (פשוטה)')).toBeVisible();
     await expect(player.getByText('בקשה 2 (עם כללים)')).toBeVisible();
-    await expect(page.getByRole('table', { name: 'שתי הבדיקות – לכל אחת משתי התשובות' })).toBeVisible();
+    const checks = page.getByRole('table', { name: 'שתי הבדיקות – לכל אחת משתי התשובות' });
+    await expect(checks).toBeVisible();
+    // Every column of the check table fits without sideways scrolling, even on a phone.
+    const fit = await checks.evaluate((t) => {
+      const scroller = t.parentElement as HTMLElement;
+      return { table: t.scrollWidth, box: scroller.clientWidth };
+    });
+    expect(fit.table, 'the check table fits its box').toBeLessThanOrEqual(fit.box + 1);
     await expect(player.getByText('דוגמה פתורה')).toBeVisible();
     await expect(player.locator('pre').filter({ hasText: '"pickup_time": null' })).toBeVisible();
     await expectNoSidewaysScroll(page, 'step D');

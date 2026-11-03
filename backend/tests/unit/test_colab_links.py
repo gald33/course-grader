@@ -78,7 +78,7 @@ def test_lessons_1_and_3_give_each_colab_step_its_own_notebook():
             assert path not in seen, (key, step["key"])  # no two steps share a notebook
             seen.add(path)
             # One line on the page says the notebook is this step's only.
-            assert "לשלב הזה בלבד" in json.dumps(step, ensure_ascii=False), (key, step["key"])
+            assert "מחברת לשלב הזה בלבד" in json.dumps(step, ensure_ascii=False), (key, step["key"])
     assert len(seen) == 8  # lesson 1: 1; Part 1: 3; Part 2: 4
 
 

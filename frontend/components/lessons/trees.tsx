@@ -969,7 +969,7 @@ function TracerInput({
         aria-invalid={!!error}
         aria-describedby={`${id}-hint${error ? ` ${id}-error` : ''}`}
         onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-md border border-border bg-white px-3 text-center text-[16px]"
+        className="h-11 w-full rounded-md border border-border bg-card px-3 text-center text-[16px]"
       />
       {error ? (
         <span id={`${id}-error`} className="text-[13px] text-bad">

@@ -1,5 +1,6 @@
 'use client';
 
+import { Pin } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -823,7 +824,7 @@ function ReviewHeader({
   return (
     <header
       className="sticky top-0 z-40 flex items-center gap-4 border-b border-border px-7 py-3.5"
-      style={{ background: 'rgba(245, 241, 232, 0.92)', backdropFilter: 'blur(10px)' }}
+      style={{ background: 'rgba(9, 9, 11, 0.8)', backdropFilter: 'blur(10px)' }}
     >
       <Link
         href={courseSectionHref(courseId, 'queue')}
@@ -1406,7 +1407,7 @@ function ArtifactPanel({
           })}
         </div>
       ) : null}
-      <div className="bg-white" style={{ height }}>
+      <div className="bg-card" style={{ height }}>
         {showKey === 'notebook' ? (
           htmlDoc ? (
             <iframe
@@ -1623,7 +1624,7 @@ function RubricGroup({
                 const label = isAuto ? 'Auto' : 'Claude';
                 const isHebrew = /[֐-׿]/.test(llm.rationale);
                 const rationaleStyle: React.CSSProperties = isHebrew
-                  ? { fontFamily: 'Frank Ruhl Libre, Newsreader, serif' }
+                  ? { fontFamily: 'Heebo, Geist, sans-serif' }
                   : {};
                 return (
                   <div
@@ -2027,7 +2028,7 @@ function RunsPanel({
                     ) : r.status === 'FAILED' ? (
                       <span className="pill pill-bad">Failed</span>
                     ) : null}
-                    {r.is_pinned ? <span className="pill pill-forest">📍 Pinned</span> : null}
+                    {r.is_pinned ? <span className="pill pill-forest"><Pin className="h-3 w-3" aria-hidden /> Pinned</span> : null}
                   </div>
                   <div className="text-[11px] text-ink-3">
                     {r.status === 'QUEUED'
@@ -2157,7 +2158,7 @@ function LLMReviewCard({
             style={{
               direction: 'rtl',
               textAlign: 'right',
-              fontFamily: 'Frank Ruhl Libre, Newsreader, serif'
+              fontFamily: 'Heebo, Geist, sans-serif'
             }}
           >
             {review.feedback_he}

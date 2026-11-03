@@ -1,5 +1,6 @@
 'use client';
 
+import { Eye } from 'lucide-react';
 import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -842,7 +843,8 @@ function LessonCard({
               href={previewHref(latest.number)}
               className={`inline-flex items-center rounded-md border border-terracotta-soft bg-terracotta-tint px-2.5 py-1 text-[13px] text-ink no-underline hover:border-terracotta ${FOCUS}`}
             >
-              👁 Preview version {latest.number}
+              <Eye className="me-1.5 h-3.5 w-3.5" aria-hidden />
+              Preview version {latest.number}
             </Link>
           ) : null}
           {lesson.draft_version ? (

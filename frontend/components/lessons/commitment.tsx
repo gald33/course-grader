@@ -282,7 +282,7 @@ function ChoiceFormView({
                   : { ...form, run_uuid: '' }
               );
             }}
-            className="h-11 w-full rounded-md border border-border bg-white px-2"
+            className="h-11 w-full rounded-md border border-border bg-card px-2"
           >
             <option value="">בלי ריצה מסוימת – אמלא בעצמי</option>
             {api.experiments.map((e, i) =>

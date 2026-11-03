@@ -95,7 +95,7 @@ export function DepthSelect({
         aria-invalid={!!error}
         aria-describedby={`${id}-hint${error ? ` ${id}-error` : ''}`}
         onChange={(e) => onChange(e.target.value)}
-        className="h-11 w-full rounded-md border border-border bg-white px-2"
+        className="h-11 w-full rounded-md border border-border bg-card px-2"
       >
         <option value="">בחרו עומק</option>
         {Array.from({ length: MAX_DEPTH }, (_, i) => i + 1).map((d) => (
@@ -153,7 +153,7 @@ export function NumberField({
           aria-invalid={!!error}
           aria-describedby={described || undefined}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full min-w-0 rounded-md border border-border bg-white px-3 text-left text-[16px] tnum"
+          className="h-11 w-full min-w-0 rounded-md border border-border bg-card px-3 text-left text-[16px] tnum"
         />
         {suffix ? (
           <span aria-hidden className="text-[15px] text-ink-2">
@@ -891,7 +891,7 @@ export function TextArea({
         aria-invalid={!!error}
         aria-describedby={described || undefined}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-border bg-white px-3 py-2 text-[15px] leading-relaxed outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
+        className="w-full rounded-md border border-border bg-card px-3 py-2 text-[15px] leading-relaxed outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
       />
       <FieldError id={`${id}-error`} message={error} />
     </div>

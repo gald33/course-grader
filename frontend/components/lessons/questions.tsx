@@ -279,7 +279,7 @@ function SingleChoice({ question, state, api }: { question: SingleChoiceQuestion
               api.setDraft(draftKey, e.target.value);
               setFieldErrors((f) => ({ ...f, text: '' }));
             }}
-            className="w-full rounded-md border border-border bg-white px-3 py-2 text-[15px] outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-[15px] outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
           />
           {fieldErrors.text ? (
             <p id={`${textId}-error`} className="text-[13px] text-bad">
@@ -455,7 +455,7 @@ function FreeText({ question, state, api }: { question: FreeTextQuestion; state:
           api.setDraft(draftKey, e.target.value);
           setFieldError(null);
         }}
-        className="w-full rounded-md border border-border bg-white px-3 py-2 text-[15px] leading-relaxed outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
+        className="w-full rounded-md border border-border bg-card px-3 py-2 text-[15px] leading-relaxed outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
       />
       <div className="flex flex-wrap items-center justify-between gap-2 text-[12px]">
         <span id={`${id}-status`} aria-live="polite">

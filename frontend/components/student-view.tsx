@@ -1,5 +1,6 @@
 'use client';
 
+import { Lock } from 'lucide-react';
 import { FormEvent, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { AssignmentsCard, type AssignmentSummary, type CustomRubric, type PortalFrom } from '@/components/assignment-page';
@@ -994,7 +995,7 @@ function TeamCard({ token, home, onUpdate, open = false }: { token: string; home
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             placeholder="קוד הצטרפות"
             maxLength={16}
-            className="h-11 rounded-md border border-border bg-white px-3 text-center font-mono tracking-widest"
+            className="h-11 rounded-md border border-border bg-card px-3 text-center font-mono tracking-widest"
           />
           <button type="submit" className="h-11 rounded-md bg-forest px-4 text-[15px] font-semibold text-paper">
             הצטרפות
@@ -1013,14 +1014,14 @@ function TeamCard({ token, home, onUpdate, open = false }: { token: string; home
             onChange={(e) => setName(e.target.value)}
             placeholder="שם הצוות"
             maxLength={255}
-            className="h-11 rounded-md border border-border bg-white px-3"
+            className="h-11 rounded-md border border-border bg-card px-3"
           />
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="שם הפרויקט (אפשר גם אחר כך)"
             maxLength={255}
-            className="h-11 rounded-md border border-border bg-white px-3"
+            className="h-11 rounded-md border border-border bg-card px-3"
           />
           <button type="submit" className="h-11 rounded-md border border-forest px-4 text-[15px] font-semibold text-forest">
             פתיחת צוות
@@ -1044,7 +1045,7 @@ function Shell({ children, banner }: { children: React.ReactNode; banner?: React
 function AnonymityNote() {
   return (
     <details className="rounded-lg border border-forest-soft bg-forest-tint px-4 py-3 text-[14px] text-ink-2">
-      <summary className="cursor-pointer font-semibold text-forest">🔒 מי רואה את הביקורות שלך?</summary>
+      <summary className="cursor-pointer font-semibold text-forest"><Lock className="me-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden /> מי רואה את הביקורות שלך?</summary>
       <p className="mt-2 leading-relaxed">
         הביקורות אנונימיות לסטודנטים ולצוותים המציגים: הצוות יראה רק ציונים מצטברים ואת הטקסטים, בלי שמות ובלי סדר
         הגשה. המרצה רואה מי כתב כל ביקורת – כדי לעקוב אחר ההשתתפות שלך ולטפל בתוכן לא הולם. אף סטודנט לא רואה ביקורות
@@ -1445,7 +1446,7 @@ function NumberScore({
         onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
         placeholder={`0–${max}`}
         aria-label={`ציון מ-0 עד ${max}`}
-        className="h-12 w-28 rounded-md border border-border bg-white px-3 text-center text-[20px] font-semibold"
+        className="h-12 w-28 rounded-md border border-border bg-card px-3 text-center text-[20px] font-semibold"
       />
       <span className="text-[14px] text-ink-3">מתוך {max}</span>
     </div>
@@ -1586,7 +1587,7 @@ function ReviewForm({
             onChange={(e) => update({ ...base, responses: { ...base.responses, [pr.key]: e.target.value } })}
             rows={3}
             maxLength={4000}
-            className="w-full rounded-md border border-border bg-white px-3 py-2 text-[15px] outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-[15px] outline-none focus:border-forest focus:ring-2 focus:ring-forest-tint"
           />
         </label>
       ))}
@@ -1788,7 +1789,7 @@ function MaterialsCard({
         </p>
         <label className="grid gap-1 text-[14px]">
           <span className="font-semibold">שם הפרויקט</span>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 rounded-md border border-border bg-white px-3" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="h-11 rounded-md border border-border bg-card px-3" />
         </label>
         <label className="grid gap-1 text-[14px]">
           <span className="font-semibold">
@@ -1801,7 +1802,7 @@ function MaterialsCard({
             placeholder="https://"
             value={demo}
             onChange={(e) => setDemo(e.target.value)}
-            className="h-11 rounded-md border border-border bg-white px-3 text-left"
+            className="h-11 rounded-md border border-border bg-card px-3 text-left"
           />
           {mp.demo_url && demo === mp.demo_url ? <LinkStatusNote status={mp.link_status} detail={mp.link_detail} /> : null}
           {round.link_required ? (
@@ -1812,7 +1813,7 @@ function MaterialsCard({
         </label>
         <label className="grid gap-1 text-[14px]">
           <span className="font-semibold">תיאור קצר: הבעיה, המשתמש/ת, מה הודגם ומה נבדק</span>
-          <textarea dir="auto" rows={4} value={text} onChange={(e) => setText(e.target.value)} className="rounded-md border border-border bg-white px-3 py-2" />
+          <textarea dir="auto" rows={4} value={text} onChange={(e) => setText(e.target.value)} className="rounded-md border border-border bg-card px-3 py-2" />
         </label>
         <label className="grid gap-1 text-[14px]">
           <span className="font-semibold">מצגת (PDF){mp.has_slides ? ' · הועלתה ✓' : ''}</span>

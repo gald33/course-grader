@@ -5,14 +5,14 @@ type AvatarProps = {
 };
 
 const PALETTE = [
-  '#6b8a6e',
-  '#a36b51',
-  '#6b6e8a',
-  '#8a6b6e',
-  '#5d7a8a',
-  '#8a8a6b',
-  '#4f6b5d',
-  '#a36b8a'
+  '#3f3f46',
+  '#52525b',
+  '#334155',
+  '#44403c',
+  '#1e3a5f',
+  '#3b2f4a',
+  '#14532d',
+  '#4a2c2a'
 ];
 
 function deterministicColor(name: string) {
@@ -34,7 +34,7 @@ function initialsFor(name: string) {
 export function Avatar({ name, size = 30, className }: AvatarProps) {
   return (
     <div
-      className={`grid place-items-center rounded-full font-semibold text-card ${className ?? ''}`}
+      className={`grid place-items-center rounded-full font-medium text-ink ring-2 ring-paper ${className ?? ''}`}
       style={{
         width: size,
         height: size,

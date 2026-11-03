@@ -1,5 +1,6 @@
 'use client';
 
+import { Dice5, Eye } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BilingualName } from '@/components/ui/bilingual-name';
@@ -195,7 +196,7 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
           href={`/course/${courseId}/student-view?tab=review`}
           className="mb-1.5 text-[13px] text-forest no-underline hover:underline"
         >
-          👁 View as student
+          <Eye className="me-1.5 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />View as student
         </a>
       </div>
 
@@ -280,7 +281,8 @@ function ScheduleTab({ base, overview, round, run }: { base: string; overview: O
             ) : null}
             {round.status === 'scheduling' ? (
               <Button size="sm" variant="soft" onClick={() => act('random-assign', 'Unassigned teams placed')}>
-                🎲 Random-assign unassigned
+                <Dice5 className="h-3.5 w-3.5" aria-hidden />
+                Random-assign unassigned
               </Button>
             ) : null}
             {round.status === 'draft' || round.status === 'scheduling' ? (

@@ -85,7 +85,7 @@ export default function AuthCallbackPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-11 w-full rounded-md border border-border bg-white px-3 text-left"
+            className="h-11 w-full rounded-md border border-border bg-card px-3 text-left"
           />
         </Field>
         <Field label="אימות סיסמה">
@@ -96,7 +96,7 @@ export default function AuthCallbackPage() {
             required
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="h-11 w-full rounded-md border border-border bg-white px-3 text-left"
+            className="h-11 w-full rounded-md border border-border bg-card px-3 text-left"
           />
         </Field>
         {error ? (

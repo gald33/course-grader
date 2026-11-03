@@ -9,7 +9,7 @@ type DotScaleProps = {
 const colorFor = (n: number) => {
   if (n <= 1) return 'var(--bad)';
   if (n <= 2) return 'var(--warn)';
-  if (n <= 3) return '#d9a441'; // honey
+  if (n <= 3) return '#fcd34d'; // honey
   return 'var(--ok)';
 };
 

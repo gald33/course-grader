@@ -122,7 +122,7 @@ function BlockView({ block, api }: { block: Block; api: LessonApi }) {
 // Each kind has its own weight: an explanation is plain text with a rail, the
 // action is a tinted card, the check is a card around its question cards.
 // (The terracotta pill text is darkened for contrast: 4.8:1 on its tint.)
-export const TERRA_PILL = 'pill pill-terra !text-[#9a5533]';
+export const TERRA_PILL = 'pill pill-terra !text-terracotta';
 const SECTION: Record<SectionLabel, { text: string; pill: string; box: string }> = {
   understand: { text: 'מבינים', pill: 'pill pill-forest', box: 'border-s-4 border-forest-soft py-1 ps-4' },
   try: {

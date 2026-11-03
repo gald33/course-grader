@@ -1,6 +1,23 @@
 'use client';
 
 import Link from 'next/link';
+import {
+  ArrowLeftRight,
+  BookOpen,
+  Eye,
+  Globe,
+  Inbox,
+  LayoutDashboard,
+  ListChecks,
+  Mic,
+  PencilLine,
+  Settings,
+  Spline,
+  Table2,
+  Users,
+  UsersRound,
+  type LucideIcon
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -145,18 +162,18 @@ type Assignment = {
 type SectionKey = CourseSection;
 type SectionGroup = 'Students' | 'Teaching' | 'Grading' | 'Course';
 
-const SECTIONS: { key: SectionKey; group: SectionGroup; label: string; icon: string; sub: string }[] = [
-  { key: 'overview', group: 'Course', label: 'Overview', icon: '◎', sub: 'What needs you now.' },
-  { key: 'students', group: 'Students', label: 'Students', icon: '👥', sub: 'Roster, sign-in accounts and personal links.' },
-  { key: 'teams', group: 'Students', label: 'Teams', icon: '⚇', sub: 'Who works with whom.' },
-  { key: 'lessons', group: 'Teaching', label: 'Lessons', icon: '✦', sub: 'Plan, publish, and see where students get stuck.' },
-  { key: 'peer', group: 'Teaching', label: 'Peer review', icon: '⇄', sub: 'Presentation rounds and student reviews.' },
-  { key: 'queue', group: 'Grading', label: 'Grading queue', icon: '📥', sub: 'Import, run and grade submissions.' },
-  { key: 'rubrics', group: 'Grading', label: 'Rubrics', icon: '☰', sub: 'Custom rubrics per assignment.' },
-  { key: 'curve', group: 'Grading', label: 'Curve & calibration', icon: '⚙', sub: 'Rubric curve and attendance threshold.' },
-  { key: 'overrides', group: 'Grading', label: 'Overrides', icon: '✎', sub: 'One-off adjustments, with reasons.' },
-  { key: 'gradebook', group: 'Grading', label: 'Gradebook', icon: '▦', sub: 'Final scores, release and export.' },
-  { key: 'settings', group: 'Course', label: 'Course settings', icon: '◉', sub: 'Course details and archiving.' }
+const SECTIONS: { key: SectionKey; group: SectionGroup; label: string; icon: LucideIcon; sub: string }[] = [
+  { key: 'overview', group: 'Course', label: 'Overview', icon: LayoutDashboard, sub: 'What needs you now.' },
+  { key: 'students', group: 'Students', label: 'Students', icon: Users, sub: 'Roster, sign-in accounts and personal links.' },
+  { key: 'teams', group: 'Students', label: 'Teams', icon: UsersRound, sub: 'Who works with whom.' },
+  { key: 'lessons', group: 'Teaching', label: 'Lessons', icon: BookOpen, sub: 'Plan, publish, and see where students get stuck.' },
+  { key: 'peer', group: 'Teaching', label: 'Peer review', icon: ArrowLeftRight, sub: 'Presentation rounds and student reviews.' },
+  { key: 'queue', group: 'Grading', label: 'Grading queue', icon: Inbox, sub: 'Import, run and grade submissions.' },
+  { key: 'rubrics', group: 'Grading', label: 'Rubrics', icon: ListChecks, sub: 'Custom rubrics per assignment.' },
+  { key: 'curve', group: 'Grading', label: 'Curve & calibration', icon: Spline, sub: 'Rubric curve and attendance threshold.' },
+  { key: 'overrides', group: 'Grading', label: 'Overrides', icon: PencilLine, sub: 'One-off adjustments, with reasons.' },
+  { key: 'gradebook', group: 'Grading', label: 'Gradebook', icon: Table2, sub: 'Final scores, release and export.' },
+  { key: 'settings', group: 'Course', label: 'Course settings', icon: Settings, sub: 'Course details and archiving.' }
 ];
 const SIDEBAR_GROUPS: SectionGroup[] = ['Students', 'Teaching', 'Grading'];
 
@@ -346,7 +363,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
       {toast ? (
         <div
-          className="fixed bottom-6 right-6 z-50 rounded-full bg-ink px-4 py-2.5 text-[13px] text-paper shadow-lift"
+          className="fixed bottom-6 right-6 z-50 rounded-[10px] border border-border bg-paper-2 px-4 py-2.5 text-[13px] text-ink shadow-lift"
           role="status"
         >
           {toast}
@@ -389,9 +406,7 @@ function Sidebar({
         setStep(s.key);
       }}
     >
-      <span className="w-[18px] text-center text-[15px]" aria-hidden>
-        {s.icon}
-      </span>
+      <s.icon className="nav-icon h-[15px] w-[15px] shrink-0" strokeWidth={1.8} aria-hidden />
       <span className="nav-label">{s.label}</span>
       {counts[s.key] ? <span className="nav-count tnum">{counts[s.key]}</span> : null}
     </a>
@@ -399,12 +414,12 @@ function Sidebar({
   const settings = SECTIONS.find((s) => s.key === 'settings')!;
 
   return (
-    <aside className="sticky top-0 flex h-screen flex-col gap-1 overflow-y-auto border-r border-border bg-paper-2 px-[18px] py-6">
+    <aside className="sticky top-0 flex h-screen flex-col gap-0.5 overflow-y-auto border-r border-line-soft bg-sunken px-3 py-4">
       <Link href="/" className="mb-2 flex items-center gap-2.5 border-b border-border px-2 pb-4 pt-1 no-underline">
-        <span className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-forest font-display text-[18px] tracking-tight text-paper">
+        <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-forest text-[11px] font-semibold tracking-tight text-paper">
           cg
         </span>
-        <span className="font-display text-[18px] tracking-tight text-ink">course-grader</span>
+        <span className="text-[13px] font-medium tracking-tight text-ink">course-grader</span>
       </Link>
 
       {/* Course progress block */}
@@ -412,7 +427,7 @@ function Sidebar({
         <div className="label-eyebrow mb-1">
           {course.code} · {course.year} / {course.semester}
         </div>
-        <div className="mb-3 font-display text-[17px] leading-tight">{course.name}</div>
+        <div className="mb-3 text-[15px] font-medium leading-tight tracking-tight">{course.name}</div>
         <div className="mb-2 flex items-center gap-2.5">
           <ProgressRing value={graded} max={Math.max(total, 1)} size={42} stroke={4} />
           <div>
@@ -447,9 +462,7 @@ function Sidebar({
       <div className="mt-auto grid gap-0.5 border-t border-border pt-3">
         {item(settings)}
         <Link href={`/course/${course.id}/student-view`} className="nav-step no-underline">
-          <span className="w-[18px] text-center text-[15px]" aria-hidden>
-            👁
-          </span>
+          <Eye className="nav-icon h-[15px] w-[15px] shrink-0" strokeWidth={1.8} aria-hidden />
           <span className="nav-label">View as student</span>
         </Link>
       </div>
@@ -937,7 +950,7 @@ function SubmissionCard({
           ) : null}
           <Link
             href={`/course/${courseId}/submission/${s.id}`}
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-forest px-2.5 py-1 text-[13px] font-medium text-paper transition hover:bg-[#244c41]"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-forest px-2.5 py-1 text-[13px] font-medium text-paper transition hover:bg-forest/90"
           >
             {state === 'graded' ? 'Review' : 'Open'} →
           </Link>
@@ -1000,7 +1013,7 @@ function FileImportTile({
   refresh
 }: {
   courseId: number;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   sub: string;
   accept: string;
@@ -1056,7 +1069,7 @@ function StudentsStep({
           </HowItWorks>
           <FileImportTile
             courseId={courseId}
-            icon="👥"
+            icon={<Users className="h-5 w-5" strokeWidth={1.8} />}
             title="Roster"
             sub="XLSX with תעודת זהות + שם columns (Yedion exports work). Attendance is computed per session; emails become student logins."
             accept=".xlsx"
@@ -1179,7 +1192,7 @@ function AssignmentImportCard({
         </form>
       </div>
       <div className="flex items-center gap-3 border-t border-line-soft pt-3">
-        <span className="text-lg">🌐</span>
+        <Globe className="h-[18px] w-[18px] text-ink-2" strokeWidth={1.8} aria-hidden />
         <div className="flex-1 text-[13px] text-ink-3">
           <span className="text-ink">Private Colabs?</span> Connect Google Drive once to fetch private notebook snapshots
           automatically.
@@ -1208,7 +1221,7 @@ function ImportTile({
   sub,
   children
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   sub: string;
   children: React.ReactNode;
@@ -1932,7 +1945,7 @@ function GradebookStep({
       {tab === 'presentations' ? (
         <FileImportTile
           courseId={courseId}
-          icon="🎤"
+          icon={<Mic className="h-5 w-5" strokeWidth={1.8} />}
           title="Presentation scores"
           sub="Two-sheet XLSX with presentation + final talk scores per group, in Hebrew. Upload after the talks; re-uploading replaces the previous import."
           accept=".xlsx"

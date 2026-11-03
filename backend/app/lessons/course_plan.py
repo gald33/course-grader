@@ -221,6 +221,15 @@ AUTHORED: dict[str, dict] = {
         # the instructor's readiness table only: no deadline, weight or route.
         "homework_he": "הצעת פרויקט + SPEC.md (לפי התבנית)",
     },
+    "lesson-06": {
+        "runnable": "README template and a one-page team git routine (downloads, sha256 in the lesson's assets) built "
+        "and tested here. The agent's scaffolding in Google Antigravity, the GitHub push/clone round and the "
+        "fresh-clone run were not run, here or by the instructor; the GitHub steps follow GitHub's docs, checked "
+        "on 2026-11-03",
+        # A proposal for the instructor's readiness table only: no deadline,
+        # weight or submission route.
+        "homework_he": "שלד עובד + README + קישור למאגר",
+    },
 }
 
 # Sessions taught in more than one REQUIRED lesson: the session's own lesson

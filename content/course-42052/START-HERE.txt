@@ -33,3 +33,6 @@ Package layout:
 - reference/ — historical lesson-2 website implementation plan; use only after checking current code.
 
 Instructor answer keys and feedback rules in lessons/*.json are PRIVATE authoring content: filter them out of student API responses until the relevant feedback stage. Publish no student identifiers or actual classroom activity from this package.
+
+Changes after the handoff:
+- 2026-11-03, operator rule: no chatbot task without a reason; the page explains the topic, it does not send students to learn from a chatbot. Accordingly the exit checks no longer end with "ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר." (removed from every lessons/*.json seed and every built lesson). A chatbot task stays only where the chatbot is what is examined or does a stated job (e.g. lesson 3's grounding exercise; lesson 5's optional prompt for more hard test cases).

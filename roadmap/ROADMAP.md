@@ -27,10 +27,10 @@ _Nothing deferred._
 
 | item | held by | since |
 |---|---|---|
+| `exit-check-no-chatbot` | claude/exit-check-no-chatbot | 2026-11-03T19:00:00Z |
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
-| `lesson-3-review-fixes` | claude/lesson-3-review-fixes | 2026-11-03T14:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -52,6 +52,7 @@ graph TD
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
   course_42052_whole_syllabus["✓ The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
+  exit_check_no_chatbot["Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason"]:::claimed
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
@@ -59,7 +60,7 @@ graph TD
   lesson_3_how_language_models_work["✓ Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::done
   lesson_3_part_b_deeper["✓ Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::done
   lesson_3_restructure_two_parts["Session 3 sends students to a chatbot to learn instead of teaching on the page, uses weights and parameters before neural networks are taught, and frames its second half as optional"]:::claimed
-  lesson_3_review_fixes["Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::claimed
+  lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
@@ -252,6 +253,32 @@ graph TD
 > storage; and group membership on a submission can be edited.
 >
 > SHIPPED: #18, merged as ab89251 and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `exit-check-no-chatbot`
+
+- **title:** Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/exit-check-no-chatbot (since 2026-11-03T19:00:00Z)
+- **refs:**
+  - `content/course-42052/lessons/`
+  - `backend/app/lessons/content/course-42052/`
+  - `content/course-42052/START-HERE.txt`
+
+<details><summary>evidence</summary>
+
+> Operator rule, 2026-11-03: no chatbot task without a reason (Reed's #41
+> N1). VERIFIED at 1fac480: the exit check of every 42052 lesson (seeds
+> lesson-01..13 and the built lessons, plus lesson-03-deeper) ends "ענו
+> תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר." Lesson 5 also has
+> an optional "find more hard test cases" chatbot prompt in its SPEC examples
+> step, which has a stated job and stays.
+>
+> This item: the sentence removed from all seeds and built lessons (generated
+> ones rebuilt from the seeds), the rule recorded in START-HERE.txt, and a
+> whole-course test that it stays gone.
 
 </details>
 
@@ -592,9 +619,8 @@ graph TD
 ### `lesson-3-review-fixes`
 
 - **title:** Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-3-review-fixes (since 2026-11-03T14:00:00Z)
 - **refs:**
   - `backend/app/lessons/content/course-42052/lesson-03.json`
   - `backend/app/lessons/content/course-42052/lesson-03-deeper.json`
@@ -628,6 +654,8 @@ graph TD
 > notebooks edited in markdown only with sha256 updated, tests guard each
 > corrected claim, lesson-3 specs green at 390 and 1280 px, and the changed
 > feedback_he sent privately to the planner.
+>
+> SHIPPED: #39, merged as da30542.
 
 </details>
 

@@ -16,6 +16,7 @@ Claim before starting: `roadmap claim <key>`
   - ↔ related: **`team-formation-closes-at-a-deadline`** — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
 - `later` **`retire-bonus-points-phase-2-drop-column`** — enrollments.bonus_points is zeroed but still in the schema
 - `later` **`roster-reimport-email-conflicts-are-not-shown`** — Roster re-import reports email conflicts that the UI never shows
+- `later` **`suggest-rubrics-per-assignment-from-clusters`** — Suggest a rubric for a new assignment from clusters of past rubrics
 - `later` **`unreleasing-a-peer-round-keeps-its-gradebook-scores`** — Un-releasing a peer round leaves its applied scores in the gradebook
 
 ## ⏸ Deferred — startable, deliberately not now
@@ -26,15 +27,13 @@ _Nothing deferred._
 
 | item | held by | since |
 |---|---|---|
-| `assignments-need-custom-rubrics` | claude/assignments-need-custom-rubrics | 2026-10-21T10:25:06Z |
 | `students-need-an-assignment-page` | claude/students-need-an-assignment-page | 2026-10-21T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
 ## ⛔ Blocked
 
-- **`suggest-rubrics-per-assignment-from-clusters`** — Suggest a rubric for a new assignment from clusters of past rubrics  
-  waiting on `assignments-need-custom-rubrics`
+_Nothing blocked._
 
 ## Dependency graph
 
@@ -46,7 +45,7 @@ graph TD
   classDef claimed stroke:#8250df,stroke-width:2px
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
-  assignments_need_custom_rubrics["Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::claimed
+  assignments_need_custom_rubrics["✓ Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::done
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
@@ -62,7 +61,7 @@ graph TD
   student_portal_is_one_long_scroll["✓ The student portal is one long scroll with no navigation"]:::done
   students_cannot_see_their_own_grades["✓ Students cannot see their own grades, feedback or attendance status"]:::done
   students_need_an_assignment_page["Students have no page for an assignment"]:::claimed
-  suggest_rubrics_per_assignment_from_clusters["Suggest a rubric for a new assignment from clusters of past rubrics"]:::blocked
+  suggest_rubrics_per_assignment_from_clusters["Suggest a rubric for a new assignment from clusters of past rubrics"]:::ready
   team_formation_closes_at_a_deadline["✓ Let students form their own teams until a deadline, then lock teams automatically"]:::done
   unreleasing_a_peer_round_keeps_its_gradebook_scores["Un-releasing a peer round leaves its applied scores in the gradebook"]:::ready
   unteamed_students_need_instructor_approved_auto_assign["After teams lock, propose teams for unteamed students and apply them only on the instructor's approval"]:::ready
@@ -77,9 +76,8 @@ graph TD
 ### `assignments-need-custom-rubrics`
 
 - **title:** Assignments are graded on one fixed rubric instead of rubrics that fit the task
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/assignments-need-custom-rubrics (since 2026-10-21T10:25:06Z)
 - **blocks:** `suggest-rubrics-per-assignment-from-clusters`
 - **refs:**
   - `backend/app/services/scoring.py`
@@ -119,6 +117,8 @@ graph TD
 > comes from the rubric. An LLM failure leaves criteria "not scored" and
 > the run still succeeds. Assignments without a custom rubric score exactly
 > as before, proven by a regression test.
+>
+> SHIPPED: #26, merged as 62ba0ae.
 
 </details>
 
@@ -591,7 +591,7 @@ graph TD
 ### `suggest-rubrics-per-assignment-from-clusters`
 
 - **title:** Suggest a rubric for a new assignment from clusters of past rubrics
-- **status:** blocked
+- **status:** ready
 - **priority:** later
 - **blocked on:** `assignments-need-custom-rubrics`
 - **refs:**

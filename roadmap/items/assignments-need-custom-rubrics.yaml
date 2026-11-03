@@ -1,10 +1,8 @@
 id: assignments-need-custom-rubrics
 title: Assignments are graded on one fixed rubric instead of rubrics that fit the task
-status: ready
+status: done
 priority: now
-claim:
-  by: claude/assignments-need-custom-rubrics
-  at: '2026-10-21T10:25:06Z'
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/services/scoring.py'
@@ -42,3 +40,5 @@ evidence: |
   comes from the rubric. An LLM failure leaves criteria "not scored" and
   the run still succeeds. Assignments without a custom rubric score exactly
   as before, proven by a regression test.
+
+  SHIPPED: #26, merged as 62ba0ae.

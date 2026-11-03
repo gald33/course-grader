@@ -18,7 +18,7 @@
       "filename": "team-git-routine.md",
       "mime": "text/markdown",
       "label": "שגרת git של הצוות (team-git-routine.md)",
-      "sha256": "570a77e4cbe48d4e4fab5f6a67f9f42a739e95d42cd029357f3573a320358860"
+      "sha256": "a18222badb2160475080a2630fb49bccbad98b9ffad6ab196f562f1db440b407"
     }
   },
   "steps": [
@@ -292,6 +292,7 @@
               "items": [
                 "**[[GitHub]]** – אתר ששומר עותק של מאגר [[Git]] באינטרנט, כך שכל הצוות ניגש לאותו מאגר.",
                 "**[[remote]]** – הכתובת של העותק המרוחק, בתוך המאגר המקומי. בדרך כלל קוראים לו `origin`.",
+                "**ענף** ([[branch]]) – קו אחד של [[commit]]-ים במאגר. בשיעור הזה כל הצוות עובד על אותו ענף, הענף הראשי (בדרך כלל `main`).",
                 "**[[push]]** (`git push`) – שולחים את ה-[[commit]]-ים שלכם מהמחשב ל-[[GitHub]].",
                 "**[[pull]]** (`git pull`) – מקבלים למחשב את ה-[[commit]]-ים שאחרים דחפו.",
                 "**[[clone]]** (`git clone`) – יוצרים במחשב עותק מלא של מאגר מ-[[GitHub]], בפעם הראשונה."
@@ -322,7 +323,7 @@
               "body": [
                 "הסוכן ב-[[Antigravity]] מריץ פקודות [[git]] בטרמינל, ו-`git push` צריך רשת – לכן הוא ירוץ מחוץ לארגז החול, ו-[[Antigravity]] יבקש את אישורכם ([[antigravity.google/docs/permissions]], נבדק ב-3 בנובמבר 2026). בתיעוד של [[Antigravity]] אין הוראות התחברות ל-[[GitHub]], ולכן מתחברים בדרך ש-[[GitHub]] מתעד.",
                 "**[[GitHub CLI]]:** מתקינים את [[GitHub CLI]] ([[cli.github.com]]), מריצים בטרמינל `gh auth login` ועונים לשאלות: פרוטוקול [[HTTPS]], ו-[[Y]] לשאלה אם להתחבר ל-[[Git]] עם פרטי [[GitHub]]. ההתחברות עצמה נעשית בדפדפן ([[docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git]] ו-[[cli.github.com/manual/gh_auth_login]], נבדק ב-3 בנובמבר 2026).",
-                "**חלופה – [[GitHub Desktop]]:** ב-[[Windows]]: [[File]] ← [[Options]] ← [[Accounts]] ← [[Sign Into GitHub.com]]; ב-[[macOS]]: [[GitHub Desktop]] ← [[Settings]] ← [[Accounts]] ← [[Sign Into GitHub.com]]. אחר כך [[Continue With Browser]] ([[docs.github.com/en/desktop/installing-and-authenticating-to-github-desktop/authenticating-to-github-in-github-desktop]], נבדק ב-3 בנובמבר 2026).",
+                "לא מצליחים להתקין את [[GitHub CLI]] או להתחבר? עברו למסלול החלופי שבסוף השלב: עבודה בסשן של חבר/ת צוות, או עריכה באתר [[GitHub]].",
                 "סיסמה של [[GitHub]] לא עובדת בפקודות [[git]], ואת הסוכן לא מבקשים להקליד סיסמה או טוקן בשיחה."
               ]
             }
@@ -495,7 +496,7 @@
             {
               "type": "prompt",
               "title": "בקשה לסוכן: README רק ממה שהורץ",
-              "text": "/plan מלא את README.md לפי הסעיפים שבו: Prerequisites, Install, Run, Test, Known limits.\n\nכללים:\n- כתוב רק פקודות שהרצת בפועל בפרויקט הזה. ליד כל פקודה, הדבק את הפלט שקיבלת.\n- את הגרסאות ב-Prerequisites קח מהפלט של פקודות הגרסה שהרצת, לא מהזיכרון.\n- ב-Test השתמש בקלט ובתשובה הצפויה מהדוגמה הראשונה ב-SPEC.md.\n- אל תמחק את השורות שהצוות כתב בסעיף Structure, ואל תשנה קבצים אחרים.\n\n1. הצג את הנוסח המוצע וחכה לאישור.\n2. אחרי האישור כתוב, והראה את ה-diff.",
+              "text": "/plan מלא את README.md לפי הסעיפים שבו: Prerequisites, Install, Run, Test, Known limits.\n\nכללים:\n- כתוב רק פקודות שהרצת בפועל בפרויקט הזה. את הפלט של כל פקודה הדבק כאן בשיחה, לא ב-README.\n- את הגרסאות ב-Prerequisites קח מהפלט של פקודות הגרסה שהרצת, לא מהזיכרון.\n- ב-Test השתמש בקלט ובתשובה הצפויה מהדוגמה הראשונה ב-SPEC.md.\n- אל תמחק את השורות שהצוות כתב בסעיף Structure, ואל תשנה קבצים אחרים.\n\n1. הצג את הנוסח המוצע וחכה לאישור.\n2. אחרי האישור כתוב, והראה את ה-diff.",
               "note": "מטרת הבקשה: README שמבוסס על מה שבאמת הורץ, ולא על ניחוש של הסוכן. את הבדיקה עושה חבר/ת הצוות, לא הסוכן."
             },
             {

@@ -160,7 +160,8 @@ def test_concepts_are_explained_before_they_are_used(lesson):
             assert word in understand(_step(lesson, key)), (key, word)
     # Not used in an earlier step (next-step hints and prerequisites aside).
     later = {"[[stub]]": "slice", "[[push]]": "version", "[[pull]]": "version", "[[clone]]": "version",
-             "[[remote]]": "version", "קונפליקט": "version", "package.json": "structure", "קובץ התלויות": "structure"}
+             "[[remote]]": "version", "קונפליקט": "version", "package.json": "structure", "קובץ התלויות": "structure",
+             "ענף": "version"}
     for word, home in later.items():
         for step in lesson["steps"][: keys.index(home)]:
             body = {k: v for k, v in step.items() if k != "next_hint"}
@@ -206,6 +207,12 @@ def test_prompts_are_agent_requests_with_a_purpose_plan_first_and_evidence(lesso
     for title in ("בקשה לסוכן: חיבור למאגר ודחיפה ראשונה", "בקשה לסוכן: עותק, שינוי אחד ודחיפה"):
         assert "אל תבקש ממני סיסמה או טוקן" in by_title[title], title
     assert "git pull" in by_title["בקשה לסוכן: עותק, שינוי אחד ודחיפה"]
+    # Reed N4: the README prompt says where the output goes.
+    assert "את הפלט של כל פקודה הדבק כאן בשיחה, לא ב-README" in by_title["בקשה לסוכן: README רק ממה שהורץ"]
+    # Reed N1: "ענף" (branch) is defined in the step before the prompts use it.
+    version = _step(lesson, "version")
+    understand = _dump(version["blocks"][0])
+    assert "**ענף** ([[branch]])" in understand and "הענף" in by_title["בקשה לסוכן: חיבור למאגר ודחיפה ראשונה"]
 
 
 def test_github_and_antigravity_steps_cite_the_docs_checked_on_the_build_date(lesson):
@@ -214,7 +221,6 @@ def test_github_and_antigravity_steps_cite_the_docs_checked_on_the_build_date(le
         "[[antigravity.google/docs/permissions]]",
         "[[docs.github.com/en/get-started/git-basics/caching-your-github-credentials-in-git]]",
         "[[cli.github.com/manual/gh_auth_login]]",
-        "[[docs.github.com/en/desktop/installing-and-authenticating-to-github-desktop/authenticating-to-github-in-github-desktop]]",
         "[[docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository]]",
         "[[docs.github.com/en/repositories/working-with-files/managing-files/editing-files]]",
         "[[docs.github.com/en/pull-requests/collaborating-with-pull-requests/addressing-merge-conflicts/resolving-a-merge-conflict-using-the-command-line]]",
@@ -225,7 +231,12 @@ def test_github_and_antigravity_steps_cite_the_docs_checked_on_the_build_date(le
     for match in re.finditer(r"\[\[((?:docs\.github\.com|cli\.github\.com|antigravity\.google)/[^\]]+)\]\]", _dump(lesson)):
         tail = _dump(lesson)[match.end(): match.end() + 120]  # one date may close two paired sources
         assert CHECKED in tail, match.group(1)
-    assert "`gh auth login`" in version and "[[HTTPS]]" in version and "[[GitHub Desktop]]" in version
+    assert "`gh auth login`" in version and "[[HTTPS]]" in version
+    # Reed B1: GitHub Desktop's sign-in does not authenticate the git the
+    # agent runs in the terminal, so it is not offered; whoever can't sign in
+    # with gh takes the labelled fallback (a teammate's session, the web editor).
+    assert "Desktop" not in _dump(lesson)
+    assert "לא מצליחים להתקין את [[GitHub CLI]] או להתחבר? עברו למסלול החלופי" in version
     assert "סיסמה של [[GitHub]] לא עובדת" in version
     # GitHub Education: an option, nothing promised.
     assert "[[GitHub Education]]" in version and "רשות" in version
@@ -245,6 +256,7 @@ def test_the_git_routine_and_conflict_are_spelled_out(lesson):
     order = [routine.index(f"## {n}. {w}") for n, w in enumerate(["pull", "change", "run", "commit", "push"], 1)]
     assert order == sorted(order)
     assert "git push --force" in routine and "**אף פעם**" in routine
+    assert "הענף המשותף (הענף הראשי, בדרך כלל `main`" in routine  # Reed N1: the branch is named where it is used
     # Fallbacks for a member who can't install or sign in.
     assert "מסלול חלופי" in text and "[[Edit file]]" in text and "[[Commit changes]]" in text
 

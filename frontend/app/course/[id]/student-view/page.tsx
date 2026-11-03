@@ -91,6 +91,9 @@ export default function StudentViewPreview({ params }: { params: { id: string } 
       loader={() => apiGet<Home>(`/api/courses/${courseId}/peer/student-view/${current.student_id}`)}
       preview
       banner={banner}
+      assignmentHref={(id, from) =>
+        `/course/${courseId}/student-view/assignments/${id}?student=${current.student_id}${from === 'home' ? '' : `&from=${from}`}`
+      }
     />
   );
 }

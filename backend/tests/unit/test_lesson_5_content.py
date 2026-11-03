@@ -110,6 +110,10 @@ def test_the_homework_stays_a_proposal_for_the_instructor_only(lesson):
     assert homework == {"status": "proposal_not_yet_assigned", "text": "הצעת פרויקט + SPEC.md (לפי התבנית)"}
     text = json.dumps(lesson, ensure_ascii=False)
     assert "מטלה" not in text and homework["text"] not in text and seed["homework_he"] not in text
+    # The exit question's helper line says there is no grade ("אין כאן ציון");
+    # it is the only place the word may appear.
+    assert text.count(course_plan.EXIT_CHECK_HELP) == 1
+    text = text.replace(course_plan.EXIT_CHECK_HELP, "")
     for word in ("deadline", "מועד הגשה", "משקל", "ציון", "אחוז"):
         assert word not in text and word not in homework["text"], word
     # The syllabus milestone is named, with no date, place or weight invented.

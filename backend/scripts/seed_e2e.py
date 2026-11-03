@@ -32,12 +32,16 @@ from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.entities import (  # noqa: E402
     Assignment,
+    Assignment,
     CriterionResult,
     Enrollment,
+    RubricDimensionScore,
     Student,
     Submission,
+    SubmissionMember,
 )
 from app.services import student_session  # noqa: E402
+from app.services.scoring import COMPONENT_DIMENSIONS  # noqa: E402
 
 COURSE = {"code": "E2E101", "name": "Smoke Test Course", "year": 2026, "semester": "A"}
 STUDENTS = [
@@ -60,6 +64,20 @@ LESSON_STUDENTS = [
     ("resilience", "900000015", "Yael Lesson"),
     ("access", "900000016", "Rina Lesson"),
 ]
+# Assignment pages, in a course of their own so its released grade stays off
+# the main course's pages: an HW1 the student has not submitted, and an HW2
+# they have, scored on the fixed rubric and released.
+ASSIGNMENT_COURSE = {"code": "E2E103", "name": "Assignment Test Course", "year": 2026, "semester": "A"}
+ASSIGNMENT_STUDENT = ("900000021", "Gil Assign")
+ASSIGNMENT_FEEDBACK = "עבודה יפה, כדאי להרחיב את ההשוואה בין המודלים."
+# ...and a project scored on a custom rubric (#26), released: one criterion
+# the LLM scored, one the instructor overrode.
+ASSIGNMENT_PROJECT = "פרויקט גמר"
+ASSIGNMENT_CRITERIA = [
+    {"name": "שאלת המחקר", "description": "שאלה ברורה שאפשר לענות עליה מהנתונים", "max_points": 20},
+    {"name": "בחירת המודל הסופי", "description": "לפחות שלושה מודלים על אותו מדד", "max_points": 30},
+]
+ASSIGNMENT_RATIONALE = "[cell 2] השאלה מנוסחת היטב"
 # Custom rubrics are seeded in a second course (see seed()).
 RUBRIC_COURSE = {"code": "E2E102", "name": "Rubric Test Course", "year": 2026, "semester": "A"}
 RUBRIC_SCORED = {"name": "השוואת מודלים", "description": "Three or more models, compared on one metric", "max_points": 20}
@@ -115,6 +133,57 @@ def seed() -> dict:
         lesson = _ok(c.post(f"{lessons}/install", json={"fixture_key": LESSON_FIXTURE, "allow_course_mismatch": True}))
         draft = lesson["draft_version"]
         lesson = _ok(c.post(f"{lessons}/{lesson['id']}/publish", json={"version_id": draft["id"]}))
+
+        assignment_course_id = _ok(c.post("/api/courses", json=ASSIGNMENT_COURSE))["id"]
+        with SessionLocal() as db:
+            s = Student(national_id=ASSIGNMENT_STUDENT[0], name=ASSIGNMENT_STUDENT[1])
+            db.add(s)
+            db.flush()
+            db.add(Enrollment(course_id=assignment_course_id, student_id=s.id, is_test=False))
+            hw1 = Assignment(course_id=assignment_course_id, workcode=1, name="תרגיל 1: היכרות", assignment_type="HW1")
+            hw2 = Assignment(course_id=assignment_course_id, workcode=2, name="תרגיל 2: מודלים", assignment_type="HW2")
+            a_project = Assignment(course_id=assignment_course_id, workcode=3, name=ASSIGNMENT_PROJECT, assignment_type="PROJECT")
+            db.add_all([hw1, hw2, a_project])
+            db.flush()
+            sub = Submission(
+                course_id=assignment_course_id,
+                assignment_id=hw2.id,
+                group_identifier=ASSIGNMENT_STUDENT[0],
+                feedback_student=ASSIGNMENT_FEEDBACK,
+            )
+            db.add(sub)
+            db.flush()
+            db.add(SubmissionMember(submission_id=sub.id, student_id=s.id))
+            for d in COMPONENT_DIMENSIONS["hw2_code"]:
+                db.add(RubricDimensionScore(submission_id=sub.id, component="hw2_code", dimension_key=d.key, raw_score=4, adjusted_score=4))
+            db.commit()
+            project_sub = Submission(course_id=assignment_course_id, assignment_id=a_project.id, group_identifier=ASSIGNMENT_STUDENT[0])
+            db.add(project_sub)
+            db.flush()
+            db.add(SubmissionMember(submission_id=project_sub.id, student_id=s.id))
+            db.commit()
+            assignment_student_id, a_hw1_id, a_hw2_id = s.id, hw1.id, hw2.id
+            a_project_id, a_project_sub_id = a_project.id, project_sub.id
+        a_rubric = _ok(
+            c.put(
+                f"/api/courses/{assignment_course_id}/assignments/{a_project_id}/rubric",
+                json={"criteria": ASSIGNMENT_CRITERIA},
+            )
+        )["rubric"]
+        question, models = (crit["id"] for crit in a_rubric["criteria"])
+        with SessionLocal() as db:
+            db.add(
+                CriterionResult(
+                    submission_id=a_project_sub_id, criterion_id=question, status="scored", score=16, rationale=ASSIGNMENT_RATIONALE, model="seed"
+                )
+            )
+            db.commit()
+        _ok(c.put(f"/api/submissions/{a_project_sub_id}/custom-rubric/{models}/override", json={"score": 24, "note": "seed"}))
+        apeer = f"/api/courses/{assignment_course_id}/peer"
+        _ok(c.post(f"{apeer}/links/generate"))
+        assignment_token = next(r["token"] for r in _ok(c.get(f"{apeer}/links")) if r["student_id"] == assignment_student_id)
+        for component in ("hw2", "project"):
+            _ok(c.put(f"/api/courses/{assignment_course_id}/grade-releases/{component}", json={"released": True}))
 
         # Custom rubrics, in a course of their own so its submission stays off
         # the main course's pages: an HW2 with none (the tests author one), and
@@ -177,6 +246,19 @@ def seed() -> dict:
         },
         "lesson_students": {role: signed_in(name) for role, _nid, name in LESSON_STUDENTS},
         "test_student": {"id": ids[STUDENTS[3][1]], "name": STUDENTS[3][1]},
+        "assignments": {
+            "course_id": assignment_course_id,
+            "student": {"id": assignment_student_id, "name": ASSIGNMENT_STUDENT[1], "token": assignment_token},
+            "hw1": {"id": a_hw1_id, "name": "תרגיל 1: היכרות"},
+            "hw2": {"id": a_hw2_id, "name": "תרגיל 2: מודלים", "score": 80, "feedback": ASSIGNMENT_FEEDBACK},
+            "project": {
+                "id": a_project_id,
+                "name": ASSIGNMENT_PROJECT,
+                "criteria": ASSIGNMENT_CRITERIA,
+                "scores": [16, 24],
+                "rationale": ASSIGNMENT_RATIONALE,
+            },
+        },
         "rubrics": {
             "course_id": rubric_course_id,
             "hw2_id": hw2_id,

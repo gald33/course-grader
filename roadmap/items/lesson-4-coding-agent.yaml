@@ -1,10 +1,8 @@
 id: lesson-4-coding-agent
 title: Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
-status: ready
+status: done
 priority: next
-claim:
-  by: claude/lesson-4-coding-agent
-  at: '2026-11-03T14:00:00Z'
+claim: null
 blocked_on:
 - course-42052-whole-syllabus
 refs:
@@ -49,3 +47,5 @@ evidence: |
   the repository (tested); CI is green. Not in this item: a real run in
   Antigravity with screenshots, the instructor's review and live check,
   and a homework brief.
+
+  SHIPPED: #34, merged as 035c8b0.

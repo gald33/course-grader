@@ -157,6 +157,9 @@ for (const device of DEVICES) {
     await expect(she).toBeFocused();
     expect(await cakeInBig.getAttribute('data-weight')).toBe(await boxInBig.getAttribute('data-weight')); // «היא» alone can't tell
     await expect(big.getByRole('button', { name: /^מדי/ })).toHaveAttribute('data-weight', ''); // later words get nothing
+    const summary = big.locator('xpath=..').getByTestId('attention-summary');
+    await expect(summary).toContainText('מילים שאחריה מסומנות ב-—, כי המודל מסתכל רק אחורה.');
+    await expect(summary).not.toContainText('،');
     await noSideways(page, 'C');
     await shot(page, `${device.name}-widgets-attention`);
     expect(problems).toEqual([]);
@@ -196,6 +199,7 @@ for (const device of DEVICES) {
     await expect(out).toHaveAttribute('data-on', '0'); // 0.5×6 − 1×3 − 2 = −2
     await expect(neuron.getByTestId('neuron-sum')).toContainText('= −2');
     const orders = neuron.getByRole('slider', { name: /^הזמנות מראש למחר/ });
+    await expect(orders).toHaveAttribute('dir', 'ltr'); // higher is to the right, also on an RTL page
     await orders.focus();
     for (let i = 0; i < 4; i += 1) await page.keyboard.press('ArrowUp'); // 10 orders: 5 − 3 − 2 = 0
     await expect(neuron.getByTestId('neuron-sum')).toContainText('= 0');
@@ -242,6 +246,16 @@ for (const device of DEVICES) {
     await expect(neighbours.locator('li').first()).toContainText('cake');
     await map.getByRole('button', { name: 'tomorrow', exact: true }).click();
     await expect(neighbours.locator('li').first()).toContainText('מחר');
+    // Every visible label sits inside the drawing, even next to its right edge ("tomorrow").
+    const clipped = await map.locator('svg[role="img"]').evaluate((svg) => {
+      const vb = (svg as SVGSVGElement).viewBox.baseVal;
+      return Array.from(svg.querySelectorAll('text'))
+        .map((t) => ({ text: t.textContent, box: (t as SVGTextElement).getBBox() }))
+        .filter(({ box }) => box.x < vb.x - 0.5 || box.x + box.width > vb.x + vb.width + 0.5)
+        .map(({ text }) => text);
+    });
+    expect(clipped, 'map labels cut off at the edge').toEqual([]);
+    await expect(map).toContainText('הצבעים: נושא שקבענו ביד');
     await expect(map.getByTestId('measured-source')).toContainText('paraphrase-multilingual-MiniLM-L12-v2');
     await noSideways(page, 'C');
     await shot(page, `${device.name}-deeper-C-embeddings`);

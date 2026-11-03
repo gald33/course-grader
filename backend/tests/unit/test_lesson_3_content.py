@@ -71,8 +71,18 @@ def test_the_seed_checks_and_texts_survive_unchanged(lesson):
     generated = course_plan.seed_to_content(seed, "42052")
     # The seed's three checks and the exit check: same key, step, wording and options,
     # so a key file written against the seed fits the authored lesson too.
+    # l03-q2's wording was corrected in review (it spoke of "two sentences"
+    # while the step is about word representations); its key, step, mode and
+    # option ids are the seed's, so a key file written against the seed fits.
+    revised = {"l03-q2"}
     for key, question in generated["questions"].items():
-        assert lesson["questions"][key] == question, key
+        mine = lesson["questions"][key]
+        if key in revised:
+            same = ("key", "step", "mode", "type")
+            assert {k: mine[k] for k in same} == {k: question[k] for k in same}, key
+            assert [o["id"] for o in mine["options"]] == [o["id"] for o in question["options"]], key
+        else:
+            assert mine == question, key
     text = json.dumps(lesson, ensure_ascii=False)
     plain = text.replace("**", "")  # the authored copy adds bold
     assert seed["worked_example_he"] in plain
@@ -187,3 +197,23 @@ def test_notebook_labels_its_tokenizers_model_and_illustration():
     assert "ILLUSTRATION ONLY - hand-picked numbers, NOT measured from any model" in sources
     assert "המחשה רעיונית בלבד" in sources
     assert any("image/png" in o.get("data", {}) for c in executed["cells"] for o in c.get("outputs", []))
+
+
+def test_review_corrections_stay_corrected(lesson):
+    """Claims the adversarial review found wrong (lesson-3-review-fixes) are
+    gone from the lesson and both notebooks."""
+    texts = [json.dumps(lesson, ensure_ascii=False), STUDENT_NB.read_text(encoding="utf-8"), EXECUTED_NB.read_text(encoding="utf-8")]
+    for text in texts:
+        assert "פי עשרות ומאות" not in text  # chatbot model sizes are not published
+        assert "עשרות «ראשי קשב»" not in text  # Qwen2.5-0.5B: 14 heads x 24 layers
+    lesson_text = texts[0]
+    assert "קיבלה את רוב ההסתברות" not in lesson_text  # 45.5% raw is the top, not a majority
+    assert "14 «ראשי קשב» בכל אחת מ-24 השכבות" in lesson_text
+    # The "74% of the four" quoted for the pickup prompt is the shipped number.
+    data = json.loads((NOTEBOOK_DIR / "next-word.json").read_text(encoding="utf-8"))
+    pickup = next(p for p in data["prompts"] if p["id"] == "pickup-he")
+    assert round(next(c["share"] for c in pickup["candidates"] if c["word"] == "10:00") * 100) == 74
+    assert "כ-74% מתוך ארבע האפשרויות" in lesson_text
+    # One required action per step: the widget sections are marked optional.
+    optional = [b for step in lesson["steps"] for b in step["blocks"] if b.get("title") == "רשות – נסו בעצמכם"]
+    assert len(optional) == 3

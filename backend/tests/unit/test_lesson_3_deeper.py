@@ -204,3 +204,22 @@ def test_notebook_is_clean_and_executed_and_leaks_no_path():
         text = path.read_text(encoding="utf-8")
         for marker in ("/tmp/", "/home/", "/root/", "scratchpad", "site-packages", "api_key", "sk-"):
             assert marker not in text, f"{path.name}: {marker}"
+
+
+def test_review_corrections_stay_corrected_in_the_deeper_lesson(deeper):
+    """A transformer stacks many layers with their own weights (not one layer
+    repeating); the embedding model was trained on translation pairs; cosine
+    of unrelated words is not near 0 in this model."""
+    text = json.dumps(deeper, ensure_ascii=False)
+    svg = (DEEPER_DIR / "transformer-pipeline.svg").read_text(encoding="utf-8")
+    for source in (text, svg):
+        assert "שוב ושוב" not in source and "חוזרת" not in source
+    assert "בזו אחר זו" in text and "בזו אחר זו" in svg
+    assert "זוגות של משפטים ותרגומם" in text
+    assert "קרוב ל-0 – לא קשורות" not in text
+    em = json.loads((L3_DIR / "embedding-map.json").read_text(encoding="utf-8"))
+    by_id = {w["id"]: w for w in em["words"]}
+    lowest = min(n["cosine"] for w in em["words"] for n in w["neighbors"])
+    assert lowest > 0.3  # even the 5th-nearest neighbours are well above 0
+    assert by_id["w00"]["text"] == "לחם" and by_id[by_id["w00"]["neighbors"][0]["id"]]["text"] == "bread"
+    assert all(step.get("next_hint") for step in deeper["steps"])

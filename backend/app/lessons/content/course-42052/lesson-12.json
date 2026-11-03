@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-12",
+  "title": "ליטוש והצגות גמר — חלק א׳",
+  "guiding_question": "להציג מוצר עם ראיות לביצוע ולהסביר החלטות ומגבלות.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "evidence",
+      "letter": "A",
+      "title": "מארגנים סיפור סביב משתמש",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "מוצר נגיש ובדיקות מסלול מרכזי"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הדגמה מציגה צורך, פעולה ותוצאה שהקהל יכול לבדוק. רשימת טכנולוגיות ארוכה אינה מסבירה את ערך המוצר. הבדילו יכולת עובדת, תגובת דמה ותכנון להמשך."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הכינו קלט קצר ידוע, תוצאה צפויה וגיבוי מסומן אם שירות חיצוני נופל. ודאו שהקישור נפתח אצל מישהו מחוץ לצוות."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l12-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l12-q1"
+        }
+      ]
+    },
+    {
+      "key": "final-a",
+      "letter": "B",
+      "title": "מציגים את המוצר ואת ההחלטות",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "חלק מהצוותים מציגים במפגש זה והאחרים במפגש 13 לפי השיבוץ. כל צוות מסביר בחירה אחת, בדיקה אחת, מגבלה אחת ואת תרומות החברים."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הצוותים המשובצים מדגימים; האחרים מתנסים ומגישים ביקורת אישית לפי חלון ורובריקה פעילים. אין מדרגים את הצוות שלכם."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l12-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l12-q2"
+        }
+      ]
+    },
+    {
+      "key": "reflect",
+      "letter": "C",
+      "title": "מסבירים אחריות אישית",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "התוצר צוותי, אך כל חבר נדרש להבין את דרך הפעולה ולתאר את תרומתו. היכולת להסביר בדיקה והחלטה חשובה גם כשסוכן כתב את הקוד."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "כל חבר מסביר חלק שהבין ותוצאה שבדק. תקנו כשל קריטי לפני מסירה, בלי להוסיף דרישות מוצר רחבות ברגע האחרון."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l12-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l12-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "רצף הדגמה: צורך של בעלת מאפייה, הזנה קצרה, סיכום כמויות, סימון פרט חסר, בדיקה של אדם אחר ומגבלה גלויה."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-12-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "הצגת [[final]] לצוותים המשובצים; לצוותים האחרים חזרה ובדיקת קישור."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-12-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l12-q1": {
+      "key": "l12-q1",
+      "step": "evidence",
+      "mode": "check",
+      "prompt": "שירות חיצוני נפל בזמן ההצגה. מה מציגים?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "תוצאה מוקלטת כאילו הופקה עכשיו"
+        },
+        {
+          "id": "2",
+          "text": "גיבוי מסומן והסבר ברור על הכשל"
+        },
+        {
+          "id": "3",
+          "text": "טענה שכל התכונות עובדות בלי בדיקה"
+        }
+      ]
+    },
+    "l12-q2": {
+      "key": "l12-q2",
+      "step": "final-a",
+      "mode": "check",
+      "prompt": "מהו בסיס ראוי למשוב?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "חברות עם המציגים"
+        },
+        {
+          "id": "2",
+          "text": "פעולה שניסיתם, תוצאה שראיתם ושיפור קונקרטי"
+        },
+        {
+          "id": "3",
+          "text": "כמות השקפים בלבד"
+        }
+      ]
+    },
+    "l12-q3": {
+      "key": "l12-q3",
+      "step": "reflect",
+      "mode": "check",
+      "prompt": "סוכן כתב את הקוד. מי אחראי להסביר איך התוצר נבדק?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "רק הסוכן"
+        },
+        {
+          "id": "2",
+          "text": "הסטודנטים שבנו והגישו אותו"
+        },
+        {
+          "id": "3",
+          "text": "רק המשתמש שבדק"
+        }
+      ]
+    },
+    "lesson-12-exit": {
+      "key": "lesson-12-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

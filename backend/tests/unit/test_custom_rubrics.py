@@ -872,7 +872,8 @@ def test_without_a_rubric_scoring_is_exactly_as_before(env):
 
 def test_migration_round_trips(tmp_path):
     """0025 upgrades, downgrades to 0024 and upgrades again, on SQLite and (when
-    TEST_DATABASE_URL is set) on Postgres."""
+    TEST_DATABASE_URL is set) on Postgres. It upgrades to 0025 by name: later
+    revisions (0026) sit on top of it."""
     urls = [f"sqlite:///{tmp_path / 'm.sqlite3'}"]
     if os.environ.get("TEST_DATABASE_URL"):
         from sqlalchemy import create_engine, text
@@ -894,12 +895,12 @@ def test_migration_round_trips(tmp_path):
             assert res.returncode == 0, res.stderr
             return res.stdout
 
-        alembic("upgrade", "head")
-        assert "0025_custom_rubrics (head)" in alembic("current")
+        alembic("upgrade", "0025_custom_rubrics")
+        assert "0025_custom_rubrics" in alembic("current")
         alembic("downgrade", "0024_lessons")
         assert "0024_lessons" in alembic("current")
-        alembic("upgrade", "head")
-        assert "0025_custom_rubrics (head)" in alembic("current")
+        alembic("upgrade", "0025_custom_rubrics")
+        assert "0025_custom_rubrics" in alembic("current")
 
 
 def test_student_payload_marks_the_assignment_that_counts(env):

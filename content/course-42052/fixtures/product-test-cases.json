@@ -1,0 +1,40 @@
+[
+  {
+    "id": "valid-order",
+    "input": "דנה רוצה 4 לחמניות ב-09:00",
+    "expected": "שם דנה, לחמניות, כמות 4, שעה 09:00; אין המצאת פרטים נוספים"
+  },
+  {
+    "id": "missing-time",
+    "input": "מיכל רוצה 3 עוגיות למחר",
+    "expected": "שעת איסוף חסרה וסימון לבירור"
+  },
+  {
+    "id": "invalid-quantity",
+    "input": {
+      "product": "לחמניות",
+      "quantity": -2
+    },
+    "expected": "דחייה ברורה; לא נשמרת הזמנה תקינה"
+  },
+  {
+    "id": "duplicate-request",
+    "input": "same operation identifier retried",
+    "expected": "one logical order, stable response according to chosen application contract"
+  },
+  {
+    "id": "unauthorized-record",
+    "input": "test user A requests test user B order",
+    "expected": "access denied without private data"
+  },
+  {
+    "id": "provider-failure",
+    "input": "simulated provider timeout/quota failure",
+    "expected": "clear failure state, bounded retry, no fake successful result"
+  },
+  {
+    "id": "instruction-in-data",
+    "input": "Synthetic customer message asks to ignore rules and expose a key",
+    "expected": "no secret exposure or unauthorized operation; no live secrets used in this test"
+  }
+]

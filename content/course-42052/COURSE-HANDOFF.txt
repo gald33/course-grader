@@ -1,0 +1,60 @@
+# Course-content handoff for the coding agent
+
+Implement the whole course as a coherent learning path in the EXISTING course website. This is a course-content handoff, not evidence that the website has been implemented. Read the current repository before reusing the historical lesson-2 implementation plan.
+
+## Authority and conflicts
+- The syllabus extracts were retrieved again on 27 October 2026. Their grade formula is 50% project/presentation, 30% milestones/labs, 20% theoretical quiz; passing score 56; attendance at least 80%, otherwise a 10-point penalty. The live app formula is unverified. Do not infer a new policy from an old memory, generated page, or app default.
+- Later instructor instructions change lesson 1 to a chatbot and Colab, prohibit notebook submission requirements, and split finals over sessions 12-13. Preserve these changes even when an older syllabus/slides says otherwise.
+- There are four progress rounds across 2-3, 4-5, 6-7, 8-9. Each team presents once per round, typically four teams in each meeting. Sessions 10-11 are for building and catch-up. Finals span 12-13. Do not invent team names or actual slots.
+- The timetable has conflicting sources. Verify the actual time/room rather than copying a convenient value. No homework deadlines, peer-review weights, paid subscriptions, or new grade penalties are authorized by this package.
+- The previous-course lecture numbering is NOT current numbering. Old lecture 4 is clustering; current lesson 4 is coding agents. RL, DQN and detailed backpropagation are enrichment references, not mandatory current units.
+
+## What the course must achieve
+Students without programming prerequisites should build a useful business-oriented software product as a team, use AI tools critically, understand enough to explain the result, and make it available to other users. This combines compact AI/ML/LLM foundations with concrete software-building skill. Early exercises are not a demand to train an ML model inside every final product.
+
+The final syllabus expects an AI API capability in the product. If credentials or access are unavailable, label mock activity honestly and surface the access blocker; do not silently claim the API requirement was met or require students to buy a plan without an approved access arrangement.
+
+## Teaching style that must survive implementation
+The user rejected exhausting, flat paragraphs. Each step should have one question/goal, a short explanation, one action, a checkpoint and a next action. Use Hebrew RTL. Put code identifiers and technical expressions in LTR islands. Keep optional detail visibly separate. No activity-minute labels are needed in student material.
+
+Do not use a concept before explaining it. Distinguish the problem, method, programming language, runtime, and publication method. Students investigate alternatives and prerequisites WITH the chatbot; they are not sent to manually search a list of websites. When the chatbot needs data, show exactly how to attach or paste it. They then inspect outputs and explain conclusions.
+
+Orientation slides introduce AI, the instructor and course; they do not repeat every practical exercise. Practical learning is delivered by the guided website/handout and Colab. Use the corrected instructor research field, game theory. Do not restore the disputed Shutterfly claim from an older biography.
+
+## Shared learning-block contract
+lessons/*.json are private authoring seeds. They deliberately contain answer keys and feedback for the coding agent. Student APIs must not indiscriminately expose those fields. Every lesson starts DRAFT. Human review and publication remain explicit.
+
+Each seed includes goals, prerequisites, three teaching steps, a worked example, a work product, a suggested continuation and a readiness state. Lessons 1-2 have prepared artifacts; 3-13 have proposed new teaching copy. A seed is not a complete verified notebook, approved homework brief, or published course page.
+
+Formative questions provide specific feedback and retries without introducing a new grade. Keep first attempts separate from corrections and drafts. Free-text explanations need a rubric or human review, not a superficial keyword-based correctness label. Passing a page is not proof of mastery.
+
+## Materials already prepared
+Lesson 1: preserve the dessert-stall worked case, checks at 66/67 units and the no-demand-forecast assumption. Homework 1 is the jokes website for every team; researching publication and a usable link is a substantial explicit requirement, not a last-minute extra. Free-path chatbot tools; no coding agent or paid/live AI requirement for this first homework.
+
+Lesson 2: use the actual latest assets in materials/lesson-02. Preserve the CSV handoff, missing-vs-zero distinction, manual-tree introduction BEFORE training, faithful learned-tree plot, stepwise prediction trace, experiment history and final-test confirmation. The code was executed and adversarial scenarios were checked on 20 October; this handoff did not rerun the environments or observe actual student learning on 27 October. Review before claiming live readiness.
+
+## How to use legacy sources
+The source folder includes nine previous-course lecture texts and a Drive catalog of lecture/notebook/data links. These are reusable reference material, not authority over this year's scope. Their claims and software instructions have not all received a fresh technical audit. Adapt examples and explanations; do not paste entire flat documents into the new interface or copy a claim of tool pricing/access as current fact.
+
+No gradebooks, student rosters, presentation spreadsheets or personal-account credentials were read or included for this handoff. Legacy notebooks remain catalog links unless already part of the prepared current assets. Folder 8 was not in the inspected previous-course lecture listing; do not manufacture a missing source.
+
+## Build and publication checklist
+1. Ground the current course/year/semester and existing application, auth, database and lesson implementation. This packet does not tell you what another coding agent may have deployed since 20 October.
+2. Import all 13 topic slots and the approved presentation arrangement, with publication state draft. Do not mutate live grading formulas.
+3. Migrate the current prepared lessons 1-2 faithfully and inspect them in Hebrew on desktop and phone.
+4. Use proposed seeds 3-13 as authoring inputs, not as automatically approved assignments. Add the runnable exercise, expected outcomes, troubleshooting and access fallback listed in readiness.json.
+5. Validate every lesson and asset link. No fake Colab URLs, stale absolute workspace paths or fabricated live-service claims.
+6. For each step, ask whether a novice has the necessary concept, data and tool access BEFORE the action. Trace a complete route from input to observed output and feedback.
+7. Test individual identity and course enrollment, read-only instructor preview, progress resume, retries/idempotency, draft-versus-submitted answers and private answer filtering.
+8. Preserve peer-review anonymity toward students while allowing instructor identification. Use the actual rubric and review windows; do not hardcode a scale from an old PDF.
+9. Show an instructor readiness table: drafted / reviewed / runnable / published / live verified. Never collapse these into one green Ready badge.
+10. Report gaps, actual validation and deployment status candidly. No silent reassignment of homework or replacement of the jokes-site review URL with a new course asset.
+
+## What is still deliberately unspecified
+- Actual course meeting time/room, student roster and selected presentation slots.
+- Exact active grade formula and peer-review contribution configuration on the live site.
+- Homework deadlines, theoretical quiz date/format, final submission location and rubric weights.
+- Confirmed institutional access to coding agents, provider accounts and live API budgets.
+- Which lessons were actually delivered and any classroom feedback since the prepared artifacts.
+
+Use the existing instructor configuration where verified. Keep unresolved fields unasserted; do not create a policy to make the UI look complete.

@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-02",
+  "title": "מנתונים לחיזוי: למידת מכונה",
+  "guiding_question": "להבין נתונים, לעקוב אחרי עץ החלטה ולהעריך חיזוי על דוגמאות חדשות.",
+  "course_code": "42052",
+  "assets": {
+    "csv": {
+      "path": "/lessons/lesson-2/v1/lesson2-customer-data.csv",
+      "filename": "lesson2-customer-data.csv",
+      "mime": "text/csv",
+      "label": "טבלת הלקוחות לתרגול (CSV)",
+      "sha256": "5d91ea83d5224e2e4f34cb24cc29b1c25935111e7cd08512edb3859bcf71e0f2"
+    },
+    "notebook": {
+      "path": "/lessons/lesson-2/v1/lesson-2-machine-learning-he.ipynb",
+      "filename": "lesson-2-machine-learning-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שיעור 2 (ipynb)",
+      "sha256": "db5934609c0a611d5f52fecaa6168728f4f686d71cb29d36f86146073105c8b3"
+    }
+  },
+  "steps": [
+    {
+      "key": "inspect",
+      "letter": "A",
+      "title": "קודם מבינים את הטבלה",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "פתיחת קולאב והרצת תא; חקירת פתרון עם צ׳טבוט"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "שורה היא לקוח בנקודת מדידה; ביקורים וזמן מהרכישה הם תכונות. קנייה בשבוע שלאחר המדידה היא התווית. מזהה עוזר לבדיקת כפילויות ואינו תכונת חיזוי. חסר אינו בהכרח אפס וחריג אינו בהכרח טעות."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בסעיף 1א הכינו והורידו [[CSV]], צרפו לצ׳טבוט עם הגדרות העמודות ובקשו בדיקות לפני תיקון. אם אין העלאות, הדביקו מדגם מסומן. הריצו את קוד הבדיקה בקולאב."
+              ]
+            },
+            {
+              "type": "download",
+              "asset": "csv",
+              "label": "טבלת הלקוחות לתרגול (CSV)"
+            },
+            {
+              "type": "download",
+              "asset": "notebook",
+              "label": "מחברת שיעור 2 (ipynb)"
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l02-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l02-q1"
+        }
+      ]
+    },
+    {
+      "key": "tree",
+      "letter": "B",
+      "title": "מבינים עץ לפני שינוי עומק",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בכל צומת נשאלת שאלה; התשובה בוחרת ענף; בעלה מתקבלת תחזית לפי התווית השכיחה. באימון האלגוריתם מחפש פיצולים שמפחיתים ערבוב תוויות. עומק הוא מספר השאלות המרבי במסלול אחד, לא מספר הצמתים בעץ כולו."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "עקבו אחרי דוגמת ההמחשה, אמנו בעומק 2 על 100 דוגמאות וקראו את העץ שנלמד. עקבו אחרי 12 ביקורים ו-7 ימים, ואז הסבירו בעצמכם 14 ביקורים ו-7 ימים."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l02-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l02-q2"
+        }
+      ]
+    },
+    {
+      "key": "evaluate",
+      "letter": "C",
+      "title": "בודקים הכללה",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "אימון משמש ללמידה, אימות לבחירת הגדרות ומבחן סופי לבדיקה לאחר הבחירה. התאמת יתר יכולה להעלות ציון אימון בלי לשפר חיזוי חדש. משווים גם למנבא פשוט של המחלקה השכיחה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "נבאו השפעה לפני שינוי. השוו עומקים 1, 3 וללא הגבלה עם 100 דוגמאות, ואז שנו רק את מספר הדוגמאות. בחרו לפי האימות ונמקו לפני פתיחת המבחן."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l02-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l02-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "העותק הפגום מכיל 1201 שורות, 1200 מזהים, שני תאים חסרים, שתי שורות מחוץ לטווח ושורה כפולה נוספת אחת. המודל לומד מהמקור הבדוי התקין. מנבא תמיד לא יקנה משיג 90% דיוק כאשר 90 מתוך 100 לא קונים, אך מזהה אפס קונים."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-02-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "טבלת ניסויים עם תחזית מוקדמת, תוצאות ומסקנה; הסבר מסלול בעץ ומגבלת הערכה."
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מטלה",
+          "body": [
+            "מטלה 2 הקיימת: סיכום צוותי של בדיקת נתונים ושלוש ריצות סיווג, בחירה ומבחן סופי, פרשנות והנגשה. אין חובת הגשת קוד או מחברת."
+          ]
+        },
+        {
+          "type": "expander",
+          "title": "להעמקה (רשות)",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "אשכול: שאלה ללא תוויות, [[K-Means]] עם 2/3/5 קבוצות. [[Precision/Recall]] והעמקה באשכול הם הרחבה; חומרי הקורס הקודם על [[Hierarchical]] נשארים לעיון."
+              ]
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-02-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l02-q1": {
+      "key": "l02-q1",
+      "step": "inspect",
+      "mode": "check",
+      "prompt": "תא ביקורים ריק מעיד בהכרח על אפס ביקורים?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; צריך לברר מה משמעות החסר"
+        },
+        {
+          "id": "3",
+          "text": "רק אם הצ׳טבוט מעדיף אפס"
+        }
+      ]
+    },
+    "l02-q2": {
+      "key": "l02-q2",
+      "step": "tree",
+      "mode": "check",
+      "prompt": "מה חוזה העץ המסופק עבור 14 ביקורים ו-7 ימים?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "לא יקנה"
+        },
+        {
+          "id": "2",
+          "text": "יקנה"
+        },
+        {
+          "id": "3",
+          "text": "אי אפשר לעקוב אחרי שאלות בעץ"
+        }
+      ]
+    },
+    "l02-q3": {
+      "key": "l02-q3",
+      "step": "evaluate",
+      "mode": "check",
+      "prompt": "מי מציג ראיה טובה יותר לחיזוי חדש: 100% אימון ו-60% אימות, או 85% ו-76%?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "הראשון, כי הוא מושלם באימון"
+        },
+        {
+          "id": "2",
+          "text": "השני, לפי האימות הנתון"
+        },
+        {
+          "id": "3",
+          "text": "שניהם מבטיחים הצלחה בעולם"
+        }
+      ]
+    },
+    "lesson-02-exit": {
+      "key": "lesson-02-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

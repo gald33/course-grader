@@ -2,8 +2,11 @@
 
 Builds one course through the real API: four students in two teams (one of
 them a test student), the default peer-review schedule, and student review
-links. Then installs the guided lesson fixture into that course and publishes
-it, adds a few more students who each walk through the lesson in one browser
+links. Then installs the guided lesson fixture into that course, loads FAKE
+answer keys for it through the instructor upload (the real keys are private
+and never in this repository: see fake_keys) and publishes it, imports the
+42052 course plan (13 draft lessons, FAKE keys too, nothing published), adds
+a few more students who each walk through the lesson in one browser
 test (so no test sees another's progress), and signs every lesson student in:
 the manifest carries a valid cg_student cookie value for each (signed with
 SESSION_SECRET, which the backend under test must share).
@@ -29,6 +32,7 @@ if str(ROOT) not in sys.path:
 
 from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
+from app.lessons import load_fixture, load_plan  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.entities import (  # noqa: E402
     Assignment,
@@ -84,6 +88,32 @@ RUBRIC_SCORED = {"name": "השוואת מודלים", "description": "Three or m
 RUBRIC_UNSCORED = {"name": "Plots", "description": "Results plotted and explained", "max_points": 10}
 
 
+# The plan imported into the course (its code differs, so with an override).
+PLAN = "42052"
+
+
+def fake_keys(fixture_key: str) -> dict:
+    """FAKE answer keys for a fixture, by a fixed rule the browser tests know:
+    the LAST option is "correct", the first is wrong, and every text says
+    FAKE. They have nothing to do with the real keys."""
+    content = load_fixture(fixture_key)
+    keys = {}
+    for qkey, q in content["questions"].items():
+        if q["type"] == "single_choice":
+            ids = [o["id"] for o in q["options"]]
+            keys[qkey] = {
+                "answer": {
+                    "correct": [ids[-1]],
+                    "feedback": {i: f"FAKE משוב לאפשרות {i}" for i in ids},
+                    "misconceptions": {i: f"fake-{i}" for i in ids[:-1]},
+                    "explanation": f"FAKE הסבר לשאלה {qkey}",
+                }
+            }
+        else:
+            keys[qkey] = {"answer": {"sample_reasoning": ["FAKE נימוק לדוגמה"], "rubric": ["FAKE קריטריון"]}}
+    return {content["slug"]: keys}
+
+
 def _ok(res, status: int = 200):
     if res.status_code != status:
         raise SystemExit(f"{res.request.method} {res.request.url} -> {res.status_code}: {res.text}")
@@ -132,8 +162,17 @@ def seed() -> dict:
         lessons = f"/api/courses/{course_id}/lessons"
         lesson = _ok(c.post(f"{lessons}/install", json={"fixture_key": LESSON_FIXTURE, "allow_course_mismatch": True}))
         draft = lesson["draft_version"]
+        _ok(c.post(f"/api/courses/{course_id}/answer-keys", json={"lessons": fake_keys(LESSON_FIXTURE)}))
         lesson = _ok(c.post(f"{lessons}/{lesson['id']}/publish", json={"version_id": draft["id"]}))
 
+        # The whole-course plan: 13 draft lessons, with FAKE keys so the
+        # preview can check answers. Nothing of it is published.
+        plan = _ok(c.post(f"/api/courses/{course_id}/plan/import", json={"plan_code": PLAN, "allow_course_mismatch": True}))
+        plan_keys: dict = {}
+        for session in load_plan(PLAN)["sessions"]:
+            plan_keys.update(fake_keys(session["fixture_key"]))
+        _ok(c.post(f"/api/courses/{course_id}/answer-keys", json={"lessons": plan_keys}))
+        plan_lessons = {s["lesson_slug"]: s["lesson"]["id"] for s in plan["sessions"]}
         assignment_course_id = _ok(c.post("/api/courses", json=ASSIGNMENT_COURSE))["id"]
         with SessionLocal() as db:
             s = Student(national_id=ASSIGNMENT_STUDENT[0], name=ASSIGNMENT_STUDENT[1])
@@ -245,6 +284,7 @@ def seed() -> dict:
             "version_number": lesson["active_version"]["number"],
         },
         "lesson_students": {role: signed_in(name) for role, _nid, name in LESSON_STUDENTS},
+        "plan_lessons": plan_lessons,
         "test_student": {"id": ids[STUDENTS[3][1]], "name": STUDENTS[3][1]},
         "assignments": {
             "course_id": assignment_course_id,

@@ -1,0 +1,289 @@
+LEGACY REFERENCE — previous course, not the current lesson order.
+Source: https://docs.google.com/document/d/16gi6KiCcNSLQOw5YNZ85DOAISvPQ4MLXGLrzdJSaz0I
+
+הרצאה 1
+אג׳נדה
+הרצאה
+הקדמה - מה זה AI? (מצגת)
+דרישות הקורס (סילבוס)
+מילואים, הקלטות ותקשורת
+מושגים מרכזיים בלמידת מכונה
+למה פייתון שימושי לעבודה עם AI?
+סביבת העבודה קולאב
+עבודה בעזרת chatGPT
+עבודה עצמית
+תרגול שימוש בchatGPT (או צ׳טבוט אחר)
+תרגול שימוש בקולאב
+ספריות חשובות לAI
+גרפים
+מושגים מרכזיים בלמידת מכונה
+מושגים
+למידה מפוקחת (Supervised Learning): סוג למידה זה שימושי כאשר יש לנו נתונים עם תוויות מדויקות, כמו בניית מערכת לזיהוי דוא"ל כ"ספאם" או "לא ספאם" (כשלכל דוא"ל יש תווית נכונה של ספאם או לא). עוד דוגמה היא חיזוי מחירי בתים לפי מאפיינים כמו מיקום, גודל, ומספר חדרים. כאן, התוויות הן מחירי הבתים בפועל, והמודל לומד לקשר בין המאפיינים לבין המחירים.
+למידה בלתי מפוקחת (Unsupervised Learning): שימושי כאשר אין לנו תוויות מוגדרות מראש ואנו מעוניינים לזהות מבנים או קבוצות בנתונים. דוגמה לכך היא ניתוח לקוחות של חנות לפי דפוסי קנייה, כדי לזהות קבוצות של לקוחות עם הרגלי קנייה דומים. זה יכול לסייע בפיתוח אסטרטגיות שיווק מותאמות אישית לכל קבוצת לקוחות. דוגמה נוספת היא זיהוי קבוצות גיאוגרפיות דומות לפי מאפיינים דמוגרפיים, ללא נתונים מדויקים על האוכלוסיות.
+מאפיינים (Features): דוגמה לכך יכולה להיות חיזוי הצלחה בלימודים של תלמידים לפי מאפיינים כמו מספר שעות לימוד, מצב סוציו-אקונומי, ותמיכה לימודית בבית הספר. המאפיינים (שעות לימוד, מצב כלכלי, ועוד) הם הקלט שהמודל משתמש בו כדי לחזות את התוצאה (הצלחה או כישלון).
+תוויות (Labels): לדוגמה, במודל לניבוי מחלות, המאפיינים הם תסמינים שונים והתווית היא האם יש למטופל מחלה מסוימת או לא. במקרה זה, המודל מנסה לנבא את התווית (קיום המחלה) על פי המאפיינים (התסמינים).
+מודל (Model): למשל, ניתן להשתמש במודל מסוים לניבוי הצלחה של קמפיין שיווקי על ידי ניתוח נתונים היסטוריים של קמפיינים קודמים ומדדי הצלחה שלהם. המודל לומד את הקשר בין מאפיינים של הקמפיין (כמו קהל יעד, תזמון, סוג התוכן) לבין הצלחתו.
+אימון ובדיקה (Training and Testing): דוגמה לכך יכולה להיות בניית מודל לזיהוי פנים. המודל מאומן על אלפי תמונות של פנים, ולאחר מכן נבדק על סט של תמונות חדשות כדי לראות עד כמה הוא מצליח לזהות פנים בצורה מדויקת.
+תהליך העבודה
+איסוף נתונים (Data Collection): למשל, חברת ביטוח רוצה לחזות את הסיכון של לקוחות. היא אוספת נתונים היסטוריים על לקוחותיה, כולל גיל, מין, מצב בריאותי ותביעות קודמות.
+הכנת נתונים (Data Preparation): בשלב זה ייתכן והחברה תנקה נתונים חסרים או שגויים, כמו גם תבצע התאמות או המרות כדי להבטיח את האיכות והדיוק של הנתונים. לדוגמה, שינוי פורמט תאריכים או מילוי ערכים חסרים בגיל לפי ממוצעים בקבוצות גיל דומות.
+בניית מודל (Model Building): בבחירת המודל, ניתן לבחור באלגוריתם עצי החלטה, לדוגמה, כדי לקבוע האם לקוח מהווה סיכון גבוה. האלגוריתם יבחר על סמך התאמתו לסוג הנתונים ולאופי הבעיה.
+אימון (Training): החברה מאמנת את המודל על נתוני לקוחות קודמים ומעריכה את יכולתו לחזות תביעות עתידיות.
+הערכה (Evaluation): המודל נבדק על קבוצה נפרדת של נתוני לקוחות כדי לראות עד כמה הוא מצליח בניבוי תביעות ביטוח חדשות.
+פריסה (Deployment): לאחר שהמודל מספק תחזיות מדויקות, הוא יכול להשתלב במערכת החברה כדי לנתח סיכונים של לקוחות פוטנציאליים בזמן אמת.
+מבוא לפייתון וקולאב
+למה פייתון?
+פייתון היא אחת משפות התכנות הפופולריות ביותר לבינה מלאכותית ולמידת מכונה, ויש לכך סיבות טובות. היא קלה ללמידה בזכות הסינטקס הקריא שלה, מה שהופך אותה לנגישה למתחילים. לפייתון יש גם מערכת אקולוגית רחבה של ספריות וכלים שמפשטים מאוד את הפיתוח של בינה מלאכותית, החל ממניפולציה של נתונים ועד לבניית מודלים מורכבים של למידת מכונה. בנוסף, הקהילה הגדולה והפעילה מספקת תמיכה ומשאבים נרחבים, מה שמקל על מפתחים למצוא עזרה, מדריכים וכלים לפרויקטים שלהם. הגמישות של פייתון גם מאפשרת להשתמש בה במגוון משימות, מפיתוח אתרים ועד ניתוח נתונים, מה שמועיל לפתרונות בינה מלאכותית מקצה לקצה.
+דוגמאות לפקודות בסיסיות בפייתון
+Python code:
+# Print a message to the console
+print("Hello, World!")
+# Define a variable and print it
+x = 5
+y = 10
+print(x + y)
+# Example of a list in Python
+# A list is a collection of items that is ordered and changeable
+my_list = [1, 2, 3, 4, 5]
+print("My List:")
+print(my_list)
+# Accessing elements of a list
+print("First element of the list:")
+print(my_list[0])
+# Example of a dictionary in Python
+# A dictionary is a collection of key-value pairs
+my_dict = {
+    "name": "Alice",
+    "age": 25,
+    "city": "New York"
+}
+print("My Dictionary:")
+print(my_dict)
+# Accessing values in a dictionary by key
+print("Name:")
+print(my_dict["name"])
+# Create a list and iterate through it
+my_list = [1, 2, 3, 4, 5]
+for item in my_list:
+    print(item)
+# Define a function that returns the square of a number
+def square(num):
+    return num * num
+print(square(4))
+# Import a library and use it (e.g., math library)
+import math
+print(math.sqrt(16))
+ספריות פייתון בסיסיות ללמידת מכונה
+במהלך הקורס נשתמש בכמה ספריות פייתון חשובות שהן בסיסיות למדעי הנתונים וללמידת מכונה
+pandas - הספרייה הזו חיונית למניפולציה וניתוח של נתונים. היא עוזרת בקריאת נתונים, ניקויים והפיכתם לפורמט המתאים למודלים
+Python code:
+  import pandas as pd
+  # Create a DataFrame from a dictionary
+  data = {
+      'Name': ['Alice', 'Bob', 'Charlie'],
+      'Age': [25, 30, 35],
+      'City': ['New York', 'Los Angeles', 'Chicago']
+  }
+  df = pd.DataFrame(data)
+  # Display the DataFrame
+  print(df)
+  # Select a specific column
+  ages = df['Age']
+  print("Ages:")
+  print(ages)
+  # Filter rows based on a condition
+  over_30 = df[df['Age'] > 30]
+  print("People over 30:")
+  print(over_30)
+  
+Explanation:
+In this example, we use pandas to create a DataFrame, which is similar to a table in a database or a spreadsheet. We then select a specific column and filter the rows based on a condition.
+numpy - קריטית לחישוב מספרי. היא מאפשרת לבצע פעולות מתמטיות מהירות על מערכי נתונים גדולים, מה שהופך אותה לאידיאלית לפעולות מטריציוניות שמרבות להופיע בלמידת מכונה
+Python code:
+  import numpy as np
+  # Create a numpy array from a list
+  my_array = np.array([1, 2, 3, 4, 5])
+  print("Numpy Array:")
+  print(my_array)
+  # Perform mathematical operations on the array
+  squared_array = my_array ** 2
+  print("Squared Array:")
+  print(squared_array)
+  # Create a 2D array (matrix)
+  matrix = np.array([[1, 2], [3, 4]])
+  print("Matrix:")
+  print(matrix)
+  # Calculate the transpose of the matrix
+  transpose_matrix = np.transpose(matrix)
+  print("Transpose of the Matrix:")
+  print(transpose_matrix)
+Explanation:  
+In this example, we create a numpy array and demonstrate simple mathematical operations. We also create a 2D array (a matrix) and calculate its transpose.
+scikit-learn - זוהי ספרייה עוצמתית שמספקת מגוון רחב של כלים ללמידת מכונה, כולל אלגוריתמים לסיווג, רגרסיה, אשכולות ועוד. היא גם מציעה כלים להערכת מודלים ולעיבוד מקדים, מה שהופך אותה לספרייה שימושית לבניית מודלים של למידת מכונה
+Python code:
+  from sklearn.datasets import load_iris
+  from sklearn.model_selection import train_test_split
+  from sklearn.linear_model import LogisticRegression
+  from sklearn.metrics import accuracy_score
+  # Load the Iris dataset
+  # The Iris dataset is a well-known dataset that contains information about three species of iris flowers:
+  # Setosa, Versicolor, and Virginica. The dataset has 150 samples, each with 4 features: sepal length, sepal width,
+  # petal length, and petal width. The goal is to classify the iris species based on these features.
+  iris = load_iris()
+  X = iris.data  # Features - these are the measurements of the flowers (sepal length, sepal width, etc.)
+  y = iris.target  # Labels - these are the species of the iris flowers (0, 1, or 2 representing Setosa, Versicolor, or Virginica)
+  # Split the data into training and testing sets
+  # We split the dataset into 80% training data and 20% testing data
+  X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+  # Create a logistic regression model and train it
+  # Logistic regression is a simple yet effective algorithm for classification problems.
+  # It is similar to linear regression, but while linear regression is used to predict a continuous value (e.g., predicting house prices),
+  # logistic regression is used to predict a categorical value (e.g., whether an email is spam or not).
+  # Logistic regression uses the logistic (sigmoid) function to output probabilities between 0 and 1, making it ideal for binary or multi-class classification.
+  model = LogisticRegression(max_iter=200)  # max_iter is the maximum number of iterations for the solver
+  model.fit(X_train, y_train)  # Train the model using the training data
+  # Make predictions on the test set
+  y_pred = model.predict(X_test)  # Predict the labels for the test data
+  # Calculate and print the accuracy of the model
+  # Accuracy is the ratio of correctly predicted observations to the total observations
+  accuracy = accuracy_score(y_test, y_pred)
+  print(f"Model Accuracy: {accuracy * 100:.2f}%")
+  
+Explanation:
+  In this example, we use scikit-learn to load the Iris dataset, split it into training and testing sets, train a logistic regression model, and calculate its accuracy. The Iris dataset is a classic dataset in machine learning and is often used as a beginner's introduction to classification problems. We use logistic regression, which is a simple classification algorithm, to predict the species of iris flowers based on their measurements. Logistic regression differs from linear regression in that it is used for classification tasks, while linear regression is used for predicting continuous numeric values.
+היכרות עם Colab
+כדי להקל על תהליך הלמידה שלכם, נשתמש ב Google Colab, פלטפורמה מקוונת המאפשרת כתיבה והרצה של קוד פייתון בפורמט של מחברת ישירות מהדפדפן. ל-Colab יתרון בכך שאין צורך בהתקנה מקומית, כך שאין צורך להתקין את פייתון במחשב שלכם. הפלטפורמה גם תומכת בשיתוף פעולה, מה שמקל על שיתוף ועבודה משותפת על פרויקטים. תכונה נהדרת נוספת היא זמינותן של ספריות מובנות ותמיכה ב-GPU, שמסייעת להאיץ את ההרצה של מודלים ללמידת מכונה
+פתיחת חשבון ושימוש ב-Google Colab 
+כדי להשתמש ב-Google Colab, ראשית יש צורך בחשבון Google. ניתן להיכנס ל-Colab באמצעות חשבון Gmail קיים או לפתוח חשבון חדש אם אין לכם אחד. לאחר הכניסה ל-Colab (קישור: https://colab.research.google.com), תוכלו ליצור מחברות חדשות (notebooks) שיאפשרו לכם לכתוב ולהריץ קוד פייתון ישירות בדפדפן.
+שילוב עם Google Drive 
+Google Colab משתלב היטב עם Google Drive, כך שניתן לשמור מחברות ב-Drive ולגשת אליהן מכל מקום. כדי להתחבר ל-Google Drive מתוך Colab, ניתן להשתמש בקוד הבא:
+Python code:
+from google.colab import drive
+drive.mount('/content/drive')
+קוד זה מחבר את חשבון ה-Google Drive שלכם למחברת Colab כדי שתוכלו לגשת לקבצים האישיים שלכם
+שיתוף מחברות 
+ניתן לשתף מחברות Colab עם אחרים בדיוק כמו מסמכי Google Docs. פשוט לחצו על כפתור השיתוף (Share) בפינה הימנית העליונה והזמינו אחרים לשתף פעולה על ידי הוספת כתובת האימייל שלהם. יש לכם אפשרות להגדיר הרשאות עריכה, צפייה בלבד, או הוספת הערות בהתאם לצורך.
+שימוש ב-Google Colab 
+Colab תומך בספריות רבות לבינה מלאכותית ולמידת מכונה שמותקנות מראש, כך שאין צורך להתקין אותן באופן ידני. ניתן להריץ קוד באמצעות לחיצה על כפתור ה-Play שמופיע לצד כל תא קוד, או באמצעות לחיצה על Ctrl+Enter. Colab גם מאפשר שימוש ב-GPU בחינם, מה שיכול להאיץ משמעותית את תהליך האימון של מודלים ללמידת מכונה. כדי להפעיל GPU, יש לגשת לתפריט "Runtime" -> "Change runtime type" -> ולבחור ב-GPU תחת "Hardware accelerator"
+עבודה עם chatGPT
+בקורס הזה אנו לא מסתמכים על ידע מוקדם בתכנות, בלמידת מכונה, או בשימוש בכלים שונים. אבל ידע כזה כמובן לא מזיק. הקורס בנוי כך שסטודנטיות וסטודנטים שונים יפגשו מושגים וטכניקות שהם לא מכירים, וגם בנושאים אלה תצטרכו למצוא תשובות ולכתוב קוד. אחד הכלים שישמש אתכם הוא chatGPT או צ׳טבוט אחר לבחירתכם. על ידי ניסוח השאלה שלכם (Promt) תקבלו תשובה אישית, ותוכלו ללמוד ממנה ולהשתמש בה במהלך התרגילים. כאשר אתם מקבלים מצ׳טבוט תשובה, קראו אותה באופן ביקורתי, או בידקו שהקוד שקיבלתם עובד כפי שאתם מצפים. אולי תרצו לשאול שאלות המשך או לבקש מקורות למידע. כך במהלך הקורס תתנסו בשימוש בבינה מלאכותית גם ברמת התוכן וגם ברמת החוויה, ועם הזמן והשימוש תוכלו לפתח אינטואיציה על נושא זה.
+צ׳טבוט זהו כלי לימודי שיכול לעזור לכם להבין מושגים בתכנות, לספק הסברים, ואף לכתוב קוד יחד איתכם. שימוש יעיל ב-ChatGPT דורש לשאול את השאלות הנכונות. הכלי פועל בצורה הטובה ביותר כאשר השאלות שלכם ברורות ומדויקות. דמיינו שאתם יושבים עם מורה פרטי - ככל שתספקו יותר פרטים, כך תקבלו עזרה טובה יותר. לפניכם מספר דרכים בהן ניתן להשתמש ב-ChatGPT במהלך הקורס.
+בקורס שלנו נבצע למידה דרך עשייה ונתרגל כישורים של שימוש במקורות מידע ועצמאות במציאת פתרונות. במהלך השיעור תקבלו את השלד והחלקים המרכזיים והחשובים של התוכן, ובהתאם לידע האישי של כל אחד מכם, אשאיר לכם למצוא את הקצוות של הפתרון בתרגילים בעצמכם בתור חלק מהתהליך הלמידה. אם אינכם מבינים מונח או מושג שנדון בו, כמו "gradient descent" או "overfitting", ניתן לבקש מ-ChatGPT להסביר את המונח (כמובן שנסביר גם בכיתה). ניתן גם לבקש לפשט את ההסבר או לתת דוגמאות נוספות במידה וההסבר עדיין אינו ברור. כאשר אתם עובדים על סקריפטים של פייתון ב-Google Colab, ניתן לבקש מ-ChatGPT לסייע בכתיבת קטעי קוד. לדוגמה, ניתן לומר "אני צריך פונקציה בפייתון לחישוב הממוצע של רשימה". אם נתקעתם עם שגיאה בקוד, תארו את השגיאה ואת ההקשר, ו-ChatGPT יכול לעזור באיתור ופתרון הבעיה. אתם יכולים לקחת כל קוד שאני מספק במהלך הקורס, לשנות אותו ב-Colab, ואז לשאול את ChatGPT מדוע משהו עובד או לא עובד. ניתן גם לבקש להציג דרכים שונות להשיג את אותה תוצאה, וכך ללמוד גישות שונות לפתרון בעיות. אם תרצו להעמיק בנושא מסוים ניתן לבקש מ-ChatGPT להציע תרגילי קוד או פרויקטים קטנים. לדוגמה, "תן לי תרגיל פשוט בפייתון לתרגול לולאות".
+המפתח הוא להתייחס ל-ChatGPT כמדריך מועיל ולא לצפות ממנו לעשות את כל העבודה עבורכם. שאלו שאלות, התנסו, ולא פחות חשוב - תהנו מתהליך הלמידה האינטרקטיבי. בואו נתרגל זאת עכשיו: פתחו את ChatGPT ובקשו ממנו לכתוב תוכנית פייתון בסיסית שמדפיסה מספרים מ-1 עד 10. בחנו את התגובה, ונסו לשנות את התוכנית כך שתדפיס רק מספרים זוגיים.
+דוגמאות להנחיות והכוונה לשימוש יעיל
+כאשר מנסחים את השאלה, יש לכלול כמה שיותר פרטים. לדוגמה, במקום לשאול "איך כותבים לולאה?", כדאי לשאול "איך כותבים לולאת for בפייתון שעוברת על רשימת מספרים ומדפיסה כל אחד מהם?" ככל שתספקו יותר הקשר, כך התשובה תהיה טובה יותר. אם יש לכם שאלה גדולה, חלקו אותה לשאלות קטנות יותר. במקום לשאול "איך אני בונה צ'אטבוט?", ניתן לשאול "איך להגדיר סביבה לפרויקט צ'אטבוט בפייתון?" ואז להמשיך עם שאלות ממוקדות יותר על רכיבים שונים. אם אינכם מבינים את התשובה שקיבלתם, שאלו שאלות המשך. לדוגמה, אם ChatGPT מספק קוד שאינכם מבינים במלואו, ניתן לשאול "האם תוכל להסביר איך השורה הזו בקוד עובדת?" או "מה עושה משפט ה-if בפונקציה הזו?"
+דוגמאות להנחיות
+Can you write a Python function that calculates the factorial of a number using recursion?
+Explain the difference between a list and a tuple in Python, and provide examples of when to use each.
+I’m getting a TypeError in my code. Here’s the code and the error message: [paste your code and error]. Can you help me fix it?
+שיקולי שפה
+יש הבדל כאשר כותבים הנחיות באנגלית לעומת עברית. ChatGPT עובד היטב בשתי השפות, אך התשובות באנגלית לרוב מפורטות וטכניות יותר, במיוחד עבור שאלות בתכנות. אם אתם מרגישים בנוח עם אנגלית, מומלץ להשתמש בה לשאלות הקשורות לקוד. עם זאת, אם אתם מעדיפים עברית, גם זה אפשרי.
+תרגילים לשימוש ב-Colab ו-ChatGPT
+פתחו קובץ קולאב חדש, ושתפו אותו איתי ([instructor email: stored in the database, not in the repo]) עם כפתור השיתוף בפינה הימנית העליונה (בממשק באנגלית). יש לתת הרשאה להערות או לעריכה כך שאוכל לראות את הקוד ולכתוב לכם הערות. בהודעה כתבו את שמכם כדי שאדע מי אתם.
+משימה 1
+בקשו מ-ChatGPT לכתוב סקריפט בפייתון שלוקח קלט מהמשתמש ומדפיס אם הוא מספר זוגי או אי-זוגי. כתבו את הקוד בColab. מה קורה כשמקלידים 8. מה קורה כשמקלידים 9. מה קורה כשמקלידים מילה. 
+לאחר שיש לכם קוד עובד, שנו אותו ב-Colab כך שיטפל גם במקרים בהם הקלט אינו מספר. כתבו סקריפט קטן בפייתון ב-Colab המכיל שגיאה מכוונת (לדוגמה, שגיאת כתיב בשם משתנה). לאחר מכן, בקשו מ-ChatGPT לעזור בזיהוי ותיקון השגיאה. 
+משימה 2
+העזרו בchatGPT ובצעו סעיף סעיף לפי הסדר. אין צורך לעשות הכל. אם אין לכם נסיון עם פייתון בצעו רק את סעיף 1. ככל שאתם מרגישים בנוח בצעו את שאר הסעיפים, התרגיל כולל נושאים רבים. התרגול הוא לא רק בפייתון אלא ביצירת קוד בעזרת בינה מלאכותית בעזרת chatGPT. 
+תרגיל: ספירה לאחור לשיגור רקטה 🚀
+בתרגיל הזה, תכתבו קוד שמבצע ספירה לאחור לשיגור רקטה, עם קצת מתח! נשתמש בלולאה לספירה לאחור, נוסיף סיכוי אקראי לתקלה בבדיקה מערכתית, ונציג הודעה סופית בהתאם לשאלה האם השיגור הצליח.
+הוראות
+	1.	הגדרת ספירה לאחור
+	•	השתמשו במחברת אותה שיתפתם.
+	•	התחילו ביצירת לולאה שסופרת לאחור מ-10 עד 1.
+	•	בכל מספר שיודפס במהלך הספירה לאחור, הוסיפו סימן קריאה כדי להפוך את זה למרגש יותר.
+	2.	הוסיפו תנאי לבדיקה מערכתית אקראית
+	•	בתוך לולאת הספירה לאחור, הוסיפו סיכוי אקראי לתקלה בבדיקה מערכתית.
+	•	יצירת מספר אקראי בין 1 ל-10.
+	•	אם המספר האקראי שווה לערך מסוים (למשל, 5), הדפיסו הודעה של “תקלה בבדיקה מערכתית! הספירה לאחור הופסקה” ועצרו את הספירה לאחור מיד.
+	3.	הציגו הודעת שיגור סופית
+	•	לאחר הלולאה, הוסיפו הודעה סופית שתצביע על הצלחת השיגור.
+	•	אם הספירה לאחור הושלמה ללא הפרעה, הדפיסו “המראה! הרקטה שוגרה בהצלחה!”
+	•	אם הספירה לאחור הופסקה עקב תקלה בבדיקה מערכתית, הדפיסו “השיגור בוטל. אנא נסו שוב.”
+נסו ושחקו עם הקוד!
+הריצו את הקוד כמה פעמים כדי לראות תוצאות אפשריות שונות. לפעמים תגיעו להמראה מוצלחת, ובפעמים אחרות תיתקלו ב”תקלה בבדיקה מערכתית” שתעצור את השיגור.
+משימה 3
+תרגיל: הצגת נתוני מכירות חודשיים 📊
+בתרגיל זה תעבדו עם נתוני מכירות חודשיים ותרכיבו גרף קווי כדי לראות איך המכירות משתנות לאורך השנה. נשתמש ב-pandas לטעינת הנתונים וב-matplotlib ליצירת הגרף.
+הוראות
+	1.	הכינו את המחברת
+	•	השתמשו במחברת אותה שיתפתם.
+	•	ייבאו את הספריות pandas ו-matplotlib.pyplot.
+	2.	צרו DataFrame של נתוני מכירות
+	•	הנתונים כבר כלולים בקוד שתמצאו למטה.
+	3.	שרטטו את גרף המכירות החודשיות
+	•	השתמשו ב-plt.plot() כדי ליצור גרף קווי כאשר עמודת "Month" היא ציר ה-x ועמודת "Sales" היא ציר ה-y.
+	•	הוסיפו כותרות לצירים ולגרף, לדוגמה: "Monthly Sales for the Year".
+	4.	הציגו סיכום של נתוני המכירות
+	•	השתמשו ב-.describe() כדי לקבל סיכום סטטיסטי של עמודת "Sales".
+	5.	הציגו מידע כללי על ה-DataFrame
+	•	השתמשו ב-.info() כדי לראות מידע כללי על ה-DataFrame.
+קוד בסיסי לתחילת עבודה
+תוכלו למצוא את הקוד גם במחברת הבאה: https://drive.google.com/file/d/1jgOdti_k6rkwBLj20lJlKMZ2_8lxp9xk/view?usp=sharing
+Python code:
+import pandas as pd
+import matplotlib.pyplot as plt
+# Step 1: Create the DataFrame
+sales_data = pd.DataFrame({
+    "Month": ["January", "February", "March", "April", "May", "June",
+              "July", "August", "September", "October", "November", "December"],
+    "Sales": [300, 400, 350, 500, 450, 600, 550, 700, 650, 800, 750, 900]
+})
+# Step 2: Plot the sales data
+# Hint: Use plt.plot() to create a line plot with "Month" on the x-axis and "Sales" on the y-axis
+# Step 3: Get a summary of the "Sales" column
+# Hint: Use .describe() to display summary statistics
+# Step 4: Display general information about the DataFrame
+# Hint: Use .info() to get an overview of the DataFrame
+נסו לפרש את הנתונים
+	•	מהו הממוצע של מכירות חודשיות?
+	•	איזה חודש היה בעל המכירות הגבוהות ביותר ואיזה הנמוכות ביותר?
+משימה 4
+תרגיל: ניתוח והצגת נתוני טמפרטורה יומית 🌡️
+בתרגיל זה תעבדו עם נתוני טמפרטורה יומית לאורך חודש ותיצרו גרף קווי כדי להציג מגמות בטמפרטורה. תתחילו בגרף הראשוני, ולאחר מכן תשנו פרמטרים של הנתונים ותתאימו את מראה הגרף.
+הוראות
+	1.	הכינו את המחברת
+	•	השתמשו במחברת אותה שיתפתם.
+	•	ייבאו את הספריות pandas ו-matplotlib.pyplot.
+	2.	צרו DataFrame של נתוני טמפרטורה
+	•	צרו DataFrame בשם temperature_data עם שתי עמודות: "Day" ו-"Temperature".
+	•	הנתונים כבר כלולים בקוד שתמצאו למטה.
+	3.	שרטטו את הנתונים
+	•	השתמשו ב-matplotlib כדי ליצור גרף קווי של עמודת "Temperature" לאורך עמודת "Day".
+	•	הגדירו את ציר ה-x כ-”Day” ואת ציר ה-y כ-”Temperature (°C)”.
+	•	הוסיפו כותרת לגרף, לדוגמה: "Daily Temperatures Over the Month".
+משימות: שינוי הנתונים
+	1.	משימה 1: הוסיפו תנודות אקראיות לטמפרטורה
+	•	הוסיפו תנודה אקראית (בין -2 ל-2) לכל ערך טמפרטורה. השתמשו בספריית random ליצירת התנודות.
+	2.	משימה 2: שינוי סולם הטמפרטורה
+	•	המירו את ערכי הטמפרטורה מצלזיוס לפארנהייט בעזרת נוסחה (פשוטה מאוד) שעליכם למצוא.
+	•	עדכנו את עמודת "Temperature" עם הערכים החדשים בפארנהייט.
+משימות: התאמת מראה הגרף
+	1.	משימה 3: שינוי סגנון הקו והצבע
+	•	עדכנו את סגנון הקו כך שיהיה מקווקו ושנו את הצבע שלו לכחול.
+	2.	משימה 4: הוסיפו סימונים ורשת
+	•	הוסיפו סימון עגול לכל נקודת מידע על הקו.
+	•	הפעילו רשת (grid) על הגרף כדי לשפר את הקריאות.
+קוד בסיסי לתחילת עבודה
+תוכלו למצוא את הקוד גם במחברת הבאה: https://drive.google.com/file/d/1jgOdti_k6rkwBLj20lJlKMZ2_8lxp9xk/view?usp=sharing
+Python code:
+import pandas as pd
+import matplotlib.pyplot as plt
+import random
+# Step 1: Create the DataFrame
+temperature_data = pd.DataFrame({
+    "Day": list(range(1, 31)),  # Days 1 through 30
+    "Temperature": [15, 17, 16, 18, 20, 19, 22, 24, 23, 25, 21, 20, 19, 21, 23, 24, 22, 20, 19, 21, 18, 17, 16, 20, 22, 23, 21, 20, 18, 19]
+})
+# Step 2: Plot the initial data
+plt.plot(temperature_data["Day"], temperature_data["Temperature"])
+plt.xlabel("Day")
+plt.ylabel("Temperature (°C)")
+plt.title("Daily Temperatures Over the Month")
+plt.show()
+# Task 1 Hint: Use random.randint(-2, 2) to add fluctuation to each temperature value
+# Task 2 Hint: Apply the Fahrenheit formula to the "Temperature" column
+# Task 3 Hint: Customize line style with parameters like linestyle and color
+# Task 4 Hint: Add markers with marker='o' and enable grid with plt.grid()
+נסו לנתח את התוצאות
+לאחר ביצוע כל משימה, התבוננו כיצד השינויים משפיעים על הנתונים ועל הצגתם בגרף. נסו לשלב בין התאמות שונות של הגרף כדי לשפר את הקריאות והנראות.

@@ -261,6 +261,49 @@ marks such cells "peer", the student page notes "כולל ביקורת עמית�
 frontend port, e.g. `cloudflared tunnel --url http://localhost:3000`. The frontend proxies `/api` to the backend, so only
 port 3000 needs to be reachable. Set the tunnel URL as **Link base URL** under Students → Personal links before copying links.
 
+## Course plan and private answer keys
+
+A course-content handoff (`content/course-42052/`) becomes a course plan: 13 sessions (presentation rounds in
+sessions 2-3, 4-5, 6-7 and 8-9, finals in 12-13) and one draft guided lesson per session.
+`python backend/scripts/build_course_plan.py` regenerates `backend/app/lessons/content/course-42052/` from the
+handoff (`--check` reports stale files; a test does the same). In the instructor's Lessons tab, **Import 13 lessons
+as drafts** installs them; nothing is published, and the grade formula is not changed. The readiness table keeps
+drafted, reviewed, runnable, published and live verified apart.
+
+This repository is public, so **answer keys and the instructor's email are never committed.** Lesson fixtures carry
+questions without keys; each course's keys live in the `lesson_answer_keys` table (migration 0026). Load the
+instructor's private JSON file either with **Import private answer keys…** in the Lessons tab, or against any
+database (the hosted one included):
+
+```bash
+cd backend
+DATABASE_URL=... python scripts/load_answer_keys.py --course-id <id> --file ~/private/keys.json --dry-run
+DATABASE_URL=... python scripts/load_answer_keys.py --course-id <id> --file ~/private/keys.json
+```
+
+The file format is documented in `backend/app/services/answer_keys.py`. Every key is checked against the lesson's
+latest version first, and one bad entry stores nothing; an older version a key doesn't fit is reported. If it is a
+published version (students may be on it), nothing is stored until the instructor confirms (the upload dialog asks
+again; the script needs `--confirm-published-breaks`). A version whose
+questions have no key, or a key that no longer fits its options, can't be published, and the instructor sees a warning;
+a key that doesn't fit is never applied. Students get feedback only after they answer. Editing a key later (say its
+feedback text) changes the question's hash, so the instructor's insights count earlier answers to a keyless version
+as answers to another version of the question.
+
+Lesson 2's keys used to be in `backend/app/lessons/content/lesson-2.json` (they are still in git history). Export
+them once to a gitignored private file, then load it as above:
+
+```bash
+cd backend && python scripts/export_lesson_answer_keys.py   # writes ../data/private/from-data-to-prediction.answer-keys.json
+```
+
+In a shallow clone without commit `b03bb04`, export from the hosted database instead:
+`DATABASE_URL=... python scripts/export_lesson_answer_keys.py --from-db --course-id <id>` (it reads the installed
+version that still embeds the keys).
+
+The live lesson 2 version keeps the keys it was installed with; a new version installed from the keyless fixture can
+be published once the keys are loaded.
+
 ## Hosted app
 
 - Instructors: https://course-grader-pi.vercel.app (unlock with the hosted `INSTRUCTOR_TOKEN`; kept locally as `HOSTED_INSTRUCTOR_TOKEN` in `.env`)

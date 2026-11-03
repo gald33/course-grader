@@ -1,0 +1,136 @@
+{
+  "model": "DecisionTreeClassifier",
+  "source": "Exported from the supplied notebook training function, not reconstructed from the image.",
+  "sklearn_version": "1.8.0",
+  "configuration": {
+    "max_depth": 2,
+    "training_examples": 100,
+    "data_seed": 42,
+    "split_seed": 42,
+    "model_seed": 42
+  },
+  "feature_order": [
+    "visits_30d",
+    "days_since_purchase"
+  ],
+  "classes": [
+    0,
+    1
+  ],
+  "class_labels_he": {
+    "0": "לא יקנה",
+    "1": "יקנה"
+  },
+  "feature_labels_he": {
+    "visits_30d": "ביקורים ב-30 ימים",
+    "days_since_purchase": "ימים מאז הרכישה"
+  },
+  "metrics": {
+    "depth": 2,
+    "examples": 100,
+    "train_accuracy": 0.83,
+    "validation_accuracy": 0.7625,
+    "baseline_validation": 0.5416666666666666
+  },
+  "root": 0,
+  "nodes": [
+    {
+      "id": 0,
+      "is_leaf": false,
+      "feature": "visits_30d",
+      "threshold": 13.5,
+      "left": 1,
+      "right": 4,
+      "training_examples": 100,
+      "class_counts": [
+        54,
+        46
+      ],
+      "prediction": 0
+    },
+    {
+      "id": 1,
+      "is_leaf": false,
+      "feature": "visits_30d",
+      "threshold": 5.5,
+      "left": 2,
+      "right": 3,
+      "training_examples": 64,
+      "class_counts": [
+        50,
+        14
+      ],
+      "prediction": 0
+    },
+    {
+      "id": 2,
+      "is_leaf": true,
+      "feature": null,
+      "threshold": null,
+      "left": null,
+      "right": null,
+      "training_examples": 28,
+      "class_counts": [
+        26,
+        2
+      ],
+      "prediction": 0
+    },
+    {
+      "id": 3,
+      "is_leaf": true,
+      "feature": null,
+      "threshold": null,
+      "left": null,
+      "right": null,
+      "training_examples": 36,
+      "class_counts": [
+        24,
+        12
+      ],
+      "prediction": 0
+    },
+    {
+      "id": 4,
+      "is_leaf": false,
+      "feature": "days_since_purchase",
+      "threshold": 59.0,
+      "left": 5,
+      "right": 6,
+      "training_examples": 36,
+      "class_counts": [
+        4,
+        32
+      ],
+      "prediction": 1
+    },
+    {
+      "id": 5,
+      "is_leaf": true,
+      "feature": null,
+      "threshold": null,
+      "left": null,
+      "right": null,
+      "training_examples": 35,
+      "class_counts": [
+        3,
+        32
+      ],
+      "prediction": 1
+    },
+    {
+      "id": 6,
+      "is_leaf": true,
+      "feature": null,
+      "threshold": null,
+      "left": null,
+      "right": null,
+      "training_examples": 1,
+      "class_counts": [
+        1,
+        0
+      ],
+      "prediction": 0
+    }
+  ]
+}

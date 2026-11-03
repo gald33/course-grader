@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-11",
+  "title": "פריסה והנגשה: נותנים קישור שבאמת עובד",
+  "guiding_question": "להפיץ גרסה מוגדרת ולבדוק אותה מתוך חוויית משתמש חיצוני.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "deploy",
+      "letter": "A",
+      "title": "מקומי אינו ציבורי",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "מוצר שניתן להרצה ובדיקת אבטחה בסיסית"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "כתובת מקומית פונה לסביבת ההרצה של אותו מחשב. פריסה מעמידה קבצים ושירותים בסביבה שאליה המשתמש יכול להגיע; יש לבדוק תלויות, הרשאות ונתונים גם שם."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בררו עם הצ׳טבוט שתי דרכי פרסום המתאימות לארכיטקטורה שלכם. הסבירו אם מספיק אתר סטטי או שיש צורך בשרת ובשמירה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l11-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l11-q1"
+        }
+      ]
+    },
+    {
+      "key": "environment",
+      "letter": "B",
+      "title": "אותו קוד, סביבה אחרת",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הגדרות כתובות, מסד נתונים וסודות עשויות להשתנות בין פיתוח לפריסה. פרסום קוד בלבד אינו מוכיח שהשירות והאחסון זמינים."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "פרסו גרסה מזוהה ובדקו פעולה אחת, שמירה, כשל חיצוני והיעדר חשיפת סודות. השתמשו בנתונים בדויים ולא בנתוני כיתה אמיתיים לניסוי."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l11-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l11-q2"
+        }
+      ]
+    },
+    {
+      "key": "release",
+      "letter": "C",
+      "title": "בודקים גם עדכון ושחזור",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "משתמש צריך לקבל גרסה צפויה, ומפתח צריך לדעת איזו גרסה פרוסה. בדיקת עשן היא פעולה קצרה שמוודאת שמסלול מרכזי עובד אחרי פריסה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בצעו שינוי קטן וודאו שמשתמש חיצוני רואה אותו. תעדו איך חוזרים לגרסה קודמת בלי למחוק נתונים חדשים."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l11-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l11-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "משתמש פותח קישור בחלון פרטי, מזין הזמנה בדויה ורואה תוצאה. אחר כך בודקים שעדכון קטן מגיע אליו ושהמידע נשמר לפי התכנון."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-11-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "קישור פעיל, גרסה מזוהה, הוראות שימוש, בדיקת עשן ותוכנית חזרה."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-11-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l11-q1": {
+      "key": "l11-q1",
+      "step": "deploy",
+      "mode": "check",
+      "prompt": "מה מוכיח שהמוצר נגיש מחוץ למחשב הפיתוח?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כתובת [[localhost]]"
+        },
+        {
+          "id": "2",
+          "text": "אדם אחר פתח קישור וביצע את הפעולה המרכזית"
+        },
+        {
+          "id": "3",
+          "text": "ההרצה המקומית עברה פעם אחת"
+        }
+      ]
+    },
+    "l11-q2": {
+      "key": "l11-q2",
+      "step": "environment",
+      "mode": "check",
+      "prompt": "למה מוצר יכול לעבוד מקומית ולהיכשל בפריסה?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "משום שקוד לא ניתן לפריסה"
+        },
+        {
+          "id": "2",
+          "text": "כי הגדרות או שירותים שונים בין הסביבות"
+        },
+        {
+          "id": "3",
+          "text": "כי בדיקות אינן רלוונטיות"
+        }
+      ]
+    },
+    "l11-q3": {
+      "key": "l11-q3",
+      "step": "release",
+      "mode": "check",
+      "prompt": "חזרה לגרסת קוד קודמת מחייבת למחוק את נתוני המשתמש?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן תמיד"
+        },
+        {
+          "id": "2",
+          "text": "לא; יש לתכנן שחזור ששומר נתונים"
+        },
+        {
+          "id": "3",
+          "text": "כן אם היא מהירה יותר"
+        }
+      ]
+    },
+    "lesson-11-exit": {
+      "key": "lesson-11-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

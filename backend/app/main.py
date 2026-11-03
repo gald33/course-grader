@@ -9,6 +9,7 @@ from app.api import (
     assignments,
     artifacts,
     auth,
+    course_plan,
     courses,
     curves,
     exports,
@@ -78,6 +79,7 @@ app.include_router(accounts.router)
 app.include_router(roster.router)
 app.include_router(lessons.router)
 app.include_router(student_lessons.router)
+app.include_router(course_plan.router)
 
 
 @app.on_event("startup")

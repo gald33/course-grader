@@ -1,0 +1,285 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-01",
+  "title": "מבוא: חוקרים, בונים ובודקים עם צ׳טבוט",
+  "guiding_question": "לבחור דרך לפתרון בעיה ולבדוק תוצר קטן בקולאב, בלי ידע מוקדם בתכנות.",
+  "course_code": "42052",
+  "assets": {
+    "notebook": {
+      "path": "/lessons/lesson-01/v1/lesson-1-dessert-stall.ipynb",
+      "filename": "lesson-1-dessert-stall.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת דוכן הקינוחים (ipynb)",
+      "sha256": "b89d1b016535b1eeed9850b56ab594f66697132b8472ea6d73159a12875c1be2"
+    }
+  },
+  "steps": [
+    {
+      "key": "problem",
+      "letter": "A",
+      "title": "מתחילים מהבעיה",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "צ׳טבוט עוזר לנסח שאלות, להשוות דרכים ולכתוב קוד. אתם בוחרים ומפעילים את הכלים ובודקים את התוצאה. קוד הוא הוראות; [[Python]] היא שפה; קולאב היא סביבת הרצה. אלה אינם שלוש חלופות באותה רמה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תארו משתמש, קושי ותוצאה רצויה. בקשו מהצ׳טבוט שאלות הבהרה ושתי דרכי פתרון, כולל מה צריך ללמוד בכל אחת."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l01-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l01-q1"
+        }
+      ]
+    },
+    {
+      "key": "dessert",
+      "letter": "B",
+      "title": "מחשבים לפני שמריצים",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בדוכן הקינוחים מחיר מארז 35, עלות משתנה 20 והוצאה קבועה 1000. הרווח הוא מחיר כפול כמות, פחות עלות משתנה כפול כמות ופחות ההוצאה הקבועה. כמות המכירות היא הנחה; אין כאן מודל שחוזה ביקוש."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "חשבו עבור 100 מארזים, בקשו קוד מהצ׳טבוט והריצו בקולאב. בדקו גם 66 ו-67 מארזים והזנת כמות שלילית."
+              ]
+            },
+            {
+              "type": "download",
+              "asset": "notebook",
+              "label": "מחברת דוכן הקינוחים (ipynb)"
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l01-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l01-q2"
+        }
+      ]
+    },
+    {
+      "key": "share",
+      "letter": "C",
+      "title": "מנגישים לאחרים",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תוצר שעובד אצלכם עדיין עשוי להיות קשה לשימוש לאחרים. צריך להבין קישור, חשבונות, הרשאות, הפעלה ועדכון. במטלה הראשונה גם מחקר הפרסום הוא חלק מרכזי מהעבודה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בצוות חקרו עם הצ׳טבוט שתי דרכי פרסום לאתר בדיחות. נסו לפרסם דף קטן מוקדם ובדקו את הקישור במכשיר אחר."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l01-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l01-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "100 מארזים: הכנסה 3500, עלות כוללת 3000, רווח 500. ב-66 מפסידים 10 וב-67 מרוויחים 5. הורדת מחיר ל-30 דורשת 150 מכירות כדי לשוב לרווח 500; אין בכך הוכחה שהמכירות אכן יגדלו."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-01-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "ניסוח צורך, בחירה מנומקת בכלים, הרצה עם תשובה צפויה ותיעוד בדיקה."
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מטלה",
+          "body": [
+            "מטלה 1 הקיימת: אתר בדיחות צוותי בקישור עובד, באמצעות צ׳טבוט וכלים במסלול חינמי וללא סוכן קוד. כוללים מחקר פרסום, חלופות, בדיקה חיצונית וחלוקת תפקידים. אין הגשת מחברת הקינוחים."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-01-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l01-q1": {
+      "key": "l01-q1",
+      "step": "problem",
+      "mode": "check",
+      "prompt": "מה ההבדל בין [[Python]] לקולאב?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "שתי שפות תכנות"
+        },
+        {
+          "id": "2",
+          "text": "[[Python]] היא שפה וקולאב היא סביבת הרצה"
+        },
+        {
+          "id": "3",
+          "text": "קולאב תמיד מחליפה צורך בבדיקות"
+        }
+      ]
+    },
+    "l01-q2": {
+      "key": "l01-q2",
+      "step": "dessert",
+      "mode": "check",
+      "prompt": "מה הרווח עבור 100 מארזים?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "500"
+        },
+        {
+          "id": "2",
+          "text": "1500"
+        },
+        {
+          "id": "3",
+          "text": "3500"
+        }
+      ]
+    },
+    "l01-q3": {
+      "key": "l01-q3",
+      "step": "share",
+      "mode": "check",
+      "prompt": "איזו בדיקה מוכיחה טוב יותר שהאתר נגיש לאחרים?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "צילום מסך של האתר במחשב הפיתוח"
+        },
+        {
+          "id": "2",
+          "text": "אדם מחוץ לצוות פתח קישור והצליח לקבל בדיחה"
+        },
+        {
+          "id": "3",
+          "text": "הצ׳טבוט אמר שהקוד תקין"
+        }
+      ]
+    },
+    "lesson-01-exit": {
+      "key": "lesson-01-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

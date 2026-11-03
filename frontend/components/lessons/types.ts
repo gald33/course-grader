@@ -81,7 +81,7 @@ export type LessonStep = {
   key: string;
   letter: string; // A..G, or a short marker for the optional extension
   title: Inline;
-  goal: Inline; // the guiding question of the step
+  goal?: Inline; // the guiding question of the step
   optional?: boolean; // optional steps never count toward required progress
   blocks: Block[];
   completion: CompletionRule[];
@@ -113,13 +113,13 @@ export type FreeTextQuestion = QuestionBase & {
 
 export type Question = SingleChoiceQuestion | FreeTextQuestion;
 
-/** Answer keys: present only in the authored fixture and instructor payloads,
- * never in anything a student receives. */
+/** Answer keys: private. Kept in the database (never in this repository's
+ * fixtures), merged in on the server, never in anything a student receives. */
 export type ChoiceAnswerKey = {
   correct: string[];
-  feedback: Record<string, Inline>; // per option
+  feedback: Record<string, Inline>; // per option; an option left out gets no specific message
   misconceptions: Record<string, string>; // per wrong option: short instructor-facing tag
-  explanation: Inline;
+  explanation?: Inline;
 };
 export type FreeTextAnswerKey = { sample_reasoning: Inline[]; rubric: Inline[] };
 
@@ -225,6 +225,8 @@ export type LessonPayload = {
   questions: Record<string, QuestionState>;
   experiments: Experiment[];
   commitments: Commitment[];
+  /** Instructor preview only: questions without a loaded answer key (they can't be checked). */
+  missing_answer_keys?: string[];
 };
 
 /* ---------------- Requests ---------------- */

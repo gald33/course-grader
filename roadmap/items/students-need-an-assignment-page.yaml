@@ -1,10 +1,8 @@
 id: students-need-an-assignment-page
 title: Students have no page for an assignment
-status: claimed
+status: done
 priority: now
-claim:
-  by: claude/students-need-an-assignment-page
-  at: '2026-10-21'
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/models/entities.py'
@@ -51,3 +49,5 @@ evidence: |
   instructions, a deadline (and so "late" and a Home "up next" item when it
   is near), course files and links per assignment, and the student's real
   hand-in time.
+
+  SHIPPED: #27, merged as c0bb786.

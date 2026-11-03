@@ -40,6 +40,11 @@ roster_attendance.xlsx
 # OS
 .DS_Store
 
+# Private answer keys and instructor contact: never committed (this repository
+# is public). See backend/app/services/answer_keys.py.
+data/private/
+*.answer-keys.json
+
 # Environment / secrets
 .env
 .env.local

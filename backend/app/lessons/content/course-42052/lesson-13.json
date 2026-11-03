@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-13",
+  "title": "הצגות גמר — חלק ב׳ וסיכום",
+  "guiding_question": "להדגים, להעריך ולהעביר את דרך הלמידה לבעיה חדשה.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "final-b",
+      "letter": "A",
+      "title": "משלימים את סבב ההצגות",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "תוצר [[final]] נגיש והבנת תהליך הבנייה"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הצוותים שלא הציגו במפגש 12 מציגים לפי השיבוץ. אותם כללי ראיות, משוב ואנונימיות חלים גם כאן; לא משנים רובריקה בגלל מועד ההצגה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "הדגימו מסלול משתמש, אפשרו התנסות ושלחו ביקורות אישיות בזמן החלון הפעיל."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l13-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l13-q1"
+        }
+      ]
+    },
+    {
+      "key": "handover",
+      "letter": "B",
+      "title": "מוסרים כך שאדם נוסף יוכל להפעיל",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "מסירה כוללת קישור, הוראות, גרסה, מגבלות ואחריות לתחזוקה. סרטון לבדו אינו אתר פעיל, ומפתח סודי אינו מצורף למסמך מסירה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בקשו מאדם אחר להפעיל לפי ההוראות בלבד. הפרידו תיעוד ציבורי ממידע גישה מוגן ובדקו את החומר שנשלח."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l13-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l13-q2"
+        }
+      ]
+    },
+    {
+      "key": "transfer",
+      "letter": "C",
+      "title": "לוקחים שיטת עבודה לבעיה הבאה",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "המיומנות אינה רק שימוש בכלי מסוים: מנסחים צורך, חוקרים חלופות, מבינים כלים, בונים ניסיון קטן, בודקים ומנגישים. לכל שלב יש הנחות וראיות."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "כל סטודנט מתאר בעיה חדשה ומה יבדוק קודם. כתבו החלטה אחת ששיניתם בגלל ממצא, והבדילו בין חישוב, חיזוי והשפעה סיבתית."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l13-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l13-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "הגדרה של בעיה חדשה חייבת לכלול משתמש, פעולה רצויה ודוגמה לבדיקת הצלחה; שם של כלי לבדו אינו תוכנית פתרון."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-13-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "מסירת [[final]], ביקורות עמיתים ורפלקציה אישית קצרה."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-13-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l13-q1": {
+      "key": "l13-q1",
+      "step": "final-b",
+      "mode": "check",
+      "prompt": "האם נכון לשנות את רובריקת הסבב באמצע רק עבור מציגים מאוחרים?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; נדרשים כללים עקביים לסבב"
+        },
+        {
+          "id": "3",
+          "text": "רק אם הם מסכימים לשינוי פתאומי"
+        }
+      ]
+    },
+    "l13-q2": {
+      "key": "l13-q2",
+      "step": "handover",
+      "mode": "check",
+      "prompt": "מה מתאים למסירה ציבורית?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "סיסמת מנהל"
+        },
+        {
+          "id": "2",
+          "text": "הוראות שימוש ומגבלות ידועות"
+        },
+        {
+          "id": "3",
+          "text": "מפתח [[API]] חי"
+        }
+      ]
+    },
+    "l13-q3": {
+      "key": "l13-q3",
+      "step": "transfer",
+      "mode": "check",
+      "prompt": "מה כדאי להעביר לפרויקט הבא?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "הנחה שכל תשובת [[AI]] נכונה"
+        },
+        {
+          "id": "2",
+          "text": "דרך לבחירת כלי ולבדיקת תוצאה מול הצורך"
+        },
+        {
+          "id": "3",
+          "text": "חובה להשתמש באותה טכנולוגיה תמיד"
+        }
+      ]
+    },
+    "lesson-13-exit": {
+      "key": "lesson-13-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

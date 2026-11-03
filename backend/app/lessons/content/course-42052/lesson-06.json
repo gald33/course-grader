@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "slug": "lesson-06",
+  "title": "בונים שלד שעובד מקצה לקצה",
+  "guiding_question": "להפוך אפיון למסלול משתמש עובד ולשמור נקודת גרסה משותפת.",
+  "course_code": "42052",
+  "assets": {},
+  "steps": [
+    {
+      "key": "slice",
+      "letter": "A",
+      "title": "מסלול אחד שעובר בכל החלקים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "מה צריך לפני שמתחילים",
+          "body": [
+            "[[MVP]] ותשובה צפויה; לולאת עבודה עם סוכן"
+          ]
+        },
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "שלד שימושי מאפשר לבצע פעולה בסיסית מתחילתה עד סופה. אפשר להשתמש בנתון דמה מסומן כדי לבדוק זרימה, אך אין להציגו כפלט [[AI]] חי."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בנו מסך הזנת הודעה, פעולה לעיבוד והצגת טבלה. שמרו דוגמת קלט ידועה ותגובה צפויה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l06-q1"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l06-q1"
+        }
+      ]
+    },
+    {
+      "key": "version",
+      "letter": "B",
+      "title": "מחברים עבודה של צוות",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בקרת גרסאות מתעדת שינויים ומסייעת להשוות ולשלב עבודה. חלוקת עבודה אינה אומרת שכל חבר בונה מוצר נפרד; צריך לבדוק את החיבור בין החלקים."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "חלקו ממשק, לוגיקה, בדיקות ותיעוד. שמרו שינוי קטן ומוסבר ובדקו שמישהו נוסף מצליח להריץ את אותה גרסה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l06-q2"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l06-q2"
+        }
+      ]
+    },
+    {
+      "key": "run",
+      "letter": "C",
+      "title": "הרצה חוזרת היא חלק מהמוצר",
+      "blocks": [
+        {
+          "type": "section",
+          "label": "understand",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תלויות, הגדרות ופקודות הפעלה צריכים להיות ברורים למי שלא בנה את המוצר. קישור מקומי למחשב אחד אינו הפצה."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "בקשו מחבר שאינו אחראי להקמה לפתוח את הוראות ההפעלה. תעדו מה חסר ובדקו את מסלול הליבה מחדש אחרי תיקון."
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "l06-q3"
+            }
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "l06-q3"
+        }
+      ]
+    },
+    {
+      "key": "wrap-up",
+      "letter": "D",
+      "title": "מסכמים",
+      "blocks": [
+        {
+          "type": "callout",
+          "tone": "note",
+          "title": "דוגמה פתורה",
+          "body": [
+            "טקסט הודעה נכנס, פונקציית תרגול מחזירה רשימת פריטים, והמסך מציג אותה. תגובת דמה מסומנת «הדגמה ללא מודל חי»."
+          ]
+        },
+        {
+          "type": "section",
+          "label": "check",
+          "title": "בדיקת יציאה",
+          "blocks": [
+            {
+              "type": "question",
+              "question": "lesson-06-exit"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "tone": "info",
+          "title": "התוצר של השיעור",
+          "body": [
+            "שלד עובד עם הוראות הפעלה, גרסה שמורה ובדיקת חיבור."
+          ]
+        }
+      ],
+      "completion": [
+        {
+          "type": "answered",
+          "question": "lesson-06-exit"
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "l06-q1": {
+      "key": "l06-q1",
+      "step": "slice",
+      "mode": "check",
+      "prompt": "יש ממשק יפה ללא פעולה עובדת. האם מסלול הליבה הושלם?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כן"
+        },
+        {
+          "id": "2",
+          "text": "לא; צריך לבדוק קלט עד פלט"
+        },
+        {
+          "id": "3",
+          "text": "כן, אם יש מצגת"
+        }
+      ]
+    },
+    "l06-q2": {
+      "key": "l06-q2",
+      "step": "version",
+      "mode": "check",
+      "prompt": "איך יודעים שהחלקים משתלבים?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "כל חבר אומר שהחלק שלו עובד"
+        },
+        {
+          "id": "2",
+          "text": "מריצים את מסלול המשתמש בגרסה המחוברת"
+        },
+        {
+          "id": "3",
+          "text": "יש תיקייה לכל חבר"
+        }
+      ]
+    },
+    "l06-q3": {
+      "key": "l06-q3",
+      "step": "run",
+      "mode": "check",
+      "prompt": "מה כדאי לתעד כבר בשלד?",
+      "type": "single_choice",
+      "options": [
+        {
+          "id": "1",
+          "text": "איך מריצים ובאיזה קלט בודקים"
+        },
+        {
+          "id": "2",
+          "text": "רק את שם הסוכן"
+        },
+        {
+          "id": "3",
+          "text": "רק את חזון המוצר"
+        }
+      ]
+    },
+    "lesson-06-exit": {
+      "key": "lesson-06-exit",
+      "step": "wrap-up",
+      "mode": "check",
+      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+      "type": "free_text",
+      "min_chars": 10
+    }
+  }
+}

@@ -15,6 +15,11 @@ import { loadSeed, type Seed, type SignedInStudent } from './seed';
  * The tests run in order in one worker: the preview test compares the whole
  * class's insights before and after, so nothing else may write meanwhile.
  *
+ * The real answer keys are private and never in this repository. The seed
+ * loads FAKE keys by a fixed rule (fake_keys in backend/scripts/seed_e2e.py):
+ * a question's last option counts as right, its first as wrong, and every
+ * feedback text says FAKE. right()/wrong() pick options by that rule.
+ *
  * Set E2E_SCREENSHOTS_DIR to also save screenshots of representative steps. */
 
 test.describe.configure({ mode: 'default' });
@@ -33,6 +38,24 @@ async function shot(page: Page, name: string) {
 }
 
 /* ---------------- Helpers ---------------- */
+
+type FixtureQuestion = { options?: { id: string; text: string }[] };
+const FIXTURE: { questions: Record<string, FixtureQuestion> } = JSON.parse(
+  readFileSync(path.join(__dirname, '..', '..', 'backend', 'app', 'lessons', 'content', 'lesson-2.json'), 'utf8')
+);
+
+function fixtureOption(questionKey: string, which: 'right' | 'wrong') {
+  const options = FIXTURE.questions[questionKey].options!;
+  return which === 'right' ? options[options.length - 1] : options[0];
+}
+
+/** The option the FAKE keys count as right (the last) or wrong (the first), as a radio's name. */
+function optionName(questionKey: string, which: 'right' | 'wrong'): RegExp {
+  const plain = fixtureOption(questionKey, which).text.replace(/\*\*|`|\[\[|\]\]/g, '');
+  return new RegExp(plain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+}
+const right = (questionKey: string) => optionName(questionKey, 'right');
+const wrong = (questionKey: string) => optionName(questionKey, 'wrong');
 
 type Allowed = { status: number; url: RegExp };
 
@@ -175,11 +198,11 @@ test('a student completes two steps, reloads, and resumes with answers and feedb
 
   // A wrong answer gets feedback for that choice only; the retry is right.
   const target = questionCard(page, 'q_target');
-  await answer(target, /מספר הביקורים/);
+  await answer(target, wrong('q_target'));
   await expect(target).toContainText('✗ לא בדיוק');
   await expect(target).not.toContainText('התשובה הנכונה');
   await expect(target).not.toContainText('הסבר:');
-  await answer(target, /bought_next_week/);
+  await answer(target, right('q_target'));
   await expect(target).toContainText('✓ נכון');
   await expect(target).toContainText('הסבר:');
   await expect(target).toContainText('ניסיונות ששלחת: 2');
@@ -192,7 +215,7 @@ test('a student completes two steps, reloads, and resumes with answers and feedb
   // Step B: the self-reported action, a choice and a written answer.
   await page.getByRole('checkbox', { name: /הורדתי את הקובץ/ }).check();
   const missing = questionCard(page, 'q_missing_zero');
-  await answer(missing, /תא ריק אינו אפס/);
+  await answer(missing, right('q_missing_zero'));
   await expect(missing).toContainText('✓ נכון');
   const finding = questionCard(page, 'q_data_finding');
   const findingText = 'ראיתי שתי שורות של לקוח 1031 עם אותם ערכים. לפני תיקון הייתי בודק אם זו כפילות או מדידה חוזרת.';
@@ -211,7 +234,7 @@ test('a student completes two steps, reloads, and resumes with answers and feedb
   await expect(stepHeading(page)).toContainText('בודקים את הנתונים עם הצ׳טבוט');
   await expect(page).toHaveURL(/#step=data$/);
   await expect(page.getByRole('checkbox', { name: /הורדתי את הקובץ/ })).toBeChecked();
-  await expect(missing.getByRole('radio', { name: /תא ריק אינו אפס/ })).toBeChecked();
+  await expect(missing.getByRole('radio', { name: right('q_missing_zero') })).toBeChecked();
   await expect(missing).toContainText('✓ נכון');
   await expect(finding.getByRole('textbox')).toHaveValue(findingText);
   await expect(finding).toContainText('דוגמה לנימוק — לא ציון');
@@ -224,7 +247,7 @@ test('a student completes two steps, reloads, and resumes with answers and feedb
   await waitSaved(page);
   await page.reload();
   await expect(stepHeading(page)).toContainText('מנתונים לחיזוי');
-  await expect(target.getByRole('radio', { name: /bought_next_week/ })).toBeChecked();
+  await expect(target.getByRole('radio', { name: right('q_target') })).toBeChecked();
   await expect(target).toContainText('✓ נכון');
   await expect(target).toContainText('ניסיונות ששלחת: 2');
 
@@ -765,9 +788,9 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   const problems = await watchForErrors(page);
   await page.goto(lessonPath(student, 'tree'));
   const depth = questionCard(page, 'q_depth');
-  await answer(depth, /כי ללקוח א׳ הספיקה שאלה אחת/);
+  await answer(depth, wrong('q_depth'));
   await expect(depth).toContainText('✗ לא בדיוק');
-  await answer(depth, /זה מספר השאלות המרבי במסלול אחד/);
+  await answer(depth, right('q_depth'));
   await expect(depth).toContainText('✓ נכון');
 
   // Revealing the reasoning first, then answering right: not independent evidence.
@@ -776,7 +799,7 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   await target.getByRole('button', { name: 'הצג הסבר' }).click();
   await target.getByRole('button', { name: 'להציג בכל זאת' }).click();
   await expect(target).toContainText('הסבר:');
-  await answer(target, /bought_next_week/);
+  await answer(target, right('q_target'));
   await expect(target).toContainText('✓ נכון');
 
   // The instructor: a separate browser session, no student cookie.
@@ -794,13 +817,13 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   await expect(breakdown).toBeVisible();
   const row = breakdown.getByRole('button').filter({ hasText: 'q_depth' });
   await expect(row).toContainText('0 of 1 right first try (0%)');
-  await expect(row).toContainText('depth=one-customer-path');
+  await expect(row).toContainText(`fake-${fixtureOption('q_depth', 'wrong').id}`);
 
   const table = instructor.locator('#lesson-q-q_depth');
   await expect(table).toContainText('0/1');
   await table.getByRole('button', { name: /^Details/ }).click();
   const detail = instructor.locator('#lesson-q-detail-q_depth');
-  await expect(detail).toContainText('depth=one-customer-path');
+  await expect(detail).toContainText(`fake-${fixtureOption('q_depth', 'wrong').id}`);
 
   // The answer given after revealing is counted apart, never as right on the first try.
   await expect(instructor.locator('#lesson-q-q_target')).toContainText('+ 1 answered only after revealing');
@@ -850,9 +873,9 @@ test('instructor preview renders the lesson with real feedback and creates no st
   await expect(stepHeading(page)).toContainText('מנתונים לחיזוי');
 
   const target = questionCard(page, 'q_target');
-  await answer(target, /customer_id/);
+  await answer(target, wrong('q_target'));
   await expect(target).toContainText('✗ לא בדיוק');
-  await answer(target, /bought_next_week/);
+  await answer(target, right('q_target'));
   await expect(target).toContainText('✓ נכון');
   await expect(checklist(page)).toContainText('✓ השלב הושלם.');
   await page.getByRole('button', { name: /^לשלב הבא/ }).click();

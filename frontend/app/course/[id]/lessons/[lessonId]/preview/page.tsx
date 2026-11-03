@@ -12,7 +12,9 @@ import { courseSectionHref } from '@/lib/course-sections';
 /* Lesson preview: the student player, on any version of the lesson, fed by
  * the instructor preview endpoints. Answers get the real feedback, but nothing
  * is saved — no student record, attempt, experiment or device draft — and a
- * reload starts over. ?version=<number> picks the version (default: latest). */
+ * reload starts over. ?version=<number> picks the version (default: latest).
+ * Questions whose private answer key isn't loaded are named in a warning:
+ * the preview (and students) can't check them, and publishing is blocked. */
 
 export default function LessonPreviewPage({ params }: { params: { id: string; lessonId: string } }) {
   const courseId = Number(params.id);
@@ -20,6 +22,7 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
   const [lesson, setLesson] = useState<LessonSummary | null>(null);
   const [versionId, setVersionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [missingKeys, setMissingKeys] = useState<string[]>([]);
 
   useEffect(() => {
     apiGet<LessonSummary[]>(`/api/courses/${courseId}/lessons`)
@@ -34,6 +37,14 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
       })
       .catch((e) => setError(errorMessage(e)));
   }, [courseId, lessonId]);
+
+  useEffect(() => {
+    if (versionId == null) return;
+    setMissingKeys([]);
+    apiGet<{ missing_answer_keys?: string[] }>(`/api/courses/${courseId}/lessons/${lessonId}/preview?version_id=${versionId}`)
+      .then((p) => setMissingKeys(p.missing_answer_keys ?? []))
+      .catch(() => undefined);
+  }, [courseId, lessonId, versionId]);
 
   // One backend per version: its in-memory state is the whole preview session.
   const backend = useMemo(
@@ -88,6 +99,13 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
           </select>
         </label>
       </div>
+      {missingKeys.length ? (
+        <div role="alert" className="mx-auto mt-2 max-w-[1120px] rounded-md bg-warn-soft px-3 py-2 text-ink">
+          <span className="font-semibold">⚠ No answer key loaded (or the loaded one doesn’t fit) for {missingKeys.length} question(s):</span>{' '}
+          <span className="font-mono text-[12px]">{missingKeys.join(', ')}</span>. Their answers can’t be checked here or by
+          students, and this version can’t be published until the private answer keys are imported (Lessons tab).
+        </div>
+      ) : null}
     </div>
   );
 

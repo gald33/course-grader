@@ -1,0 +1,107 @@
+{
+  "number": 7,
+  "slug": "lesson-07",
+  "title_he": "מחברים יכולת AI למוצר",
+  "learning_goal_he": "לשלב קריאה לשירות AI עם פלט נבדק וטיפול במגבלות.",
+  "content_status": "proposed_teaching_draft",
+  "publication_status": "draft",
+  "auto_publish": false,
+  "source_basis": "current syllabus scope; new proposed Hebrew teaching copy",
+  "prerequisites_he": [
+    "שלד מוצר עובד",
+    "הבנה בסיסית של LLM"
+  ],
+  "steps": [
+    {
+      "key": "contract",
+      "title_he": "הבקשה והפלט הם חוזה עבודה",
+      "understand_he": "API מקבל בקשה ומחזיר תגובה או שגיאה. פלט JSON הוא מבנה שאפשר לבדוק, אך עצם תקינות המבנה אינה מבטיחה שהתוכן נאמן למקור.",
+      "do_he": "הגדירו סכימה להזמנה: לקוח, פריטים וכמויות, שעה שיכולה להיות חסרה וסימון בירור. בדקו דוגמה מלאה ודוגמה ללא שעה.",
+      "check": {
+        "key": "l07-q1",
+        "kind": "single_choice",
+        "prompt_he": "JSON תקין מבטיח שהכמויות נכונות?",
+        "choices": [
+          {
+            "id": "1",
+            "text_he": "כן"
+          },
+          {
+            "id": "2",
+            "text_he": "לא; צריך לבדוק גם את התוכן מול המקור"
+          },
+          {
+            "id": "3",
+            "text_he": "רק אם הוא ארוך"
+          }
+        ],
+        "purpose": "formative",
+        "retry": true,
+        "affects_course_grade": false
+      }
+    },
+    {
+      "key": "secrets",
+      "title_he": "מחברים שירות בלי לחשוף מפתח",
+      "understand_he": "מפתח שירות מעניק גישה ומחייב שמירה מתאימה. דפדפן מקבל קוד ונתונים שהמשתמש יכול לבדוק; מפתח ספק סודי אינו נשמר בו.",
+      "do_he": "השתמשו בחשבון הוראה מאושר ובמנגנון סודות מתאים. עקבו אחרי בקשה אחת דרך המוצר, בלי להציג מפתח או להכניסו למאגר.",
+      "check": {
+        "key": "l07-q2",
+        "kind": "single_choice",
+        "prompt_he": "איפה לא שומרים מפתח ספק סודי?",
+        "choices": [
+          {
+            "id": "1",
+            "text_he": "בקוד הדפדפן שנשלח לכל משתמש"
+          },
+          {
+            "id": "2",
+            "text_he": "במנגנון סודות בצד השרת"
+          },
+          {
+            "id": "3",
+            "text_he": "בהגדרה מוגנת לפי הסביבה"
+          }
+        ],
+        "purpose": "formative",
+        "retry": true,
+        "affects_course_grade": false
+      }
+    },
+    {
+      "key": "failure",
+      "title_he": "כשל חיצוני הוא מצב שימוש",
+      "understand_he": "שירות יכול להחזיר שגיאה, להתעכב או להגיע למגבלה. יש להציג מצב המתנה וכשל ברור ולתכנן ניסיון חוזר מוגבל. Tool calling מתאר בקשת פעולה; השרת צריך לאמת ולהרשות אותה.",
+      "do_he": "בדקו תגובה פגומה, זמן המתנה ושגיאת מכסה באמצעות הדמיה מסומנת. תעדו מה המשתמש רואה ואיך מונעים שליחה כפולה.",
+      "check": {
+        "key": "l07-q3",
+        "kind": "single_choice",
+        "prompt_he": "המודל הציע להפעיל כלי. האם מותר לבצע בלי בדיקה?",
+        "choices": [
+          {
+            "id": "1",
+            "text_he": "כן"
+          },
+          {
+            "id": "2",
+            "text_he": "לא; נדרשים אימות והרשאה של המערכת"
+          },
+          {
+            "id": "3",
+            "text_he": "כן אם הפלט הוא JSON"
+          }
+        ],
+        "purpose": "formative",
+        "retry": true,
+        "affects_course_grade": false
+      }
+    }
+  ],
+  "worked_example_he": "הודעת מיכל ללא שעה מחזירה pickup_time=null ו-needs_clarification=true. תגובת JSON עם quantity=-2 נדחית גם אם היא תקינה תחבירית.",
+  "exit_check_he": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע. ענו תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר.",
+  "work_product_he": "תכונת AI אחת עובדת מקצה לקצה, עם פלט נבדק ותרחיש כשל.",
+  "homework_he": "הצעה: השלימו חיבור מורשה, בדיקות לפלט ומגבלות שימוש. בהיעדר מפתח, הדמיה מסומנת מאפשרת למידה אך אינה ראיה לחיבור חי.",
+  "homework_status": "proposal_not_yet_assigned",
+  "optional_extension_he": null,
+  "notebook_submission_required": false
+}

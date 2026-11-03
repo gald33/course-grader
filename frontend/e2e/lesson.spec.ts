@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -893,5 +893,125 @@ test('instructor preview renders the lesson with real feedback and creates no st
 
   const after = await (await page.request.get(insights)).json();
   expect(after).toEqual(before);
+  expect(problems).toEqual([]);
+});
+
+/* ---------------- Lesson complete ---------------- */
+
+/** Everything lesson-2 asks for, through the student API, except the last
+ * required question (check_transfer), which the test then answers on the page. */
+async function completeAllButLast(page: Page, student: SignedInStudent) {
+  const base = `/api/r/${student.token}/lessons/${seed.lesson.slug}`;
+  const headers = { 'X-CG-Student': '1' };
+  const ok = async (res: Awaited<ReturnType<Page['request']['get']>>) => {
+    expect(res.status(), await res.text()).toBeLessThan(300);
+    return res.json();
+  };
+  const text = 'תשובה כתובה לבדיקת סיום השיעור, ארוכה מספיק כדי לעבור את המינימום של השאלה הזאת.';
+  const choices = [
+    'q_target', 'q_missing_zero', 'q_manual_a_branch', 'q_manual_a_prediction', 'q_depth', 'q_trace_14_7',
+    'q_leaf_certainty', 'q_compare_models', 'q_baseline_90_10', 'q_final_test_reuse', 'check_overfitting'
+  ];
+  for (const key of choices) {
+    await ok(await page.request.post(`${base}/attempts`, {
+      headers,
+      data: { request_id: randomUUID(), question_key: key, answer: { choice: fixtureOption(key, 'right').id, text } }
+    }));
+  }
+  for (const key of ['q_data_finding', 'check_wrong_not_bug', 'q_reflection']) {
+    await ok(await page.request.post(`${base}/attempts`, {
+      headers,
+      data: { request_id: randomUUID(), question_key: key, answer: { text } }
+    }));
+  }
+  const runs = [randomUUID(), randomUUID()];
+  for (const [i, run] of runs.entries()) {
+    await ok(await page.request.put(`${base}/experiments/${run}`, {
+      headers,
+      data: {
+        expected_revision: null, depth_kind: 'limited', depth: 2 + i, training_examples: 100,
+        train_accuracy_pct: 90, validation_accuracy_pct: 80, baseline_validation_pct: 70,
+        hypothesis: '', observation: 'עומק גדול יותר התאים יותר לאימון.', explanation: ''
+      }
+    }));
+  }
+  await ok(await page.request.post(`${base}/commitments`, {
+    headers,
+    data: { request_id: randomUUID(), run_uuid: runs[0], depth_kind: 'limited', depth: 2, training_examples: 100, justification: 'הפער בין אימון לתיקוף הכי קטן.' }
+  }));
+  const current = await ok(await page.request.get(base));
+  await ok(await page.request.patch(`${base}/progress`, {
+    headers,
+    data: { expected_revision: current.progress?.revision ?? 0, acks_add: ['csv_downloaded', 'colab_first_run'] }
+  }));
+}
+
+const celebration = (page: Page) => page.getByRole('dialog', { name: /^כל הכבוד! סיימתם את/ });
+
+test('completing the last required step celebrates once, with the way back; a reload shows only the badge', async ({
+  page,
+  context
+}) => {
+  const student = seed.lesson_students.celebration;
+  await signIn(context, student);
+  const problems = await watchForErrors(page);
+  await completeAllButLast(page, student);
+
+  // A next published lesson, as the lesson list would report it.
+  await page.route(`**/api/r/${student.token}/lessons`, async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    body.lessons.push({ ...body.lessons[0], slug: 'next-lesson', title: 'השיעור שאחרי', status: 'not_started' });
+    await route.fulfill({ response: res, json: body });
+  });
+
+  await page.goto(lessonPath(student, 'wrap-up'));
+  await expect(stepHeading(page)).toBeVisible();
+  await expect(page.getByTestId('lesson-complete-badge')).toHaveCount(0);
+  await expect(celebration(page)).toHaveCount(0);
+
+  const last = questionCard(page, 'check_transfer');
+  await last.getByRole('textbox').fill('שמאלה כי 60 > 59, וימינה כי 15 > 5.5.');
+  await answer(last, right('check_transfer'));
+  const dialog = celebration(page);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('heading')).toHaveText(`כל הכבוד! סיימתם את שיעור 1 – ${seed.lesson.title}`);
+  await expect(dialog).toContainText('השלמתם 7 מתוך 7 שלבי חובה');
+  await expect(dialog).not.toContainText(/ציון|נקודות/);
+  await expect(dialog.getByTestId('celebration-confetti')).toBeAttached();
+  const next = dialog.getByRole('link', { name: /^לשיעור הבא/ });
+  await expect(next).toHaveAttribute('href', `/r/${student.token}/lessons/next-lesson`);
+  await expect(next).toBeFocused();
+  await expect(dialog.getByRole('link', { name: 'לרשימת השיעורים' })).toHaveAttribute('href', `/r/${student.token}/lessons`);
+  await expect(dialog.getByRole('link', { name: 'לדף הבית של הקורס' })).toHaveAttribute('href', `/r/${student.token}`);
+  // Focus stays inside: × is the first control, the course page link the last, and Tab wraps.
+  const close = dialog.getByRole('button', { name: 'סגירה וחזרה לשיעור' });
+  const home = dialog.getByRole('link', { name: 'לדף הבית של הקורס' });
+  await page.keyboard.press('Shift+Tab');
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(home).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(close).toBeFocused();
+  await shot(page, 'lesson-complete-dialog');
+
+  await page.keyboard.press('Escape');
+  await expect(celebration(page)).toHaveCount(0);
+  await expect(stepHeading(page)).toBeVisible();
+  await expect(page.getByTestId('lesson-complete-badge')).toHaveText('✓ השיעור הושלם');
+  const banner = page.locator('header').filter({ hasText: 'השלמת את כל שלבי החובה' });
+  await expect(banner.getByRole('link', { name: 'לרשימת השיעורים' })).toHaveAttribute('href', `/r/${student.token}/lessons`);
+  await expect(banner.getByRole('link', { name: 'לדף הבית של הקורס' })).toHaveAttribute('href', `/r/${student.token}`);
+
+  await page.reload();
+  await expect(stepHeading(page)).toBeVisible();
+  await expect(page.getByTestId('lesson-complete-badge')).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(celebration(page)).toHaveCount(0);
+
+  // The lessons list marks it.
+  await page.unroute(`**/api/r/${student.token}/lessons`);
+  await page.goto(`/r/${student.token}/lessons`);
+  await expect(page.getByRole('link', { name: new RegExp(seed.lesson.title) })).toContainText('✓ כל שלבי החובה הושלמו');
   expect(problems).toEqual([]);
 });

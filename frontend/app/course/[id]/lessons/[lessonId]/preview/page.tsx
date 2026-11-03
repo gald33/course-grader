@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import { lessonNumber, type LessonNav } from '@/components/lessons/celebration';
 import type { LessonSummary } from '@/components/lessons/instructor-lessons';
 import { LessonPlayer } from '@/components/lessons/lesson-player';
 import { previewLessonBackend } from '@/components/lessons/preview-backend';
@@ -23,6 +24,7 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
   const [versionId, setVersionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missingKeys, setMissingKeys] = useState<string[]>([]);
+  const [nav, setNav] = useState<LessonNav | null>(null);
 
   useEffect(() => {
     apiGet<LessonSummary[]>(`/api/courses/${courseId}/lessons`)
@@ -34,6 +36,17 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
         const version = found.versions.find((v) => v.number === wanted) ?? found.versions[found.versions.length - 1];
         setLesson(found);
         setVersionId(version.id);
+        // The "lesson complete" dialog leads to the instructor's pages here, and
+        // "next" is the next lesson in course order that has something to preview.
+        const ordered = list.filter((l) => l.status !== 'archived').sort((a, b) => a.position - b.position || a.id - b.id);
+        const i = ordered.findIndex((l) => l.id === lessonId);
+        const next = ordered.slice(i + 1).find((l) => l.versions.length > 0);
+        setNav({
+          lessons: lessonsHref(courseId),
+          home: `/course/${courseId}`,
+          next: next ? { href: `/course/${courseId}/lessons/${next.id}/preview`, title: next.title } : null,
+          number: lessonNumber(found.slug, ordered.map((l) => l.slug))
+        });
       })
       .catch((e) => setError(errorMessage(e)));
   }, [courseId, lessonId]);
@@ -109,5 +122,5 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
     </div>
   );
 
-  return <LessonPlayer key={versionId} backend={backend} token={null} banner={banner} />;
+  return <LessonPlayer key={versionId} backend={backend} token={null} banner={banner} loadNav={async () => nav} />;
 }

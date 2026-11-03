@@ -32,6 +32,7 @@ _Nothing deferred._
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
+| `lesson-complete-celebration` | claude/lesson-complete-celebration | 2026-11-03T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -64,6 +65,7 @@ graph TD
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
+  lesson_complete_celebration["Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page"]:::claimed
   lesson_title_sync_on_install["Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles"]:::claimed
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
@@ -781,6 +783,51 @@ graph TD
 > backend tests pass on SQLite and Postgres; tsc and Playwright are green.
 > Not in this item: a real Antigravity spec interview, the instructor's
 > review and live check, and a homework brief or route.
+
+</details>
+
+### `lesson-complete-celebration`
+
+- **title:** Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page
+- **status:** claimed
+- **priority:** next
+- **claimed by:** claude/lesson-complete-celebration (since 2026-11-03T00:00:00Z)
+- **refs:**
+  - `frontend/components/lessons/celebration.tsx`
+  - `frontend/components/lessons/lesson-player.tsx`
+  - `frontend/app/r/[token]/lessons/[slug]/page.tsx`
+  - `frontend/app/course/[id]/lessons/[lessonId]/preview/page.tsx`
+  - `frontend/app/globals.css`
+  - `frontend/e2e/lesson.spec.ts`
+  - `frontend/e2e/lesson-complete.spec.ts`
+
+<details><summary>evidence</summary>
+
+> The operator, 2026-11-03: "give some kind of visual prize when clicking
+> to complete the lesson and go back to the main lesson page or main page".
+>
+> Before: completing the last required step only showed a one-line text
+> banner in the lesson header (lesson-player.tsx, "✓ השלמת את כל שלבי
+> החובה"); the only way back was the small links at the top of the page.
+> `completed_at` is set by the server (or the preview backend) the first
+> time every required step is done, and is never unset.
+>
+> Done when:
+>   1. The first time completed_at goes from unset to set during a visit,
+>      a dialog shows: "כל הכבוד! סיימתם את שיעור N – <title>", steps done
+>      and questions answered (no grade, no points), a CSS-only confetti
+>      burst (≤ 2 s, no sound, no library), and links to the lesson list,
+>      the course page, and the next published lesson when there is one.
+>      Opening an already-completed lesson shows no dialog.
+>   2. × or Esc closes it and leaves the student on the lesson; focus moves
+>      into it and is trapped; role=dialog with aria-labelledby.
+>   3. prefers-reduced-motion: no confetti element, a static badge.
+>   4. The lesson header keeps a "✓ השיעור הושלם" badge, and the completion
+>      banner carries the two return links. The lessons list already marks
+>      completed lessons ("✓ כל שלבי החובה הושלמו").
+>   5. The instructor preview shows it too (next = next lesson in course
+>      order with a version), saving nothing.
+>   6. No backend change; what counts as completed is unchanged.
 
 </details>
 

@@ -107,7 +107,9 @@ for (const device of [
     expect(sessions.map(Number)).toEqual([...sessions.map(Number)].sort((a, b) => a - b));
     const row = index.locator(`[data-lesson-id="${four}"]`);
     await expect(row).toContainText('draft');
-    await expect(row).toContainText('keys 3/3');
+    // The seed loads (FAKE) keys for every question: n of n.
+    const keys = (await row.locator('.pill', { hasText: /^keys / }).textContent()) ?? '';
+    expect(keys).toMatch(/^keys (\d+)\/\1$/);
     await expect(row).toContainText('drafted · not reviewed');
     await expectNoSideScroll(page, 'lessons tab');
     await shot(page, `${device.name}-instructor-lessons-index`);

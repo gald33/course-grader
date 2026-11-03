@@ -21,6 +21,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 
 - `assignments-need-custom-rubrics` — Assignments are graded on one fixed rubric instead of rubrics that fit the task
 - `autograder-needs-a-proper-redesign` — The notebook autograder needs a proper redesign, once there is enough graded data
+- `colab-block-collapse` — A Colab lesson block shows only its step line and one open action; the how-to and alternatives fold into "עזרה וחלופות"
 - `course-42052-whole-syllabus` — The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository
 - `courses-and-submissions-cannot-be-deleted` — Courses, assignments and submissions can't be deleted or archived
 - `exit-check-no-chatbot` — Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason

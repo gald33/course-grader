@@ -450,17 +450,43 @@ function safeColabUrl(url: string | null): string | null {
   }
 }
 
+/** A Colab step shows only what it asks for and the one action that opens the
+ * notebook: the instructor's Colab link when set, otherwise the download. The
+ * how-to (download/upload, sign in, run cells, CPU), the secondary download,
+ * colab.research.google.com and the return note sit in one collapsed
+ * "עזרה וחלופות" expander, so
+ * nothing the lesson says is dropped, only folded away. */
 function ColabBlock({ block, api }: { block: Extract<Block, { type: 'colab' }>; api: LessonApi }) {
   const notebook = api.content.assets[block.notebook_asset];
   const colab = safeColabUrl(api.colabUrl);
   const titleId = useId();
+  const download = notebook ? (
+    <a
+      href={notebook.path}
+      download={notebook.filename}
+      className={
+        colab
+          ? 'inline-flex min-h-[44px] items-center gap-2 rounded-md border border-forest px-4 text-[14px] font-semibold text-forest hover:bg-forest-tint'
+          : 'inline-flex min-h-[44px] items-center gap-2 justify-self-start rounded-md bg-forest px-4 text-[15px] font-semibold text-paper'
+      }
+    >
+      <span aria-hidden>⬇</span> הורדת המחברת
+      <Ltr className="font-mono text-[12px] font-normal">{notebook.filename}</Ltr>
+    </a>
+  ) : (
+    <span className="text-[14px] text-bad">קובץ המחברת חסר בשיעור.</span>
+  );
   return (
-    <section aria-labelledby={titleId} className="grid grid-cols-1 gap-3 rounded-lg border border-info-soft bg-card p-4">
+    <section
+      aria-labelledby={titleId}
+      data-testid="colab-block"
+      className="grid grid-cols-1 gap-3 rounded-lg border border-info-soft bg-card p-4"
+    >
       <h4 id={titleId} className="font-hebrew text-[17px]">
         עובדים בקולאב{block.section ? <>: <InlineText text={block.section} /></> : null}
       </h4>
-      {colab ? (
-        <div className="grid grid-cols-1 gap-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        {colab ? (
           <a
             href={colab}
             target="_blank"
@@ -469,47 +495,42 @@ function ColabBlock({ block, api }: { block: Extract<Block, { type: 'colab' }>; 
           >
             פתיחה בקולאב ↗<span className="sr-only"> (נפתח בלשונית חדשה)</span>
           </a>
-          <p className="text-[13px] text-ink-2">אם הכפתור לא נפתח, השתמשו בהורדה ובהעלאה שבהמשך.</p>
-        </div>
-      ) : null}
-      <div className="grid grid-cols-1 gap-2">
-        <p className="text-[14px] font-semibold">{colab ? 'או: הורדה והעלאה לקולאב' : 'פתיחת המחברת: הורדה והעלאה לקולאב'}</p>
-        <ol className="grid grid-cols-1 list-decimal gap-1.5 ps-6 text-[15px] leading-relaxed">
-          {block.instructions.map((item, i) => (
-            <li key={i} className="ps-1">
-              <InlineText text={item} />
-            </li>
-          ))}
-        </ol>
-        <div className="flex flex-wrap gap-2">
-          {notebook ? (
-            <a
-              href={notebook.path}
-              download={notebook.filename}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-forest px-4 text-[14px] font-semibold text-forest hover:bg-forest-tint"
-            >
-              <span aria-hidden>⬇</span> הורדת המחברת
-              <Ltr className="font-mono text-[12px] font-normal">{notebook.filename}</Ltr>
-            </a>
-          ) : (
-            <span className="text-[14px] text-bad">קובץ המחברת חסר בשיעור.</span>
-          )}
-          <a
-            href="https://colab.research.google.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-border bg-paper px-4 text-[14px]"
-          >
-            פתיחת <Ltr>colab.research.google.com</Ltr> ↗<span className="sr-only"> (נפתח בלשונית חדשה)</span>
-          </a>
-        </div>
+        ) : (
+          download
+        )}
       </div>
-      <p role="note" className="flex items-start gap-2 rounded-md bg-forest-tint px-3 py-2 text-[15px] font-semibold text-forest">
-        <span aria-hidden>↩</span>
-        <span>
-          <InlineText text={block.return_note} />
-        </span>
-      </p>
+      <details data-testid="colab-help" className="rounded-md border border-line-soft bg-paper-2">
+        <summary className="cursor-pointer px-3 py-2.5 text-[14px] font-semibold text-forest">עזרה וחלופות</summary>
+        <div className="grid grid-cols-1 gap-2 px-3 pb-3">
+          <p className="text-[14px] font-semibold">
+            {colab ? 'אם הכפתור לא נפתח: הורדה והעלאה לקולאב' : 'פתיחת המחברת: הורדה והעלאה לקולאב'}
+          </p>
+          <ol className="grid grid-cols-1 list-decimal gap-1.5 ps-6 text-[15px] leading-relaxed">
+            {block.instructions.map((item, i) => (
+              <li key={i} className="ps-1">
+                <InlineText text={item} />
+              </li>
+            ))}
+          </ol>
+          <div className="flex flex-wrap gap-2">
+            {colab ? download : null}
+            <a
+              href="https://colab.research.google.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-md border border-border bg-paper px-4 text-[14px]"
+            >
+              פתיחת <Ltr>colab.research.google.com</Ltr> ↗<span className="sr-only"> (נפתח בלשונית חדשה)</span>
+            </a>
+          </div>
+          <p role="note" className="flex items-start gap-2 text-[14px] font-semibold text-forest">
+            <span aria-hidden>↩</span>
+            <span>
+              <InlineText text={block.return_note} />
+            </span>
+          </p>
+        </div>
+      </details>
     </section>
   );
 }

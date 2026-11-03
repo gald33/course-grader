@@ -1163,22 +1163,26 @@ function ReviewFocus(props: SharedProps & { filledCount: number; totalDims: numb
 
 /* ===== Shortcut row ===== */
 function ShortcutRow() {
+  // Folded: useful once, then noise above every submission.
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-ink-3">
-      <span>
-        <Kbd>J</Kbd> next
-      </span>
-      <span>
-        <Kbd>K</Kbd> previous
-      </span>
-      <span>
-        <Kbd>0</Kbd>–<Kbd>5</Kbd> score active dot
-      </span>
-      <span>
-        <Kbd>⌘</Kbd>
-        <Kbd>S</Kbd> save rubric
-      </span>
-    </div>
+    <details className="mb-3 text-[12px] text-ink-3">
+      <summary className="cursor-pointer list-none hover:text-ink [&::-webkit-details-marker]:hidden">Keyboard shortcuts ▸</summary>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        <span>
+          <Kbd>J</Kbd> next
+        </span>
+        <span>
+          <Kbd>K</Kbd> previous
+        </span>
+        <span>
+          <Kbd>0</Kbd>–<Kbd>5</Kbd> score active dot
+        </span>
+        <span>
+          <Kbd>⌘</Kbd>
+          <Kbd>S</Kbd> save rubric
+        </span>
+      </div>
+    </details>
   );
 }
 
@@ -1474,19 +1478,10 @@ function RubricPanel(props: SharedProps & { embedded?: boolean }) {
             <div>
               <div className="font-display text-[19px]">Rubric</div>
               <div className="text-[13px] text-ink-3">
-                Click a dot or press 0–5 to score. Autosaves as you go.
+                Click a dot or press 0–5 to score. Autosaves as you go; a partial rubric still saves.
               </div>
             </div>
             <SaveStatus saving={props.rubricSaving} savedAt={props.rubricSavedAt} dirty={props.rubricDirty} />
-          </div>
-          <div className="hint hint-soft mb-3">
-            <span className="hint-icon" style={{ background: 'var(--terracotta)' }}>
-              ✦
-            </span>
-            <span>
-              Score every dimension you can — partial rubrics still save. The course's Curve &amp; calibration page turns
-              these 0–5 dots into 0–100 scores.
-            </span>
           </div>
         </>
       ) : null}
@@ -1629,7 +1624,7 @@ function RubricGroup({
                 const label = isAuto ? 'Auto' : 'Claude';
                 const isHebrew = /[֐-׿]/.test(llm.rationale);
                 const rationaleStyle: React.CSSProperties = isHebrew
-                  ? { fontFamily: 'Frank Ruhl Libre, Newsreader, serif' }
+                  ? { fontFamily: 'Heebo, Geist, sans-serif' }
                   : {};
                 return (
                   <div
@@ -2163,7 +2158,7 @@ function LLMReviewCard({
             style={{
               direction: 'rtl',
               textAlign: 'right',
-              fontFamily: 'Frank Ruhl Libre, Newsreader, serif'
+              fontFamily: 'Heebo, Geist, sans-serif'
             }}
           >
             {review.feedback_he}

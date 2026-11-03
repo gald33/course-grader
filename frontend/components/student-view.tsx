@@ -782,8 +782,16 @@ const LESSON_STATUS: Record<LessonLink['status'], string> = {
 /* Guided lessons. Each one opens the existing /r/<token>/lessons routes; the
  * preview lists them without links, since those routes need the student's
  * own sign-in. */
+/* The lesson in progress and the next ones, up to three; the rest are one
+ * tap away on the lessons page. The instructor's preview has no link to that
+ * page, so it lists them all. */
+const LESSONS_SHOWN = 3;
+
 function LessonsCard({ token, lessons }: { token: string; lessons: LessonLink[] }) {
   const preview = useContext(PreviewCtx);
+  const open = lessons.filter((l) => l.status !== 'completed');
+  const shown = preview ? lessons : [...open.filter((l) => l.status === 'in_progress'), ...open.filter((l) => l.status === 'not_started')].slice(0, LESSONS_SHOWN);
+  const done = lessons.length - open.length;
   return (
     <section aria-labelledby="lessons" className="rounded-lg border border-forest-soft bg-card p-4 shadow-soft">
       <div className="flex items-baseline justify-between gap-3">
@@ -796,8 +804,13 @@ function LessonsCard({ token, lessons }: { token: string; lessons: LessonLink[] 
           </a>
         )}
       </div>
+      {!preview && done > 0 ? (
+        <p className="mt-1 text-[13px] text-ink-3">
+          {done === lessons.length ? `✓ השלמת את כל ${lessons.length} השיעורים.` : `הושלמו ${done} מתוך ${lessons.length} שיעורים.`}
+        </p>
+      ) : null}
       <ul className="mt-2 grid gap-2">
-        {lessons.map((l) => {
+        {shown.map((l) => {
           const body = (
             <>
               <span className="min-w-0">
@@ -1225,7 +1238,6 @@ function ReviewingSection({ token, round, onUpdate }: { token: string; round: Ro
   const { expected, completed, outstanding } = rv.progress;
   const firstOpen = rv.presentations.find((p) => p.accepting && !p.my_review)?.id ?? null;
   const [expanded, setExpanded] = useState<number | null>(firstOpen);
-  const outstandingNames = rv.presentations.filter((p) => outstanding.includes(p.id));
 
   return (
     <>
@@ -1239,50 +1251,57 @@ function ReviewingSection({ token, round, onUpdate }: { token: string; round: Ro
         <div className="progress-bar mt-2" aria-hidden>
           <span style={{ width: `${expected ? (completed / expected) * 100 : 0}%` }} />
         </div>
-        {outstandingNames.length > 0 ? (
-          <p className="mt-2 text-[14px] text-ink-2">
-            נשארו: {outstandingNames.map((p) => p.team_name).join(', ')}
-          </p>
-        ) : expected > 0 ? (
+        {outstanding.length === 0 && expected > 0 ? (
           <p className="mt-2 text-[14px] text-ok">✓ הגשת את כל הביקורות הנדרשות בסבב הזה.</p>
         ) : null}
-        {rv.deadline ? <p className="mt-1 text-[13px] text-ink-3">מועד אחרון לעריכה: {formatDeadline(rv.deadline)}</p> : null}
+        {rv.deadline ? <p className="mt-1 text-[13px] text-ink-3">אפשר לערוך עד {formatDeadline(rv.deadline)}</p> : null}
         {rubric.instructions ? (
           <p className="mt-3 rounded-md bg-terracotta-tint px-3 py-2 text-[14px] leading-relaxed text-ink">{rubric.instructions}</p>
         ) : null}
-        <p className="mt-2 text-[13px] text-ink-3">
-          אפשר למלא תוך כדי ההצגה או אחרי שניסיתם את המוצר, ולערוך עד שהביקורת נסגרת.
-        </p>
       </section>
 
       {Object.keys(live).length > 0 ? <MySharesCard round={round} live={live} /> : null}
 
-      {groups.map((g) => (
-        <section key={g.label} className="grid gap-2">
-          <h3 className={`px-1 text-[14px] font-semibold ${g.today ? 'text-forest' : 'text-ink-3'}`}>{g.label}</h3>
-          {g.items.map((p) => (
-            <PresentationCard
-              key={p.id}
-              token={token}
-              p={p}
-              rubric={rubric}
-              linkRequired={round.link_required}
-              draft={drafts[p.id] ?? null}
-              setDraft={(d) => setDraft(p.id, d)}
-              share={live[p.id]}
-              expanded={expanded === p.id}
-              toggle={() => setExpanded((cur) => (cur === p.id ? null : p.id))}
-              onSaved={(h) => {
-                onUpdate(h);
-                const next = h.rounds
-                  .find((r) => r.id === round.id)
-                  ?.reviewing?.presentations.find((x) => x.accepting && !x.my_review && x.id !== p.id);
-                setExpanded(next ? next.id : null);
-              }}
-            />
-          ))}
-        </section>
-      ))}
+      {groups.map((g) => {
+        const cards = g.items.map((p) => (
+          <PresentationCard
+            key={p.id}
+            token={token}
+            p={p}
+            rubric={rubric}
+            linkRequired={round.link_required}
+            draft={drafts[p.id] ?? null}
+            setDraft={(d) => setDraft(p.id, d)}
+            share={live[p.id]}
+            expanded={expanded === p.id}
+            toggle={() => setExpanded((cur) => (cur === p.id ? null : p.id))}
+            onSaved={(h) => {
+              onUpdate(h);
+              const next = h.rounds
+                .find((r) => r.id === round.id)
+                ?.reviewing?.presentations.find((x) => x.accepting && !x.my_review && x.id !== p.id);
+              setExpanded(next ? next.id : null);
+            }}
+          />
+        ));
+        // A later session with nothing open to review yet is folded: it's a list to read, not to act on.
+        if (!g.today && !g.items.some((p) => p.accepting)) {
+          return (
+            <details key={g.label} className="grid gap-2">
+              <summary className="cursor-pointer px-1 text-[14px] font-semibold text-ink-3">
+                {g.label} · {g.items.length} הצגות
+              </summary>
+              <div className="mt-2 grid gap-2">{cards}</div>
+            </details>
+          );
+        }
+        return (
+          <section key={g.label} className="grid gap-2">
+            <h3 className={`px-1 text-[14px] font-semibold ${g.today ? 'text-forest' : 'text-ink-3'}`}>{g.label}</h3>
+            {cards}
+          </section>
+        );
+      })}
     </>
   );
 }
@@ -1292,10 +1311,13 @@ function MySharesCard({ round, live }: { round: RoundView; live: Record<number, 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-soft">
       <h2 className="font-hebrew text-[18px]">הציונים שלך בסבב</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-ink-3">
-        הציונים שנתת מנורמלים כך שסכומם 100%: מה שנחשב הוא היחס בין הצוותים, לא הגובה המוחלט. גם השיפוט שלך נמדד – לפי
-        ההתאמה בין הדירוג שלך לדירוג הכולל של הכיתה.
-      </p>
+      <details className="mt-1 text-[13px] text-ink-3">
+        <summary className="cursor-pointer text-forest">איך זה מחושב?</summary>
+        <p className="mt-1 leading-relaxed">
+          הציונים שנתת מנורמלים כך שסכומם 100%: מה שנחשב הוא היחס בין הצוותים, לא הגובה המוחלט. גם השיפוט שלך נמדד – לפי
+          ההתאמה בין הדירוג שלך לדירוג הכולל של הכיתה.
+        </p>
+      </details>
       <div className="mt-3 grid gap-1.5">
         {rows.map((p) => {
           const v = live[p.id];

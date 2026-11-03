@@ -344,7 +344,7 @@ function DocxView({ artifact }: { artifact: Artifact }) {
       <div
         className="docx-render mx-auto max-w-[760px] px-12 py-10"
         style={{
-          fontFamily: 'Newsreader, Georgia, serif',
+          fontFamily: 'var(--font-sans)',
           fontSize: 15,
           lineHeight: 1.6,
           color: 'var(--ink)',

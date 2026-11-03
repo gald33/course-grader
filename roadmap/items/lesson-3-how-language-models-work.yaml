@@ -1,10 +1,8 @@
 id: lesson-3-how-language-models-work
 title: Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session
-status: ready
+status: done
 priority: now
-claim:
-  by: claude/lesson-3-how-language-models-work
-  at: '2026-11-03T12:00:00Z'
+claim: null
 blocked_on:
 - course-42052-whole-syllabus
 refs:
@@ -46,3 +44,5 @@ evidence: |
   credentials; no answer key in the repository (tested); CI is green.
   Not in this item: the instructor's own review and live check in class,
   the real Colab share link (set by the instructor), and a homework brief.
+
+  SHIPPED: #33, merged as 47632b6.

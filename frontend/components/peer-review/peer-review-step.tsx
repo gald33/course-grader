@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SubTabs, useUrlTab } from '@/components/ui/sub-tabs';
 import {
   apiBase,
   apiDelete,
@@ -131,7 +132,7 @@ function TableCard({ children }: { children: React.ReactNode }) {
 
 export function PeerReviewStep({ courseId, setToast }: { courseId: number; setToast: (m: string) => void }) {
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [tab, setTab] = useState<TabKey>('schedule');
+  const [tab, setTab] = useUrlTab(TABS.map((t) => t.key));
   const [roundId, setRoundId] = useState<number | null>(null);
   const base = `/api/courses/${courseId}/peer`;
 
@@ -187,21 +188,13 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
 
   return (
     <div className="grid gap-4 pt-6">
-      <div className="flex flex-wrap items-center gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-full border px-3.5 py-1.5 text-[13px] ${
-              tab === t.key ? 'border-forest bg-forest text-paper' : 'border-border bg-card text-ink-2 hover:border-ink-4'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-0 flex-1">
+          <SubTabs label="Peer review" tabs={TABS} active={tab} onChange={setTab} />
+        </div>
         <a
           href={`/course/${courseId}/student-view?tab=review`}
-          className="ml-auto rounded-full border border-terracotta-soft bg-terracotta-tint px-3.5 py-1.5 text-[13px] text-ink hover:border-terracotta"
+          className="mb-1.5 text-[13px] text-forest no-underline hover:underline"
         >
           <Eye className="me-1.5 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />View as student
         </a>
@@ -1049,15 +1042,15 @@ export function TeamsStep({ courseId, setToast }: { courseId: number; setToast: 
   );
 }
 
-/** Sign-in accounts and personal links: on the course page's Students section. */
-export function StudentAccessCards({ courseId, setToast }: { courseId: number; setToast: (m: string) => void }) {
+/** Sign-in accounts: a tab of the course page's Students section. */
+export function StudentAccountsPanel({ courseId, setToast }: { courseId: number; setToast: (m: string) => void }) {
+  return <AccountsCard courseId={courseId} setToast={setToast} />;
+}
+
+/** Personal links: a tab of the course page's Students section. */
+export function StudentLinksPanel({ courseId, setToast }: { courseId: number; setToast: (m: string) => void }) {
   const run = useToastRun(setToast);
-  return (
-    <>
-      <AccountsCard courseId={courseId} setToast={setToast} />
-      <StudentLinksCard base={`/api/courses/${courseId}/peer`} courseId={courseId} run={run} setToast={setToast} />
-    </>
-  );
+  return <StudentLinksCard base={`/api/courses/${courseId}/peer`} courseId={courseId} run={run} setToast={setToast} />;
 }
 
 type TeamsData = {

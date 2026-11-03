@@ -147,16 +147,7 @@ export default function HomePage() {
         </button>
       </header>
 
-      {/* Welcome hint */}
-      <div className="hint mb-6">
-        <span className="hint-icon">i</span>
-        <div>
-          <strong className="font-semibold text-ink">Working through a course?</strong> Pick it below. The course
-          sidebar groups its pages by job: <em>Students</em> (roster, accounts, teams), <em>Teaching</em> (lessons,
-          peer review) and <em>Grading</em> (queue → rubrics → curve → overrides → gradebook). A new course opens on Students,
-          since the roster comes first.
-        </div>
-      </div>
+      <p className="mb-6 text-[14px] text-ink-3">Pick a course; it opens on what needs you now.</p>
 
       {/* Active courses */}
       <div className="mb-3.5 flex items-center gap-2.5">

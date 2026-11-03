@@ -26,8 +26,10 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `frontend-has-no-tests` — The frontend has no tests; CI only type-checks it
 - `hebrew-report-pdfs-cannot-be-downloaded` — Hebrew student report PDFs are queued but can never be retrieved from the hosted site
 - `instructor-course-page-is-organized-as-fake-steps` — The instructor course page is eight numbered "steps" that aren't steps, with student tools in three places
+- `instructor-pages-are-walls-of-text` — Instructor and student pages are walls of text, with no sign of what needs attention
 - `lesson-3-how-language-models-work` — Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session
 - `lesson-3-part-b-deeper` — Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser
+- `lesson-4-coding-agent` — Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
 - `no-button-to-recheck-site-links` — Add a "re-check all links" button for a round
 - `onboarding-guide-has-todo-sections` — ONBOARDING.md still has _TODO_ under Team Tips and Get Started
 - `peer-round-scores-never-reach-the-gradebook` — Peer-review round scores have to be copied into the gradebook by hand

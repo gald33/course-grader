@@ -4,6 +4,7 @@ import { ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { HowItWorks } from '@/components/ui/how-it-works';
 import { apiGet, apiPatch, apiPost, errorMessage } from '@/lib/api';
 
 /* The whole course as drafts, instructor side: import a course plan (every
@@ -228,17 +229,12 @@ export function CoursePlanCard({
         </label>
       ) : null}
 
-      <div className="hint">
-        <span className="hint-icon">i</span>
-        <div>
-          Every lesson comes in as a <strong className="text-ink">draft</strong>; publishing stays your decision, lesson by
-          lesson. The plan has no dates, times, rooms, team names, presentation slots or deadlines — those aren’t decided
-          in it, so none are shown or created. The written syllabus weighs the grade {g.final_project_and_presentation_percent}%
-          project/presentation, {g.milestones_and_labs_percent}% milestones/labs, {g.theoretical_quiz_percent}% theoretical
-          quiz (passing {g.passing_score}); importing <strong className="text-ink">does not change</strong> this course’s
-          grade formula.
-        </div>
-      </div>
+      <HowItWorks summary="The plan brings in lessons only. Importing does not change this course’s grade formula.">
+        It has no dates, times, rooms, team names, presentation slots or deadlines; those aren’t decided in it, so none are
+        shown or created. The written syllabus weighs the grade {g.final_project_and_presentation_percent}%
+        project/presentation, {g.milestones_and_labs_percent}% milestones/labs, {g.theoretical_quiz_percent}% theoretical
+        quiz (passing {g.passing_score}).
+      </HowItWorks>
 
       {imported ? <ReadinessTable courseId={courseId} sessions={view.sessions} mark={mark} /> : null}
     </Card>
@@ -395,11 +391,17 @@ function ReadinessTable({
                   </td>
                   <td className={`${td} max-w-[260px] text-[12px] text-ink-2`}>
                     {r.still_needed.length ? (
-                      <ul className="list-disc pl-4">
-                        {r.still_needed.map((x) => (
-                          <li key={x}>{x}</li>
-                        ))}
-                      </ul>
+                      // Folded: open lists of to-dos in a narrow column made each row 400–500px tall.
+                      <details>
+                        <summary className="cursor-pointer">
+                          {r.still_needed.length} {r.still_needed.length === 1 ? 'item' : 'items'}
+                        </summary>
+                        <ul className="mt-1 list-disc pl-4">
+                          {r.still_needed.map((x) => (
+                            <li key={x}>{x}</li>
+                          ))}
+                        </ul>
+                      </details>
                     ) : (
                       <span className="text-ink-3">nothing listed</span>
                     )}

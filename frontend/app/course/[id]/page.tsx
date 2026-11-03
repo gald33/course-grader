@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import {
   ArrowLeftRight,
+  BookOpen,
   Eye,
   Globe,
-  Mic,
-  BookOpen,
   Inbox,
+  LayoutDashboard,
   ListChecks,
+  Mic,
   PencilLine,
   Settings,
   Spline,
@@ -24,12 +25,15 @@ import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { BilingualName, isHebrew } from '@/components/ui/bilingual-name';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { CourseOverview, type SubmissionCounts } from '@/components/course-overview';
 import { GradeReleaseCard } from '@/components/grade-release-card';
 import { LessonsStep } from '@/components/lessons/instructor-lessons';
-import { PeerReviewStep, StudentAccessCards, TeamsStep } from '@/components/peer-review/peer-review-step';
+import { PeerReviewStep, StudentAccountsPanel, StudentLinksPanel, TeamsStep } from '@/components/peer-review/peer-review-step';
 import { RosterCard } from '@/components/roster-card';
 import { RubricsStep } from '@/components/rubric-editor';
+import { HowItWorks } from '@/components/ui/how-it-works';
 import { Input } from '@/components/ui/input';
+import { SubTabs, useUrlTab } from '@/components/ui/sub-tabs';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
 import { apiBase, apiFetch, apiGet, apiPatch, apiPost, errorMessage, putToStorage, type UploadTarget } from '@/lib/api';
@@ -159,25 +163,26 @@ type SectionKey = CourseSection;
 type SectionGroup = 'Students' | 'Teaching' | 'Grading' | 'Course';
 
 const SECTIONS: { key: SectionKey; group: SectionGroup; label: string; icon: LucideIcon; sub: string }[] = [
-  { key: 'students', group: 'Students', label: 'Students', icon: Users, sub: 'Roster, sign-in accounts, and each student’s personal link.' },
-  { key: 'teams', group: 'Students', label: 'Teams', icon: UsersRound, sub: 'Who works with whom, and when students can still change teams.' },
-  { key: 'lessons', group: 'Teaching', label: 'Lessons', icon: BookOpen, sub: 'Guided lessons: preview, publish, and where understanding breaks down.' },
-  { key: 'peer', group: 'Teaching', label: 'Peer review', icon: ArrowLeftRight, sub: 'Presentation schedule, rubrics, student reviews, and round scores.' },
-  { key: 'queue', group: 'Grading', label: 'Grading queue', icon: Inbox, sub: 'Import assignment ZIPs, then fetch, run and grade each submission.' },
-  { key: 'rubrics', group: 'Grading', label: 'Rubrics', icon: ListChecks, sub: 'Custom per-assignment rubrics the autograder scores with the LLM.' },
-  { key: 'curve', group: 'Grading', label: 'Curve & calibration', icon: Spline, sub: 'Adjust dimension curves and the attendance threshold.' },
-  { key: 'overrides', group: 'Grading', label: 'Overrides', icon: PencilLine, sub: 'Per-student deltas with reasons.' },
-  { key: 'gradebook', group: 'Grading', label: 'Gradebook', icon: Table2, sub: 'Final scores by component, presentation scores, release and export.' },
+  { key: 'overview', group: 'Course', label: 'Overview', icon: LayoutDashboard, sub: 'What needs you now.' },
+  { key: 'students', group: 'Students', label: 'Students', icon: Users, sub: 'Roster, sign-in accounts and personal links.' },
+  { key: 'teams', group: 'Students', label: 'Teams', icon: UsersRound, sub: 'Who works with whom.' },
+  { key: 'lessons', group: 'Teaching', label: 'Lessons', icon: BookOpen, sub: 'Plan, publish, and see where students get stuck.' },
+  { key: 'peer', group: 'Teaching', label: 'Peer review', icon: ArrowLeftRight, sub: 'Presentation rounds and student reviews.' },
+  { key: 'queue', group: 'Grading', label: 'Grading queue', icon: Inbox, sub: 'Import, run and grade submissions.' },
+  { key: 'rubrics', group: 'Grading', label: 'Rubrics', icon: ListChecks, sub: 'Custom rubrics per assignment.' },
+  { key: 'curve', group: 'Grading', label: 'Curve & calibration', icon: Spline, sub: 'Rubric curve and attendance threshold.' },
+  { key: 'overrides', group: 'Grading', label: 'Overrides', icon: PencilLine, sub: 'One-off adjustments, with reasons.' },
+  { key: 'gradebook', group: 'Grading', label: 'Gradebook', icon: Table2, sub: 'Final scores, release and export.' },
   { key: 'settings', group: 'Course', label: 'Course settings', icon: Settings, sub: 'Course details and archiving.' }
 ];
 const SIDEBAR_GROUPS: SectionGroup[] = ['Students', 'Teaching', 'Grading'];
 
 const isSection = (v: string | null): v is SectionKey => SECTIONS.some((s) => s.key === v);
 
-/* The open section lives in ?section=, so a section can be linked, refresh
- * stays on it and back/forward move between sections. The bare URL means "the
- * default" (see CoursePage). */
-function useSectionInUrl(): [SectionKey | null, (s: SectionKey) => void] {
+/* The open section lives in ?section= (and a page's own tab in ?tab=), so a
+ * section can be linked, refresh stays on it and back/forward move between
+ * sections. The bare URL is the Overview. */
+function useSectionInUrl(): [SectionKey | null, (s: SectionKey, tab?: string) => void] {
   const [section, setSectionState] = useState<SectionKey | null>(null);
   useEffect(() => {
     const read = () => {
@@ -188,9 +193,12 @@ function useSectionInUrl(): [SectionKey | null, (s: SectionKey) => void] {
     window.addEventListener('popstate', read);
     return () => window.removeEventListener('popstate', read);
   }, []);
-  const setSection = useCallback((s: SectionKey) => {
+  const setSection = useCallback((s: SectionKey, tab?: string) => {
     const url = new URL(window.location.href);
     url.searchParams.set('section', s);
+    // A tab belongs to the page it was opened on.
+    if (tab) url.searchParams.set('tab', tab);
+    else url.searchParams.delete('tab');
     if (url.href !== window.location.href) {
       window.history.pushState(window.history.state, '', url);
       window.scrollTo(0, 0);
@@ -212,9 +220,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [dimensionDistributions, setDimensionDistributions] = useState<Record<string, number[]>>({});
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
   const [urlSection, setSection] = useSectionInUrl();
-  // Where the bare course URL opens, decided once on the first load so that
-  // uploading the roster doesn't move you off the page you're on.
-  const [defaultSection, setDefaultSection] = useState<SectionKey | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -237,9 +242,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setAssignments(assignmentsRes);
     setSubmissions(submissionsRes);
     setGradebook(gradebookRes.rows);
-    // The grading queue, or Students while the course has no roster yet,
-    // since nothing else works before it.
-    setDefaultSection((d) => d ?? (gradebookRes.rows.length === 0 ? 'students' : 'queue'));
     setActiveCurve(curveRes);
     setOverrides(overridesRes);
     setDimensionDistributions(distRes);
@@ -266,8 +268,18 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     return <div className="p-10 text-ink-3">Loading…</div>;
   }
 
-  const step: SectionKey = urlSection ?? defaultSection ?? 'queue';
+  const step: SectionKey = urlSection ?? 'overview';
   const stepInfo = SECTIONS.find((s) => s.key === step) ?? SECTIONS[0];
+  const states = submissions.map(derivedState);
+  const submissionCounts: SubmissionCounts = {
+    total,
+    graded,
+    missingFiles: submissions.filter((s) => s.requirements && !s.requirements.complete && !s.requirements.overridden_by_manual_grade).length,
+    readyToRun: submissions.filter((s, i) => states[i] === 'unrun' && s.has_colab_url).length,
+    noColabUrl: submissions.filter((s, i) => states[i] === 'unrun' && !s.has_colab_url).length,
+    failed: states.filter((x) => x === 'failed').length,
+    flagged: submissions.filter((s) => s.originality_mismatch).length
+  };
 
   return (
     <div className="grid min-h-screen" style={{ gridTemplateColumns: '248px 1fr' }}>
@@ -283,18 +295,16 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
       <div className="min-w-0">
         {/* Section header */}
-        <div className="mx-auto max-w-[1500px] px-10 pt-9">
-          <div className="flex items-end justify-between gap-6">
-            <div>
-              <div className="label-eyebrow mb-1.5">{stepInfo.group}</div>
-              <h1 className="font-display text-[34px] leading-tight tracking-tight">{stepInfo.label}</h1>
-              <p className="mt-1 text-[15px] text-ink-3">{stepInfo.sub}</p>
-            </div>
-          </div>
-          <div className="mt-5 h-px bg-border" />
+        <div className="mx-auto max-w-[1500px] px-10 pt-7">
+          <div className="label-eyebrow mb-1">{stepInfo.group}</div>
+          <h1 className="font-display text-[30px] leading-tight tracking-tight">{stepInfo.label}</h1>
+          <p className="mt-0.5 text-[15px] text-ink-3">{stepInfo.sub}</p>
         </div>
 
         <div className="mx-auto max-w-[1500px] px-10 pb-20">
+          {step === 'overview' ? (
+            <CourseOverview courseId={courseId} students={gradebook.length} submissions={submissionCounts} go={setSection} />
+          ) : null}
           {step === 'students' ? (
             <StudentsStep courseId={courseId} setToast={setToast} refresh={loadAll} />
           ) : null}
@@ -379,7 +389,7 @@ function Sidebar({
   total: number;
   remaining: number;
   step: SectionKey;
-  setStep: (s: SectionKey) => void;
+  setStep: (s: SectionKey, tab?: string) => void;
   counts: Partial<Record<SectionKey, number>>;
 }) {
   // Real links, so a section opens in a new tab with a modified click; a plain
@@ -440,6 +450,7 @@ function Sidebar({
       </div>
 
       <nav aria-label="Course sections" className="grid gap-1">
+        <div className="pt-2">{item(SECTIONS.find((s) => s.key === 'overview')!)}</div>
         {SIDEBAR_GROUPS.map((group) => (
           <div key={group} className="grid gap-0.5">
             <div className="label-eyebrow px-2.5 pb-1 pt-3">{group}</div>
@@ -692,17 +703,13 @@ function QueueStep({
 
   return (
     <div className="pt-6 space-y-4">
-      <div className="hint">
-        <span className="hint-icon">i</span>
-        <div>
-          One row per group submission. <strong className="text-ink">Open</strong> takes you into the review workspace
-          where the executed notebook + report live alongside the rubric. Use the filter chips to narrow down —{' '}
-          <strong className="text-ink">Not run</strong> shows what's missing a Colab URL,{' '}
-          <strong className="text-ink">Flagged</strong> shows originality mismatches. Rubric scores then pass through{' '}
-          <SectionLink go={go} to="curve" /> and <SectionLink go={go} to="overrides" /> into the{' '}
-          <SectionLink go={go} to="gradebook" />.
-        </div>
-      </div>
+      <HowItWorks summary="One row per group submission. Open one to grade it.">
+        <strong className="text-ink">Open</strong> takes you into the review workspace, where the executed notebook and
+        the report sit beside the rubric. The filter chips narrow the list: <strong className="text-ink">Not run</strong>{' '}
+        shows what's missing a Colab URL, <strong className="text-ink">Flagged</strong> shows originality mismatches. Rubric
+        scores then pass through <SectionLink go={go} to="curve" /> and <SectionLink go={go} to="overrides" /> into the{' '}
+        <SectionLink go={go} to="gradebook" />.
+      </HowItWorks>
 
       {!hasStudents ? (
         <div className="hint hint-warm">
@@ -1050,34 +1057,41 @@ function StudentsStep({
   setToast: (m: string) => void;
   refresh: () => Promise<void>;
 }) {
+  const [tab, setTab] = useUrlTab(STUDENT_TABS.map((t) => t.key));
   return (
-    <div className="grid gap-3.5 pt-6">
-      <div className="hint hint-warm">
-        <span className="hint-icon">1</span>
-        <div>
-          Start here at the beginning of the term. Upload the <strong className="text-ink">roster</strong> first (so
-          attendance, teams and group membership work), then create <strong className="text-ink">sign-in accounts</strong>{' '}
-          and share each student's <strong className="text-ink">personal link</strong>. Re-uploading the roster replaces
-          the previous import; for one student, use the card below instead.
-        </div>
-      </div>
-
-      <FileImportTile
-        courseId={courseId}
-        icon={<Users className="h-5 w-5" strokeWidth={1.8} />}
-        title="Roster"
-        sub="XLSX with תעודת זהות + שם columns (Yedion exports work). Attendance is computed per session; emails become student logins."
-        accept=".xlsx"
-        path={`/api/courses/${courseId}/imports/roster`}
-        button="Upload roster"
-        setToast={setToast}
-        refresh={refresh}
-      />
-      <RosterCard courseId={courseId} setToast={setToast} refresh={refresh} />
-      <StudentAccessCards courseId={courseId} setToast={setToast} />
+    <div className="grid gap-4 pt-5">
+      <SubTabs label="Students" tabs={STUDENT_TABS} active={tab} onChange={setTab} />
+      {tab === 'roster' ? (
+        <>
+          <HowItWorks summary="Start of term: upload the roster, then create sign-in accounts and share personal links.">
+            The roster comes first: attendance, teams and group membership all need it. Re-uploading it replaces the
+            previous import; to add, fix or withdraw one student, use the Students card below instead.
+          </HowItWorks>
+          <FileImportTile
+            courseId={courseId}
+            icon={<Users className="h-5 w-5" strokeWidth={1.8} />}
+            title="Roster"
+            sub="XLSX with תעודת זהות + שם columns (Yedion exports work). Attendance is computed per session; emails become student logins."
+            accept=".xlsx"
+            path={`/api/courses/${courseId}/imports/roster`}
+            button="Upload roster"
+            setToast={setToast}
+            refresh={refresh}
+          />
+          <RosterCard courseId={courseId} setToast={setToast} refresh={refresh} />
+        </>
+      ) : null}
+      {tab === 'accounts' ? <StudentAccountsPanel courseId={courseId} setToast={setToast} /> : null}
+      {tab === 'links' ? <StudentLinksPanel courseId={courseId} setToast={setToast} /> : null}
     </div>
   );
 }
+
+const STUDENT_TABS = [
+  { key: 'roster', label: 'Roster' },
+  { key: 'accounts', label: 'Sign-in accounts' },
+  { key: 'links', label: 'Personal links' }
+] as const;
 
 /* =============== Assignment import (on the grading queue) =============== */
 
@@ -1247,6 +1261,7 @@ function CurveStep({
   setToast: (m: string) => void;
   refresh: () => Promise<void>;
 }) {
+  const [tab, setTab] = useUrlTab(CURVE_TABS.map((t) => t.key));
   const [threshold, setThreshold] = useState(course.attendance_threshold);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [targetMean, setTargetMean] = useState(83);
@@ -1306,119 +1321,125 @@ function CurveStep({
   };
 
   return (
-    <div className="grid gap-4 pt-6">
-      <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
-
-      <div className="hint">
-        <span className="hint-icon">i</span>
-        <div>
-          Tune two things here: the <strong className="text-ink">attendance threshold</strong> (one number per course)
-          and the <strong className="text-ink">rubric curve</strong> (six points per dimension that map raw 0–5 scores
-          to 0–5 adjusted). <em>Fit grades to N(μ,σ)</em> binary-searches a single-parameter constant-Δslope curve
-          (shared across tunable dimensions, fixed at f(0)=0 and f(5)=5) and adds a uniform bonus only when the curves
-          alone can't reach the target. Every save creates a new revision; <em>Undo</em> reverts.
-        </div>
-      </div>
+    <div className="grid gap-4 pt-5">
+      <SubTabs label="Curve and calibration" tabs={CURVE_TABS} active={tab} onChange={setTab} />
 
       {/* Attendance */}
-      <Card>
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <div>
-            <div className="font-display text-[19px]">Attendance threshold</div>
-            <div className="text-[13px] text-ink-3">Students below this fail attendance unless exempt.</div>
+      {tab === 'attendance' ? (
+        <Card>
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <div>
+              <div className="font-display text-[19px]">Attendance threshold</div>
+              <div className="text-[13px] text-ink-3">Students below this fail attendance unless exempt.</div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={autoThreshold}>
+              ✦ Auto: keep ≤25% failing
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={autoThreshold}>
-            ✦ Auto: keep ≤25% failing
-          </Button>
-        </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="number"
-            value={threshold}
-            onChange={(e) => setThreshold(Number(e.target.value))}
-            className="h-12 w-[100px] rounded-md border border-border bg-card text-center font-display text-2xl"
-          />
-          <span className="font-display text-lg text-ink-3">%</span>
-          <div className="flex-1" />
-          <Button size="sm" onClick={updateThreshold}>
-            Save threshold
-          </Button>
-        </div>
-      </Card>
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={threshold}
+              onChange={(e) => setThreshold(Number(e.target.value))}
+              className="h-12 w-[100px] rounded-md border border-border bg-card text-center font-display text-2xl"
+            />
+            <span className="font-display text-lg text-ink-3">%</span>
+            <div className="flex-1" />
+            <Button size="sm" onClick={updateThreshold}>
+              Save threshold
+            </Button>
+          </div>
+        </Card>
+      ) : null}
 
       {/* Curve */}
-      <Card>
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <div>
-            <div className="font-display text-[19px]">Rubric curve</div>
-            {activeCurve ? (
-              <div className="text-[13px] text-ink-3">
-                Active revision <span className="tnum">#{activeCurve.revision_number}</span> · {activeCurve.note}
-              </div>
-            ) : (
-              <div className="text-[13px] text-ink-3">No curve loaded.</div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={undoCurve}>Undo</Button>
-            <span className="text-[12px] text-ink-3">μ</span>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              step={1}
-              value={targetMean}
-              onChange={(e) => setTargetMean(Number(e.target.value))}
-              className="h-8 w-[64px] rounded-md border border-border bg-card px-2 text-center font-mono text-[13px]"
-              aria-label="Target mean"
-            />
-            <span className="text-[12px] text-ink-3">σ</span>
-            <input
-              type="number"
-              min={1}
-              max={40}
-              step={1}
-              value={targetSigma}
-              onChange={(e) => setTargetSigma(Number(e.target.value))}
-              className="h-8 w-[56px] rounded-md border border-border bg-card px-2 text-center font-mono text-[13px]"
-              aria-label="Target sigma"
-            />
-            <Button variant="soft" size="sm" onClick={calibrate}>✦ Fit grades to N(μ,σ)</Button>
-          </div>
-        </div>
-
-        {activeCurve ? (
-          <>
-            <div className="grid gap-2.5">
-              {Object.entries(activeCurve.mapping).map(([k, v]) => (
-                <div
-                  key={k}
-                  className="grid items-center gap-3.5"
-                  style={{ gridTemplateColumns: '180px 1fr 240px' }}
-                >
-                  <div>
-                    <div className="text-[13px] text-ink">{k.split(':')[0].replace(/_/g, ' ')}</div>
-                    <div className="text-[11px] text-ink-3">{v.tunable ? 'Tunable' : 'Locked'}</div>
+      {tab === 'curve' ? (
+        <>
+          <HowItWorks summary="Each dimension's six points map raw 0–5 rubric scores to adjusted ones. Every save is a new revision.">
+            <em>Fit grades to N(μ,σ)</em> binary-searches a single-parameter constant-Δslope curve (shared across tunable
+            dimensions, fixed at f(0)=0 and f(5)=5) and adds a uniform bonus only when the curves alone can't reach the
+            target. <em>Undo</em> reverts to the previous revision.
+          </HowItWorks>
+          <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
+          <Card>
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <div>
+                <div className="font-display text-[19px]">Rubric curve</div>
+                {activeCurve ? (
+                  <div className="text-[13px] text-ink-3">
+                    Active revision <span className="tnum">#{activeCurve.revision_number}</span> · {activeCurve.note}
                   </div>
-                  <Sparkline points={v.points} distribution={dimensionDistributions[k]} />
-                  <Input
-                    className="font-mono text-[12px]"
-                    disabled={!v.tunable}
-                    value={draft[k] ?? ''}
-                    onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
-                  />
+                ) : (
+                  <div className="text-[13px] text-ink-3">No curve loaded.</div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={undoCurve}>Undo</Button>
+                <span className="text-[12px] text-ink-3">μ</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={targetMean}
+                  onChange={(e) => setTargetMean(Number(e.target.value))}
+                  className="h-8 w-[64px] rounded-md border border-border bg-card px-2 text-center font-mono text-[13px]"
+                  aria-label="Target mean"
+                />
+                <span className="text-[12px] text-ink-3">σ</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={40}
+                  step={1}
+                  value={targetSigma}
+                  onChange={(e) => setTargetSigma(Number(e.target.value))}
+                  className="h-8 w-[56px] rounded-md border border-border bg-card px-2 text-center font-mono text-[13px]"
+                  aria-label="Target sigma"
+                />
+                <Button variant="soft" size="sm" onClick={calibrate}>✦ Fit grades to N(μ,σ)</Button>
+              </div>
+            </div>
+
+            {activeCurve ? (
+              <>
+                <div className="grid gap-2.5">
+                  {Object.entries(activeCurve.mapping).map(([k, v]) => (
+                    <div
+                      key={k}
+                      className="grid items-center gap-3.5"
+                      style={{ gridTemplateColumns: '180px 1fr 240px' }}
+                    >
+                      <div>
+                        <div className="text-[13px] text-ink">{k.split(':')[0].replace(/_/g, ' ')}</div>
+                        <div className="text-[11px] text-ink-3">{v.tunable ? 'Tunable' : 'Locked'}</div>
+                      </div>
+                      <Sparkline points={v.points} distribution={dimensionDistributions[k]} />
+                      <Input
+                        className="font-mono text-[12px]"
+                        disabled={!v.tunable}
+                        value={draft[k] ?? ''}
+                        onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <Button onClick={saveCurve}>Save curve revision</Button>
-            </div>
-          </>
-        ) : null}
-      </Card>
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button onClick={saveCurve}>Save curve revision</Button>
+                </div>
+              </>
+            ) : null}
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }
+
+const CURVE_TABS = [
+  { key: 'curve', label: 'Rubric curve' },
+  { key: 'attendance', label: 'Attendance threshold' }
+] as const;
 
 function Sparkline({ points, distribution }: { points: number[]; distribution?: number[] }) {
   const w = 220;
@@ -1516,20 +1537,13 @@ function OverridesStep({
 
   return (
     <div className="grid gap-3.5 pt-6">
-      <div className="hint">
-        <span className="hint-icon">i</span>
-        <div>
-          Use overrides for one-off adjustments that don't fit the rubric — bonus for studio help, late penalties, IDF
-          reserve exemption, etc. The <strong className="text-ink">delta</strong> is added to the chosen component{' '}
-          <em>after</em> the curve. The <strong className="text-ink">reason</strong> is required and appears in your
-          audit log; it's never shown to the student. The gradebook's <strong className="text-ink">Bonus</strong> column
-          is the sum of all <code>bonus</code> overrides — this is the only way to give a project bonus.
-        </div>
-      </div>
-      <div className="flex items-baseline justify-between">
-        <div className="text-[13px] text-ink-3">
-          Per-student deltas applied after the curve. Reason is required.
-        </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <HowItWorks summary="A delta added to one component, after the curve. The reason is required.">
+          For adjustments that don't fit the rubric: a bonus for studio help, a late penalty, a reserve-duty exemption. The
+          reason goes to your audit log and is never shown to the student. The gradebook's{' '}
+          <strong className="text-ink">Bonus</strong> column is the sum of all <code>bonus</code> overrides, and this is
+          the only way to give a project bonus.
+        </HowItWorks>
         <Button variant="soft" size="sm" onClick={() => setShowForm(true)}>
           + Add override
         </Button>
@@ -1671,6 +1685,7 @@ function GradebookStep({
   setToast: (m: string) => void;
   refresh: () => Promise<void>;
 }) {
+  const [tab, setTab] = useUrlTab(GRADEBOOK_TABS.map((t) => t.key));
   const [sort, setSort] = useState<'name' | 'final' | 'attendance'>('name');
   const [reportsExport, setReportsExport] = useState<ReportsExport | null>(null);
 
@@ -1738,197 +1753,218 @@ function GradebookStep({
   };
 
   return (
-    <div className="grid gap-3.5 pt-6">
-      <div className="hint">
-        <span className="hint-icon">i</span>
-        <div>
-          What students will see. <strong className="text-ink">Final</strong> = 0.10·HW1 + 0.10·HW2 + 0.70·(Project +
-          Bonus) + 0.10·Attendance. To change a score, edit the rubric on the submission (
-          <SectionLink go={go} to="queue" />
-          ), adjust the <SectionLink go={go} to="curve" />, or add one of the{' '}
-          <SectionLink go={go} to="overrides" />. Export the CSV when you're ready to submit grades.
-        </div>
-      </div>
+    <div className="grid gap-4 pt-5">
+      <SubTabs label="Gradebook" tabs={GRADEBOOK_TABS} active={tab} onChange={setTab} />
 
-      <GradeReleaseCard courseId={courseId} setToast={setToast} />
-
-      <FileImportTile
-        courseId={courseId}
-        icon={<Mic className="h-5 w-5" strokeWidth={1.8} />}
-        title="Presentation scores"
-        sub="Two-sheet XLSX with presentation + final talk scores per group, in Hebrew. Upload after the talks; re-uploading replaces the previous import."
-        accept=".xlsx"
-        path={`/api/courses/${courseId}/imports/presentations`}
-        button="Upload presentations"
-        setToast={setToast}
-        refresh={refresh}
-      />
-
-      <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
-
-      <div className="grid gap-2">
-        <div className="label-eyebrow text-ink-3">With curve</div>
-        <div className="grid grid-cols-5 gap-3">
-          <StatCard num={gradebook.length} lbl="Students" />
-          <StatCard num={mean} lbl="Mean final" />
-          <StatCard num={median} lbl="Median final" />
-          <StatCard num={stdLabel} lbl="Std" />
-          <StatCard num={passing} lbl="Passing" />
-        </div>
-        <div className="label-eyebrow mt-2 text-ink-3">Without curve</div>
-        <div className="grid grid-cols-5 gap-3">
-          <StatCard num={gradebook.length} lbl="Students" />
-          <StatCard num={meanRaw} lbl="Mean final" />
-          <StatCard num={medianRaw} lbl="Median final" />
-          <StatCard num={stdRawLabel} lbl="Std" />
-          <StatCard num={passingRaw} lbl="Passing" />
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-border bg-card shadow-soft">
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-          <div className="flex gap-1.5">
-            {[
-              { key: 'name', label: 'A→Z' },
-              { key: 'final', label: 'Final ▾' },
-              { key: 'attendance', label: 'Attendance ▾' }
-            ].map((s) => (
-              <button
-                key={s.key}
-                onClick={() => setSort(s.key as typeof sort)}
-                className={`rounded-md px-2.5 py-1 text-[13px] transition ${
-                  sort === s.key ? 'bg-forest-tint text-forest' : 'text-ink-2 hover:bg-paper-2'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <a
-              className="text-[13px] text-forest hover:underline"
-              href={`${apiBase()}/api/courses/${courseId}/gradebook/csv`}
-            >
-              ⬇ Export CSV
-            </a>
-            <a
-              className="text-[13px] text-forest hover:underline"
-              href={`${apiBase()}/api/courses/${courseId}/gradebook/grades-report.xlsx`}
-            >
-              ⬇ Grades report (xlsx)
-            </a>
-            <button
-              onClick={triggerExport}
-              disabled={reportsExport?.state === 'running'}
-              className="text-[13px] text-forest hover:underline disabled:opacity-50"
-            >
-              Queue Hebrew PDFs
-            </button>
-            {reportsExport?.state === 'running' ? (
-              <span className="text-[13px] text-ink-3">Generating PDFs…</span>
-            ) : null}
-            {reportsExport?.state === 'done' ? (
-              <a
-                className="text-[13px] text-forest hover:underline"
-                href={`${apiBase()}/api/courses/${courseId}/exports/student-reports/${reportsExport.taskId}/download`}
-              >
-                ⬇ Hebrew PDFs ({reportsExport.count}, zip)
-              </a>
-            ) : null}
-            {reportsExport?.state === 'failed' ? (
-              <span className="text-[13px] text-terracotta" title={reportsExport.error}>
-                PDF export failed: {reportsExport.error}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div className="overflow-auto">
-          <table className="w-full border-collapse text-[14px]">
-            <thead>
-              <tr>
+      {tab === 'grades' ? (
+        <>
+          <HowItWorks
+            summary={
+              <>
+                What students will see: <strong className="text-ink">{gradebook.length}</strong> students, mean final{' '}
+                <strong className="text-ink">{mean}</strong>, <strong className="text-ink">{passing}</strong> passing.
+              </>
+            }
+          >
+            <strong className="text-ink">Final</strong> = 0.10·HW1 + 0.10·HW2 + 0.70·(Project + Bonus) + 0.10·Attendance.
+            To change a score, edit the rubric on the submission (<SectionLink go={go} to="queue" />), adjust the{' '}
+            <SectionLink go={go} to="curve" />, or add one of the <SectionLink go={go} to="overrides" />. Export the CSV
+            when you're ready to submit grades.
+          </HowItWorks>
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-soft">
+            <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+              <div className="flex gap-1.5">
                 {[
-                  { label: 'Student', cls: 'text-left' },
-                  { label: 'ID', cls: 'text-left' },
-                  { label: 'Att.', cls: 'text-right' },
-                  { label: 'Exempt', cls: 'text-center' },
-                  { label: 'HW1', cls: 'text-right' },
-                  { label: 'HW2', cls: 'text-right' },
-                  { label: 'Project', cls: 'text-right' },
-                  { label: 'Bonus', cls: 'text-right' },
-                  { label: 'Final', cls: 'text-right pr-5' }
-                ].map((c, i) => (
-                  <th
-                    key={c.label}
-                    className={`label-eyebrow border-b border-border px-3 py-2.5 font-semibold ${c.cls} ${
-                      i === 0 ? 'pl-5' : ''
+                  { key: 'name', label: 'A→Z' },
+                  { key: 'final', label: 'Final ▾' },
+                  { key: 'attendance', label: 'Attendance ▾' }
+                ].map((s) => (
+                  <button
+                    key={s.key}
+                    onClick={() => setSort(s.key as typeof sort)}
+                    className={`rounded-md px-2.5 py-1 text-[13px] transition ${
+                      sort === s.key ? 'bg-forest-tint text-forest' : 'text-ink-2 hover:bg-paper-2'
                     }`}
                   >
-                    {c.label}
-                  </th>
+                    {s.label}
+                  </button>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((s) => (
-                <tr key={s.student_id} className="border-b border-line-soft last:border-b-0 hover:bg-forest/[0.02]">
-                  <td className="px-3 py-3 pl-5">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar name={s.name} size={26} />
-                      <BilingualName name={s.name} />
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 font-mono text-[12px] text-ink-3">{s.national_id}</td>
-                  <td className="px-3 py-3 text-right tnum">
-                    {s.attendance_exempt ? (
-                      <span className="pill pill-info">exempt</span>
-                    ) : (
-                      <span style={{ color: (s.attendance_percent ?? 0) >= 80 ? 'var(--ink)' : 'var(--bad)' }}>
-                        {s.attendance_percent ?? '—'}%
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={s.attendance_exempt}
-                      onChange={() => toggleExempt(s.enrollment_id, s.attendance_exempt)}
-                    />
-                  </td>
-                  <td className="px-3 py-3 text-right tnum">
-                    {s.hw1}
-                    <PeerTag row={s} tasks={['hw1']} />
-                  </td>
-                  <td className="px-3 py-3 text-right tnum">
-                    {s.hw2}
-                    <PeerTag row={s} tasks={['hw2']} />
-                  </td>
-                  <td className="px-3 py-3 text-right tnum">
-                    {s.project_with_bonus}
-                    <PeerTag row={s} tasks={['project_code', 'presentation']} />
-                  </td>
-                  <td
-                    className="px-3 py-3 text-right tnum"
-                    style={{ color: s.bonus_points > 0 ? 'var(--ok)' : 'var(--ink-3)' }}
+              </div>
+              <div className="flex gap-2">
+                <a
+                  className="text-[13px] text-forest hover:underline"
+                  href={`${apiBase()}/api/courses/${courseId}/gradebook/csv`}
+                >
+                  ⬇ Export CSV
+                </a>
+                <a
+                  className="text-[13px] text-forest hover:underline"
+                  href={`${apiBase()}/api/courses/${courseId}/gradebook/grades-report.xlsx`}
+                >
+                  ⬇ Grades report (xlsx)
+                </a>
+                <button
+                  onClick={triggerExport}
+                  disabled={reportsExport?.state === 'running'}
+                  className="text-[13px] text-forest hover:underline disabled:opacity-50"
+                >
+                  Queue Hebrew PDFs
+                </button>
+                {reportsExport?.state === 'running' ? (
+                  <span className="text-[13px] text-ink-3">Generating PDFs…</span>
+                ) : null}
+                {reportsExport?.state === 'done' ? (
+                  <a
+                    className="text-[13px] text-forest hover:underline"
+                    href={`${apiBase()}/api/courses/${courseId}/exports/student-reports/${reportsExport.taskId}/download`}
                   >
-                    {s.bonus_points > 0 ? `+${s.bonus_points}` : s.bonus_points}
-                  </td>
-                  <td className="px-3 py-3 pr-5 text-right">
-                    <span
-                      className="font-display tnum text-[17px]"
-                      style={{ color: s.final >= 60 ? 'var(--ink)' : 'var(--bad)' }}
-                    >
-                      {s.final}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                    ⬇ Hebrew PDFs ({reportsExport.count}, zip)
+                  </a>
+                ) : null}
+                {reportsExport?.state === 'failed' ? (
+                  <span className="text-[13px] text-terracotta" title={reportsExport.error}>
+                    PDF export failed: {reportsExport.error}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div className="overflow-auto">
+              <table className="w-full border-collapse text-[14px]">
+                <thead>
+                  <tr>
+                    {[
+                      { label: 'Student', cls: 'text-left' },
+                      { label: 'ID', cls: 'text-left' },
+                      { label: 'Att.', cls: 'text-right' },
+                      { label: 'Exempt', cls: 'text-center' },
+                      { label: 'HW1', cls: 'text-right' },
+                      { label: 'HW2', cls: 'text-right' },
+                      { label: 'Project', cls: 'text-right' },
+                      { label: 'Bonus', cls: 'text-right' },
+                      { label: 'Final', cls: 'text-right pr-5' }
+                    ].map((c, i) => (
+                      <th
+                        key={c.label}
+                        className={`label-eyebrow border-b border-border px-3 py-2.5 font-semibold ${c.cls} ${
+                          i === 0 ? 'pl-5' : ''
+                        }`}
+                      >
+                        {c.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((s) => (
+                    <tr key={s.student_id} className="border-b border-line-soft last:border-b-0 hover:bg-forest/[0.02]">
+                      <td className="px-3 py-3 pl-5">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={s.name} size={26} />
+                          <BilingualName name={s.name} />
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 font-mono text-[12px] text-ink-3">{s.national_id}</td>
+                      <td className="px-3 py-3 text-right tnum">
+                        {s.attendance_exempt ? (
+                          <span className="pill pill-info">exempt</span>
+                        ) : (
+                          <span style={{ color: (s.attendance_percent ?? 0) >= 80 ? 'var(--ink)' : 'var(--bad)' }}>
+                            {s.attendance_percent ?? '—'}%
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={s.attendance_exempt}
+                          onChange={() => toggleExempt(s.enrollment_id, s.attendance_exempt)}
+                        />
+                      </td>
+                      <td className="px-3 py-3 text-right tnum">
+                        {s.hw1}
+                        <PeerTag row={s} tasks={['hw1']} />
+                      </td>
+                      <td className="px-3 py-3 text-right tnum">
+                        {s.hw2}
+                        <PeerTag row={s} tasks={['hw2']} />
+                      </td>
+                      <td className="px-3 py-3 text-right tnum">
+                        {s.project_with_bonus}
+                        <PeerTag row={s} tasks={['project_code', 'presentation']} />
+                      </td>
+                      <td
+                        className="px-3 py-3 text-right tnum"
+                        style={{ color: s.bonus_points > 0 ? 'var(--ok)' : 'var(--ink-3)' }}
+                      >
+                        {s.bonus_points > 0 ? `+${s.bonus_points}` : s.bonus_points}
+                      </td>
+                      <td className="px-3 py-3 pr-5 text-right">
+                        <span
+                          className="font-display tnum text-[17px]"
+                          style={{ color: s.final >= 60 ? 'var(--ink)' : 'var(--bad)' }}
+                        >
+                          {s.final}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {tab === 'distribution' ? (
+        <>
+          <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
+
+          <div className="grid gap-2">
+            <div className="label-eyebrow text-ink-3">With curve</div>
+            <div className="grid grid-cols-5 gap-3">
+              <StatCard num={gradebook.length} lbl="Students" />
+              <StatCard num={mean} lbl="Mean final" />
+              <StatCard num={median} lbl="Median final" />
+              <StatCard num={stdLabel} lbl="Std" />
+              <StatCard num={passing} lbl="Passing" />
+            </div>
+            <div className="label-eyebrow mt-2 text-ink-3">Without curve</div>
+            <div className="grid grid-cols-5 gap-3">
+              <StatCard num={gradebook.length} lbl="Students" />
+              <StatCard num={meanRaw} lbl="Mean final" />
+              <StatCard num={medianRaw} lbl="Median final" />
+              <StatCard num={stdRawLabel} lbl="Std" />
+              <StatCard num={passingRaw} lbl="Passing" />
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {tab === 'release' ? <GradeReleaseCard courseId={courseId} setToast={setToast} /> : null}
+
+      {tab === 'presentations' ? (
+        <FileImportTile
+          courseId={courseId}
+          icon={<Mic className="h-5 w-5" strokeWidth={1.8} />}
+          title="Presentation scores"
+          sub="Two-sheet XLSX with presentation + final talk scores per group, in Hebrew. Upload after the talks; re-uploading replaces the previous import."
+          accept=".xlsx"
+          path={`/api/courses/${courseId}/imports/presentations`}
+          button="Upload presentations"
+          setToast={setToast}
+          refresh={refresh}
+        />
+      ) : null}
     </div>
   );
 }
+
+const GRADEBOOK_TABS = [
+  { key: 'grades', label: 'Grades' },
+  { key: 'distribution', label: 'Distribution' },
+  { key: 'release', label: 'Release to students' },
+  { key: 'presentations', label: 'Presentation scores' }
+] as const;
 
 function stdDev(values: number[]): number | null {
   if (values.length < 2) return null;

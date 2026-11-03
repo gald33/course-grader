@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>בדיקת סיכום ההזמנות</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fbf8f2; color: #222; }
+    main { max-width: 640px; margin: 0 auto; }
+    pre { direction: ltr; text-align: left; background: #222; color: #f5f5f5; padding: 12px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>בדיקת סיכום ההזמנות</h1>
+    <p>אותן בדיקות כמו <bdi dir="ltr">node check.js</bdi>, בדפדפן ובלי התקנה. אחרי שינוי בקבצים – רעננו את הדף.</p>
+    <pre id="output" aria-label="תוצאות הבדיקה"></pre>
+  </main>
+  <script src="data.js"></script>
+  <script src="orders.js"></script>
+  <script src="checks.js"></script>
+  <script>
+    var result = runChecks(BAKERY_DATA, { totalItems: totalItems, missingPickupTime: missingPickupTime, markReady: markReady });
+    document.getElementById("output").textContent = ["Checking the bakery order summary..."].concat(result.lines).join("\n");
+  </script>
+</body>
+</html>

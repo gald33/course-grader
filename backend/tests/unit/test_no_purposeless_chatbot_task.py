@@ -29,7 +29,13 @@ def test_no_exit_check_asks_the_chatbot_to_challenge_the_answer():
     for key in _plan_fixtures():
         exit_checks = [q for q in load_fixture(key)["questions"].values() if q["key"].endswith("-exit")]
         assert exit_checks, key
-        assert all("צ׳טבוט" not in q["prompt"] for q in exit_checks), key
+        # No exit check sends the student to the chatbot. Lesson 1's may name it
+        # (how did you check the stall's profit rather than trust what the
+        # chatbot wrote?); test_exit_checks_concrete pins every prompt verbatim.
+        for q in exit_checks:
+            for ask in ("בקשו מהצ׳טבוט", "לבקש מהצ׳טבוט", "שאלו את הצ׳טבוט", "לשאול את הצ׳טבוט", "היעזרו בצ׳טבוט"):
+                assert ask not in q["prompt"], key
+            assert "צ׳טבוט" not in q["prompt"] or key == "42052-lesson-01", key
 
 
 def test_the_rule_is_recorded_beside_the_seeds():

@@ -29,6 +29,7 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `exit-check-no-chatbot` | claude/exit-check-no-chatbot | 2026-11-03T19:00:00Z |
+| `exit-checks-concrete` | claude/exit-checks-concrete | 2026-11-03T21:00:00Z |
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
@@ -56,6 +57,7 @@ graph TD
   course_42052_whole_syllabus["✓ The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   exit_check_no_chatbot["Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason"]:::claimed
+  exit_checks_concrete["Every lesson's exit check asks the same generic 'explain what you tried, saw and still don't know', and students don't know what it wants"]:::claimed
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
@@ -318,6 +320,36 @@ graph TD
 > This item: the sentence removed from all seeds and built lessons (generated
 > ones rebuilt from the seeds), the rule recorded in START-HERE.txt, and a
 > whole-course test that it stays gone.
+
+</details>
+
+### `exit-checks-concrete`
+
+- **title:** Every lesson's exit check asks the same generic "explain what you tried, saw and still don't know", and students don't know what it wants
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/exit-checks-concrete (since 2026-11-03T21:00:00Z)
+- **refs:**
+  - `content/course-42052/lessons/`
+  - `backend/app/lessons/content/course-42052/`
+  - `backend/app/lessons/course_plan.py`
+  - `content/course-42052/START-HERE.txt`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03: "בדיקת יציאה question - I don't understand what it
+> wants". VERIFIED at c5ca5c5: every 42052 seed (lesson-01..13) and every
+> built lesson except lesson-03-deeper asks the same generic "הסבירו במילים
+> שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע.", under the title "בדיקת
+> יציאה" (set in course_plan._LABELS for generated lessons, by hand in the
+> authored 03, 03-deeper, 04, 05). The live lesson-2 fixture
+> (from-data-to-prediction) has no such question.
+>
+> This item: each lesson gets its own concrete question (the operator's
+> wording, verbatim), the title becomes "לסיום: במילים שלכם" with one helper
+> line saying the answer is short and ungraded, question ids unchanged; the
+> rule recorded in START-HERE.txt; a whole-course test that pins every prompt
+> and that no seed or built lesson keeps the generic prompt or the old title.
 
 </details>
 

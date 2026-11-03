@@ -171,8 +171,14 @@
         {
           "type": "section",
           "label": "check",
-          "title": "בדיקת יציאה",
+          "title": "לסיום: במילים שלכם",
           "blocks": [
+            {
+              "type": "text",
+              "body": [
+                "תשובה קצרה, משפט או שניים. אין כאן ציון – זה עוזר לכם (ולמרצה) לראות מה התבהר."
+              ]
+            },
             {
               "type": "question",
               "question": "lesson-13-exit"
@@ -264,7 +270,7 @@
       "key": "lesson-13-exit",
       "step": "wrap-up",
       "mode": "check",
-      "prompt": "הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע.",
+      "prompt": "מה תעשו אחרת בפרויקט הבא, ולמה?",
       "type": "free_text",
       "min_chars": 10
     }

@@ -1,0 +1,43 @@
+id: lesson-3-restructure-two-parts
+title: Session 3 sends students to a chatbot to learn instead of teaching on the page, uses weights and parameters before neural networks are taught, and frames its second half as optional
+status: ready
+priority: now
+claim:
+  by: claude/lesson-3-restructure-two-parts
+  at: '2026-11-03T18:20:00Z'
+blocked_on: []
+refs:
+- 'backend/app/lessons/content/course-42052/lesson-03.json'
+- 'backend/app/lessons/content/course-42052/lesson-03-deeper.json'
+- 'backend/app/lessons/course_plan.py'
+- 'frontend/public/lessons/lesson-03/v2/'
+- 'frontend/public/lessons/lesson-03-deeper/v2/'
+evidence: |
+  Operator, 2026-11-03 (via Marshal): "we should [not] give tasks to a
+  chatbot without a reason. We want to explain the topic here, not send the
+  student to learn with a chatbot." · "You talk about parameters/weights,
+  but the students haven't learned about neural networks yet." · "is there
+  something relevant to do in colab for this?" Decision: two required parts.
+
+  VERIFIED at f31644d. lesson-03 (tokens, next token, attention, grounding)
+  asks the chatbot to explain tokenization and the two meanings of «קפה»
+  and defines "parameters" in its first step; neural networks are only in
+  lesson-03-deeper, which the plan, the student list and the wrap-up frame as
+  optional ("העשרה · רשות", "להעמיק"), and which asks the chatbot to explain
+  neurons, embeddings and itself.
+
+  This item: session 3 as two required lessons, slugs kept so the live
+  course updates in place. Part 1 = lesson-03 (neuron, a network that learns,
+  embeddings); part 2 = lesson-03-deeper (tokens, next token, attention,
+  transformer, from model to chatbot, grounding). Every surviving question id
+  kept, moved to the part that teaches it. The chatbot stays only in
+  grounding, where it is what is examined. One notebook per part (free CPU,
+  predict / run / change one thing / observe), part 2 measuring the small
+  model's real attention. "enrichment" becomes required parts in the plan,
+  import, readiness and lesson index; student badges removed. A test pins
+  that no concept is used before the step that defines it.
+
+  Done when: both parts preview end to end in order at 390 and 1280 px by
+  keyboard; the concept-order test passes; both notebooks run top to bottom
+  on CPU with executed copies committed; the only chatbot exercise is in
+  grounding; backend on SQLite and Postgres, tsc and e2e green.

@@ -204,7 +204,7 @@ export type LessonContent = {
   course_code: string;
   date?: string;
   intro?: Inline;
-  enrichment?: boolean; // an optional extra lesson ("go deeper")
+  enrichment?: boolean; // deprecated, ignored (schema.py)
   assets: Record<string, Asset>;
   steps: LessonStep[];
   questions: Record<string, Question>;

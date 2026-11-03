@@ -13,7 +13,7 @@
       "lesson_slug": "lesson-01",
       "fixture_key": "42052-lesson-01",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": null,
       "final_presentation_part": null,
       "formal_presentations": false,
@@ -27,7 +27,7 @@
       "existing_fixture_keys": [
         "lesson-2"
       ],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": 1,
       "final_presentation_part": null,
       "formal_presentations": true,
@@ -39,7 +39,7 @@
       "lesson_slug": "lesson-03",
       "fixture_key": "42052-lesson-03",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [
+      "part_fixture_keys": [
         "42052-lesson-03-deeper"
       ],
       "presentation_round": 1,
@@ -53,7 +53,7 @@
       "lesson_slug": "lesson-04",
       "fixture_key": "42052-lesson-04",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": 2,
       "final_presentation_part": null,
       "formal_presentations": true,
@@ -65,7 +65,7 @@
       "lesson_slug": "lesson-05",
       "fixture_key": "42052-lesson-05",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": 2,
       "final_presentation_part": null,
       "formal_presentations": true,
@@ -77,7 +77,7 @@
       "lesson_slug": "lesson-06",
       "fixture_key": "42052-lesson-06",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": 3,
       "final_presentation_part": null,
       "formal_presentations": true,
@@ -89,7 +89,7 @@
       "lesson_slug": "lesson-07",
       "fixture_key": "42052-lesson-07",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": 3,
       "final_presentation_part": null,
       "formal_presentations": true,
@@ -101,7 +101,7 @@
       "lesson_slug": "lesson-08",
       "fixture_key": "42052-lesson-08",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": 4,
       "final_presentation_part": null,
       "formal_presentations": true,
@@ -113,7 +113,7 @@
       "lesson_slug": "lesson-09",
       "fixture_key": "42052-lesson-09",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": 4,
       "final_presentation_part": null,
       "formal_presentations": true,
@@ -125,7 +125,7 @@
       "lesson_slug": "lesson-10",
       "fixture_key": "42052-lesson-10",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": null,
       "final_presentation_part": null,
       "formal_presentations": false,
@@ -137,7 +137,7 @@
       "lesson_slug": "lesson-11",
       "fixture_key": "42052-lesson-11",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": null,
       "final_presentation_part": null,
       "formal_presentations": false,
@@ -149,7 +149,7 @@
       "lesson_slug": "lesson-12",
       "fixture_key": "42052-lesson-12",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": null,
       "final_presentation_part": 1,
       "formal_presentations": true,
@@ -161,7 +161,7 @@
       "lesson_slug": "lesson-13",
       "fixture_key": "42052-lesson-13",
       "existing_fixture_keys": [],
-      "enrichment_fixture_keys": [],
+      "part_fixture_keys": [],
       "presentation_round": null,
       "final_presentation_part": 2,
       "formal_presentations": true,
@@ -250,7 +250,7 @@
         "text": "הצעה: הכינו בצוות הוראות למשימת טקסט עסקית, שני מקרי בדיקה ופלט צפוי. מועד ומשקל אינם נקבעים בחבילה זו."
       },
       "authored": {
-        "runnable": "Colab notebook built and executed end to end in this repository on CPU, no API key or paid service (real tokenizers, a small open model, a labeled attention illustration); not yet run by the instructor in Colab"
+        "runnable": "Two required parts (lesson-03, then lesson-03-deeper), each with a Colab notebook built and executed end to end in this repository on CPU, no API key or paid service (part 1: a neuron, a tiny network trained, real embeddings; part 2: real tokenizers, a small open model's next-token probabilities and measured attention, grounding checks); not yet run by the instructor in Colab"
       }
     },
     "lesson-04": {

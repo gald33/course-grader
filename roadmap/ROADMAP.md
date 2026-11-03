@@ -29,6 +29,7 @@ _Nothing deferred._
 |---|---|---|
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
+| `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
 | `lesson-3-review-fixes` | claude/lesson-3-review-fixes | 2026-11-03T14:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
@@ -57,6 +58,7 @@ graph TD
   instructor_pages_are_walls_of_text["Instructor and student pages are walls of text, with no sign of what needs attention"]:::claimed
   lesson_3_how_language_models_work["✓ Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::done
   lesson_3_part_b_deeper["✓ Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::done
+  lesson_3_restructure_two_parts["Session 3 sends students to a chatbot to learn instead of teaching on the page, uses weights and parameters before neural networks are taught, and frames its second half as optional"]:::claimed
   lesson_3_review_fixes["Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::claimed
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
@@ -538,6 +540,52 @@ graph TD
 > reported; CI is green.
 >
 > SHIPPED: #35, merged as 2563c11.
+
+</details>
+
+### `lesson-3-restructure-two-parts`
+
+- **title:** Session 3 sends students to a chatbot to learn instead of teaching on the page, uses weights and parameters before neural networks are taught, and frames its second half as optional
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/lesson-3-restructure-two-parts (since 2026-11-03T18:20:00Z)
+- **refs:**
+  - `backend/app/lessons/content/course-42052/lesson-03.json`
+  - `backend/app/lessons/content/course-42052/lesson-03-deeper.json`
+  - `backend/app/lessons/course_plan.py`
+  - `frontend/public/lessons/lesson-03/v2/`
+  - `frontend/public/lessons/lesson-03-deeper/v2/`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03 (via Marshal): "we should [not] give tasks to a
+> chatbot without a reason. We want to explain the topic here, not send the
+> student to learn with a chatbot." · "You talk about parameters/weights,
+> but the students haven't learned about neural networks yet." · "is there
+> something relevant to do in colab for this?" Decision: two required parts.
+>
+> VERIFIED at f31644d. lesson-03 (tokens, next token, attention, grounding)
+> asks the chatbot to explain tokenization and the two meanings of «קפה»
+> and defines "parameters" in its first step; neural networks are only in
+> lesson-03-deeper, which the plan, the student list and the wrap-up frame as
+> optional ("העשרה · רשות", "להעמיק"), and which asks the chatbot to explain
+> neurons, embeddings and itself.
+>
+> This item: session 3 as two required lessons, slugs kept so the live
+> course updates in place. Part 1 = lesson-03 (neuron, a network that learns,
+> embeddings); part 2 = lesson-03-deeper (tokens, next token, attention,
+> transformer, from model to chatbot, grounding). Every surviving question id
+> kept, moved to the part that teaches it. The chatbot stays only in
+> grounding, where it is what is examined. One notebook per part (free CPU,
+> predict / run / change one thing / observe), part 2 measuring the small
+> model's real attention. "enrichment" becomes required parts in the plan,
+> import, readiness and lesson index; student badges removed. A test pins
+> that no concept is used before the step that defines it.
+>
+> Done when: both parts preview end to end in order at 390 and 1280 px by
+> keyboard; the concept-order test passes; both notebooks run top to bottom
+> on CPU with executed copies committed; the only chatbot exercise is in
+> grounding; backend on SQLite and Postgres, tsc and e2e green.
 
 </details>
 

@@ -96,7 +96,7 @@ for (const device of [
     await expect(page.getByRole('cell', { name: 'v1' })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Class insights' })).toHaveCount(0);
 
-    // In session order, the optional "go deeper" lesson right after lesson 3,
+    // In session order, part 2 of session 3 (lesson-03-deeper) right after part 1,
     // and a lesson no session names last.
     const ids = await rows.evaluateAll((els) => els.map((el) => Number(el.getAttribute('data-lesson-id'))));
     const slugs = ids.map((id) => installed.find((l) => l.id === id)!.slug);

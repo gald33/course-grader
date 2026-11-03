@@ -256,3 +256,15 @@ def test_the_starter_template_keeps_secrets_out():
         text = path.read_text(encoding="utf-8")
         for secret in ("api_key", "API_KEY=", "sk-", "password", "token"):
             assert secret not in text.lower(), f"{path.name}: {secret}"
+
+
+def test_git_install_and_going_back_are_spelled_out(lesson):
+    """Reed's N2 and N3: what each OS shows when installing git (accept the
+    defaults), and unstaging before Discard, since Discard keeps staged changes."""
+    save = json.dumps(next(s for s in lesson["steps"] if s["key"] == "save"), ensure_ascii=False)
+    for os_name in ("[[Windows]]", "[[macOS]]", "[[Linux]]"):
+        assert f"**{os_name}:**" in save, os_name
+    assert save.count("ברירות המחדל") >= 3 and "[[Command Line Tools]]" in save
+    loop = json.dumps(next(s for s in lesson["steps"] if s["key"] == "loop"), ensure_ascii=False)
+    assert "[[Staged Changes]]" in loop
+    assert loop.index("[[Unstage change]]") < loop.index("[[Discard unstaged changes]]")

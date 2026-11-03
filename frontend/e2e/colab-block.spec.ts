@@ -5,7 +5,7 @@ import { loadSeed, type Seed } from './seed';
 /* A Colab block shows the step line and ONE action — the instructor's Colab
  * link when set, otherwise the notebook download. Everything else (the
  * download/upload how-to, sign in, run cells, CPU, the secondary download and
- * colab.research.google.com) is in a collapsed "עזרה וחלופות" expander that
+ * colab.research.google.com, the return note) is in a collapsed "עזרה וחלופות" expander that
  * opens by keyboard. Instructor previews only: nothing is saved. */
 
 let seed: Seed;
@@ -45,6 +45,7 @@ test('lesson 3 part 1: the download is the visible action; the how-to is collaps
   const howTo = block.getByText(/מריצים תא בלחיצה על ▶/);
   await expect(howTo).toBeHidden();
   await expect(block.getByRole('link', { name: /colab\.research\.google\.com/ })).toBeHidden();
+  await expect(block.getByText('חזרו ללשונית הזו – המקום שלכם נשמר')).toBeHidden();
 
   await summary.focus();
   await expect(summary).toBeFocused();
@@ -64,7 +65,8 @@ test('lesson 2: an instructor Colab (Drive) link stays visible; download and how
   await expect(openLink).toBeVisible();
   await expect(openLink).toHaveAttribute('href', drive);
   await expect(openLink).toHaveAttribute('target', '_blank');
-  await expect(block.getByText('חזרו ללשונית הזו – המקום שלכם נשמר')).toBeVisible();
+  const returnNote = block.getByText('חזרו ללשונית הזו – המקום שלכם נשמר');
+  await expect(returnNote).toBeHidden();
 
   const download = block.getByRole('link', { name: /הורדת המחברת/ });
   const stepOnly = block.getByText(/בשלב הזה מריצים רק את תחילת המחברת/);
@@ -77,6 +79,7 @@ test('lesson 2: an instructor Colab (Drive) link stays visible; download and how
   // Nothing lost: every instruction, the download and colab.research.google.com are inside.
   await expect(block.locator('details ol > li')).toHaveCount(5);
   await expect(stepOnly).toBeVisible();
+  await expect(returnNote).toBeVisible();
   await expect(download).toBeVisible();
   await expect(download).toHaveAttribute('href', '/lessons/lesson-2/v1/lesson-2-machine-learning-he.ipynb');
   await expect(block.getByRole('link', { name: /colab\.research\.google\.com/ })).toBeVisible();

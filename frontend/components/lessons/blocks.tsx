@@ -452,8 +452,9 @@ function safeColabUrl(url: string | null): string | null {
 
 /** A Colab step shows only what it asks for and the one action that opens the
  * notebook: the instructor's Colab link when set, otherwise the download. The
- * how-to (download/upload, sign in, run cells, CPU), the secondary download and
- * colab.research.google.com sit in one collapsed "עזרה וחלופות" expander, so
+ * how-to (download/upload, sign in, run cells, CPU), the secondary download,
+ * colab.research.google.com and the return note sit in one collapsed
+ * "עזרה וחלופות" expander, so
  * nothing the lesson says is dropped, only folded away. */
 function ColabBlock({ block, api }: { block: Extract<Block, { type: 'colab' }>; api: LessonApi }) {
   const notebook = api.content.assets[block.notebook_asset];
@@ -498,12 +499,6 @@ function ColabBlock({ block, api }: { block: Extract<Block, { type: 'colab' }>; 
           download
         )}
       </div>
-      <p role="note" className="flex items-start gap-2 text-[14px] font-semibold text-forest">
-        <span aria-hidden>↩</span>
-        <span>
-          <InlineText text={block.return_note} />
-        </span>
-      </p>
       <details data-testid="colab-help" className="rounded-md border border-line-soft bg-paper-2">
         <summary className="cursor-pointer px-3 py-2.5 text-[14px] font-semibold text-forest">עזרה וחלופות</summary>
         <div className="grid grid-cols-1 gap-2 px-3 pb-3">
@@ -528,6 +523,12 @@ function ColabBlock({ block, api }: { block: Extract<Block, { type: 'colab' }>; 
               פתיחת <Ltr>colab.research.google.com</Ltr> ↗<span className="sr-only"> (נפתח בלשונית חדשה)</span>
             </a>
           </div>
+          <p role="note" className="flex items-start gap-2 text-[14px] font-semibold text-forest">
+            <span aria-hidden>↩</span>
+            <span>
+              <InlineText text={block.return_note} />
+            </span>
+          </p>
         </div>
       </details>
     </section>

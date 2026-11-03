@@ -809,6 +809,7 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   await instructor.setViewportSize({ width: 1440, height: 1000 });
   await instructor.goto(`/course/${seed.course.id}`);
   await instructor.locator('.nav-step').filter({ hasText: 'Lessons' }).click();
+  await instructor.getByRole('tab', { name: 'Class insights', exact: true }).click();
   const breakdown = instructor
     .locator('div')
     .filter({ has: instructor.getByRole('heading', { name: 'Where understanding breaks down' }) })

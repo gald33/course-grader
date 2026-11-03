@@ -28,6 +28,7 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
+| `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-part-b-deeper` | claude/lesson-3-part-b-deeper | 2026-11-03T10:30:00Z |
 | `lesson-4-coding-agent` | claude/lesson-4-coding-agent | 2026-11-03T14:00:00Z |
 
@@ -54,6 +55,7 @@ graph TD
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
+  instructor_pages_are_walls_of_text["Instructor and student pages are walls of text, with no sign of what needs attention"]:::claimed
   lesson_3_how_language_models_work["✓ Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::done
   lesson_3_part_b_deeper["Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::claimed
   lesson_4_coding_agent["Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::claimed
@@ -369,6 +371,67 @@ graph TD
 > links to "View as student"; Archive archives; the README's walkthroughs
 > name the new places; and the Playwright smoke test covers switching
 > sections through the URL.
+
+</details>
+
+### `instructor-pages-are-walls-of-text`
+
+- **title:** Instructor and student pages are walls of text, with no sign of what needs attention
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/practical-ride-d2lxpj (since 2026-11-03T00:00:00Z)
+- **refs:**
+  - `frontend/app/course/[id]/page.tsx`
+  - `frontend/components/course-overview.tsx`
+  - `frontend/components/lessons/instructor-lessons.tsx`
+  - `frontend/components/lessons/course-plan.tsx`
+  - `frontend/components/peer-review/peer-review-step.tsx`
+  - `frontend/app/course/[id]/submission/[submissionId]/page.tsx`
+  - `frontend/e2e/smoke.spec.ts`
+  - `frontend/e2e/lesson.spec.ts`
+
+<details><summary>evidence</summary>
+
+> The operator, 2026-11-03: "there's too much to read, too much on one
+> page. it's hard to a human to understand what's important and how to
+> find what you need".
+>
+> MEASURED 2026-11-03 at 47632b6 on the e2e seed, 1440×900, page height /
+> words on the page: Lessons 16,534px / 3,737 words / 158 buttons and
+> links (the course plan's readiness table ~5,500px, then 14 lesson cards
+> of ~470px each with full version tables, then class insights at the
+> bottom); Curve 2,115px; Gradebook 1,547px (release toggles, the
+> presentation import, two histograms, two rows of five stat cards, then
+> the table); Students 1,437px (roster, add/edit, accounts and links on
+> one page). Every page opened with a paragraph-long hint, and the course
+> opened on the grading queue whatever was actually waiting.
+>
+> The operator, the same day: "the student pages too". MEASURED on the
+> same seed with a realistic mid-term payload (3 rounds, 8 presentations
+> to review, 13 published lessons, released grades), 390×844: Peer review
+> 2,079px / 265 words (a list of the teams still to review repeating the
+> cards below it, a paragraph on how shares are normalised, and every
+> later session's cards open); Course info 2,318px / 353 words (all 13
+> lessons listed). The assignment page put the instructor's feedback
+> last, under a 12-row score breakdown.
+>
+> Done when: the course opens on an Overview that lists only what needs
+> the instructor now (failed runs, missing files, a closed round not
+> released, a live lesson missing answer keys, students without a team or
+> account), each a link to the page that handles it, with "not checked"
+> where a source can't be read; long pages are tabs kept in `?tab=`
+> (Students: roster / accounts / links; Lessons: plan / lessons /
+> insights; Gradebook: grades / distribution / release / presentation
+> scores; Curve: curve / attendance; Peer review's own tabs in the URL
+> too); every explanatory hint is one line with the rest folded behind
+> "How this works"; lesson cards are one row with versions folded; the
+> readiness table's still-needed lists are folded; and the smoke test
+> covers the Overview, the tabs in the URL and back/forward across them.
+> On the student side: Course info lists the lesson in progress and the
+> next ones (three at most) with a "completed X of Y" line, the full list
+> one tap away; Peer review drops the repeated team list, folds the
+> shares explanation and later sessions with nothing open to review; the
+> assignment page shows the feedback right after the grade.
 
 </details>
 

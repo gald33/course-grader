@@ -307,16 +307,12 @@ test('the data step downloads the full CSV, and every lesson asset is served as 
   expect(notebook.headers()['content-type']).toBe('application/x-ipynb+json');
   expect(notebook.headers()['content-disposition']).toBe('attachment');
   // No lesson-level Colab link is configured here, so the button opens the
-  // step's notebook from the public repository; download and upload wait in
-  // the collapsed help.
-  const colab = page.locator('section[data-colab-block]');
-  await expect(colab.getByRole('link', { name: /פתיחה בקולאב/ })).toHaveAttribute(
+  // step's notebook from the public repository; download and upload stay.
+  await expect(page.getByRole('link', { name: /פתיחה בקולאב/ })).toHaveAttribute(
     'href',
     'https://colab.research.google.com/github/gald33/course-grader/blob/main/frontend/public/lessons/lesson-2/v1/lesson-2-machine-learning-he.ipynb'
   );
-  await expect(colab.getByRole('link', { name: /הורדת המחברת/ })).toBeHidden();
-  await colab.locator('summary', { hasText: 'עזרה וחלופות' }).click();
-  await expect(colab.getByRole('link', { name: /הורדת המחברת/ })).toHaveAttribute(
+  await expect(page.getByRole('link', { name: /הורדת המחברת/ }).first()).toHaveAttribute(
     'href',
     '/lessons/lesson-2/v1/lesson-2-machine-learning-he.ipynb'
   );

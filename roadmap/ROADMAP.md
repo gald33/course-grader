@@ -68,7 +68,7 @@ graph TD
   lesson_title_sync_on_install["Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles"]:::claimed
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
-  notebooks_per_step["Each lesson-3 part sends every Colab step to one long notebook, and the Colab block buries its one button under generic instructions"]:::claimed
+  notebooks_per_step["Each lesson-3 part sends every Colab step to one long notebook, and a Colab step has no one-click link to its notebook"]:::claimed
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
   project_bonus_has_no_editor["✓ The per-student project bonus can't be edited directly"]:::done
@@ -897,7 +897,7 @@ graph TD
 
 ### `notebooks-per-step`
 
-- **title:** Each lesson-3 part sends every Colab step to one long notebook, and the Colab block buries its one button under generic instructions
+- **title:** Each lesson-3 part sends every Colab step to one long notebook, and a Colab step has no one-click link to its notebook
 - **status:** claimed
 - **priority:** now
 - **claimed by:** claude/notebooks-per-step (since 2026-11-03T19:35:00Z)
@@ -915,23 +915,21 @@ graph TD
 > Operator, 2026-11-03: "each note book should only cover what we show in
 > that part of the lesson, not the whole lesson, unless it's necessary, and
 > then mark clearly on the notebook from where to where is relevant for our
-> part"; and "in the lesson block for colab, collapse any generic
-> instructions or alternatives, basically just show the open in colab
-> button uncollapsed". VERIFIED at 68e45be: lesson-03 and lesson-03-deeper
-> each point all their Colab steps at one notebook (v2), and the colab block
-> shows the button only when an instructor link is set, with the download
-> and upload steps always expanded. Lesson 1's notebook is a bare download.
+> part". VERIFIED at 68e45be: lesson-03 and lesson-03-deeper each point all
+> their Colab steps at one notebook (v2), the "open in Colab" button appears
+> only when an instructor link is set, and lesson 1's notebook is a bare
+> download.
 >
 > This item: one small notebook per Colab step (Part 1: neuron, network,
 > embeddings; Part 2: tokens, next-token, attention, grounding), sliced from
 > v2 by a committed script, each with its own setup, executed clean on CPU
 > at v3/. Every step needed its own notebook; no combined notebook, so no
 > banner markers. Lesson 1's notebook is wholly step B's, so it stays one
-> notebook and gets a Colab block. The colab block shows one line and a
-> visible "open in Colab" button that opens the step's own notebook from the
-> public repository (main); everything else is in one collapsed "help and
-> alternatives". An instructor-set lesson link still overrides, and the
-> instructor page says so. Live lesson 2's content is unchanged.
+> notebook and gets a Colab block. Each Colab button opens the step's own
+> notebook from the public repository (main), unless the instructor set a
+> lesson-level link (which overrides, and the instructor page says so); a
+> test checks every such path exists. The colab block's collapse is a
+> separate item (colab-block-collapse). Live lesson 2's content is unchanged.
 
 </details>
 

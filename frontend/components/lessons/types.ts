@@ -38,15 +38,7 @@ export type Block =
   | { type: 'code'; caption?: Inline; code: string; highlight_lines?: number[] }
   | { type: 'download'; asset: string; label: Inline; description?: Inline }
   | { type: 'prompt'; title: Inline; text: string; note?: Inline }
-  | {
-      type: 'colab';
-      notebook_asset: string;
-      executed_asset?: string | null;
-      section?: Inline | null;
-      lead?: Inline | null;
-      instructions?: Inline[];
-      return_note?: Inline | null;
-    }
+  | { type: 'colab'; notebook_asset: string; section?: Inline; instructions: Inline[]; return_note: Inline }
   | { type: 'link'; target: 'peer_review' | 'lesson_list'; label: Inline; description?: Inline }
   | {
       type: 'manual_tree';

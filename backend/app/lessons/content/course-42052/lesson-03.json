@@ -147,12 +147,32 @@
           "title": "רשות – במחברת: נוירון ביד (סעיף 1)",
           "blocks": [
             {
+              "type": "text",
+              "body": [
+                "מחברת קצרה לשלב הזה בלבד: נוירון אחד מחושב ביד, ואתם משנים משקל ורואים מתי ההחלטה מתהפכת."
+              ]
+            },
+            {
               "type": "colab",
               "notebook_asset": "notebook_neuron",
-              "executed_asset": "notebook_neuron_executed",
               "section": "סעיף 1",
-              "lead": "מחברת קצרה לשלב הזה בלבד: נוירון אחד מחושב ביד, ואתם משנים משקל ורואים מתי ההחלטה מתהפכת.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_neuron_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             }
           ]
         },
@@ -374,12 +394,32 @@
           "title": "רשות – במחברת: רשת אמיתית קטנה (סעיף 2)",
           "blocks": [
             {
+              "type": "text",
+              "body": [
+                "מחברת לשלב הזה בלבד: רשת קטנה מתאמנת על נתוני המאפייה, ואתם משנים את קצב הלמידה ואת גודל הרשת וסופרים את הפרמטרים."
+              ]
+            },
+            {
               "type": "colab",
               "notebook_asset": "notebook_network",
-              "executed_asset": "notebook_network_executed",
               "section": "סעיף 2, 2א ו-2ב",
-              "lead": "מחברת לשלב הזה בלבד: רשת קטנה מתאמנת על נתוני המאפייה, ואתם משנים את קצב הלמידה ואת גודל הרשת וסופרים את הפרמטרים.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_network_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "text",
@@ -469,12 +509,32 @@
           "title": "רשות – במחברת: המילים שלכם (סעיף 3)",
           "blocks": [
             {
+              "type": "text",
+              "body": [
+                "מחברת לשלב הזה בלבד: ייצוגים אמיתיים ממודל פתוח למילים שאתם בוחרים, ומפה דו-ממדית שלהן."
+              ]
+            },
+            {
               "type": "colab",
               "notebook_asset": "notebook_embeddings",
-              "executed_asset": "notebook_embeddings_executed",
               "section": "סעיף 3 ו-3א",
-              "lead": "מחברת לשלב הזה בלבד: ייצוגים אמיתיים ממודל פתוח למילים שאתם בוחרים, ומפה דו-ממדית שלהן.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_embeddings_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "text",

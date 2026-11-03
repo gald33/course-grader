@@ -1,5 +1,5 @@
 id: notebooks-per-step
-title: Each lesson-3 part sends every Colab step to one long notebook, and the Colab block buries its one button under generic instructions
+title: Each lesson-3 part sends every Colab step to one long notebook, and a Colab step has no one-click link to its notebook
 status: ready
 priority: now
 claim:
@@ -18,20 +18,18 @@ evidence: |
   Operator, 2026-11-03: "each note book should only cover what we show in
   that part of the lesson, not the whole lesson, unless it's necessary, and
   then mark clearly on the notebook from where to where is relevant for our
-  part"; and "in the lesson block for colab, collapse any generic
-  instructions or alternatives, basically just show the open in colab
-  button uncollapsed". VERIFIED at 68e45be: lesson-03 and lesson-03-deeper
-  each point all their Colab steps at one notebook (v2), and the colab block
-  shows the button only when an instructor link is set, with the download
-  and upload steps always expanded. Lesson 1's notebook is a bare download.
+  part". VERIFIED at 68e45be: lesson-03 and lesson-03-deeper each point all
+  their Colab steps at one notebook (v2), the "open in Colab" button appears
+  only when an instructor link is set, and lesson 1's notebook is a bare
+  download.
 
   This item: one small notebook per Colab step (Part 1: neuron, network,
   embeddings; Part 2: tokens, next-token, attention, grounding), sliced from
   v2 by a committed script, each with its own setup, executed clean on CPU
   at v3/. Every step needed its own notebook; no combined notebook, so no
   banner markers. Lesson 1's notebook is wholly step B's, so it stays one
-  notebook and gets a Colab block. The colab block shows one line and a
-  visible "open in Colab" button that opens the step's own notebook from the
-  public repository (main); everything else is in one collapsed "help and
-  alternatives". An instructor-set lesson link still overrides, and the
-  instructor page says so. Live lesson 2's content is unchanged.
+  notebook and gets a Colab block. Each Colab button opens the step's own
+  notebook from the public repository (main), unless the instructor set a
+  lesson-level link (which overrides, and the instructor page says so); a
+  test checks every such path exists. The colab block's collapse is a
+  separate item (colab-block-collapse). Live lesson 2's content is unchanged.

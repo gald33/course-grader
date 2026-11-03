@@ -102,35 +102,20 @@ async function focusAndPress(locator: Locator, key: string) {
 
 const COLAB_GITHUB = 'https://colab.research.google.com/github/gald33/course-grader/blob/main/frontend/public';
 
-/** The step's Colab block: one visible "open in Colab" button straight to THIS
- * step's notebook (which exists), and the generic help collapsed until asked
- * for — opened here by keyboard. */
-async function colabStep(page: Page, player: Locator, notebook: string, full = false) {
+/** The step's Colab block: a visible "open in Colab" button straight to THIS
+ * step's notebook (which exists in the repository), and its download. */
+async function colabStep(page: Page, player: Locator, notebook: string) {
   const block = player.locator('section[data-colab-block]');
   await expect(block).toHaveCount(1);
   const button = block.getByRole('link', { name: /פתיחה בקולאב/ });
   await expect(button).toBeVisible();
   await expect(button).toHaveAttribute('href', `${COLAB_GITHUB}${notebook}`);
   await expect(button).toHaveAttribute('target', '_blank');
+  await expect(block.getByRole('link', { name: /הורדת המחברת/ })).toHaveAttribute('href', notebook);
   const res = await page.request.get(notebook);
   expect(res.status(), notebook).toBe(200);
   expect((await res.json()).cells.length, notebook).toBeGreaterThan(3);
-  const help = block.locator('details');
-  await expect(help).not.toHaveAttribute('open', /.*/);
-  await expect(block.getByRole('link', { name: /הורדת המחברת/ })).toBeHidden();
-  if (!full) return;
-  const summary = help.locator('summary');
-  await expect(summary).toHaveText('עזרה וחלופות');
-  await summary.focus();
-  await page.keyboard.press('Enter');
-  await expect(help).toHaveAttribute('open', '');
-  await expect(block.getByRole('link', { name: /הורדת המחברת/ })).toHaveAttribute('href', notebook);
-  await expect(block.getByRole('link', { name: /הורדת העותק המורץ/ })).toHaveAttribute(
-    'href',
-    notebook.replace(/\.ipynb$/, '-executed.ipynb')
-  );
-  await page.keyboard.press('Enter');
-  await expect(help).not.toHaveAttribute('open', /.*/);
+  await expect(player).toContainText('מחברת לשלב הזה בלבד');
 }
 
 async function open(page: Page, slug: string, device: { width: number; height: number }) {
@@ -167,7 +152,7 @@ for (const device of DEVICES) {
     for (let i = 0; i < 4; i += 1) await page.keyboard.press('ArrowUp'); // 10 orders: 5 − 3 − 2 = 0
     await expect(neuron.getByTestId('neuron-sum')).toContainText('= 0');
     await expect(out).toHaveAttribute('data-on', '1');
-    await colabStep(page, player, '/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he.ipynb', true);
+    await colabStep(page, player, '/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he.ipynb');
     await expect(copyPrompt(page)).toHaveCount(0); // no chatbot task in part 1
     await noSideways(page, '1A');
     await shot(page, `${device.name}-part1-A-neuron`);
@@ -250,7 +235,7 @@ for (const device of DEVICES) {
     await tok.getByRole('textbox').focus();
     await page.keyboard.type('שלום');
     await expect(count).toContainText(/\d+ טוקנים · 4 תווים/);
-    await colabStep(page, player, '/lessons/lesson-03-deeper/v3/lesson-3-part-2-a-tokens-he.ipynb', true);
+    await colabStep(page, player, '/lessons/lesson-03-deeper/v3/lesson-3-part-2-a-tokens-he.ipynb');
     await expect(copyPrompt(page)).toHaveCount(0);
     await page.getByRole('checkbox', { name: /השוויתי בכלי/ }).check();
     await noSideways(page, '2A');

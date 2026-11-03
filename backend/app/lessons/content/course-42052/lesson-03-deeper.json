@@ -151,12 +151,32 @@
           "title": "רשות – במחברת: שלושה tokenizer-ים על טקסט שלכם (סעיף 1)",
           "blocks": [
             {
+              "type": "text",
+              "body": [
+                "מחברת לשלב הזה בלבד: שלושה [[tokenizer]]-ים אמיתיים חותכים טקסט שלכם, בעברית ובאנגלית."
+              ]
+            },
+            {
               "type": "colab",
               "notebook_asset": "notebook_tokens",
-              "executed_asset": "notebook_tokens_executed",
               "section": "סעיף 1",
-              "lead": "מחברת לשלב הזה בלבד: שלושה [[tokenizer]]-ים אמיתיים חותכים טקסט שלכם, בעברית ובאנגלית.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_tokens_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "expander",
@@ -284,12 +304,32 @@
           "title": "רשות – במחברת: לשנות מילה אחת, ולהגריל בכמה טמפרטורות (סעיף 2)",
           "blocks": [
             {
+              "type": "text",
+              "body": [
+                "מחברת לשלב הזה בלבד: הסתברויות אמיתיות לטוקן הבא ממודל פתוח וקטן, כשמשנים מילה בהקשר ומגרילים בכמה טמפרטורות."
+              ]
+            },
+            {
               "type": "colab",
               "notebook_asset": "notebook_next_token",
-              "executed_asset": "notebook_next_token_executed",
               "section": "סעיף 2 (2א–2ד)",
-              "lead": "מחברת לשלב הזה בלבד: הסתברויות אמיתיות לטוקן הבא ממודל פתוח וקטן, כשמשנים מילה בהקשר ומגרילים בכמה טמפרטורות.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_next_token_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "expander",
@@ -675,12 +715,32 @@
           "title": "רשות – במחברת: הקשב האמיתי של המודל הקטן (סעיף 3)",
           "blocks": [
             {
+              "type": "text",
+              "body": [
+                "מחברת לשלב הזה בלבד: משקלי הקשב שהמודל הקטן מחשב בפועל לאותם משפטים, כולל מה שהם לא מראים."
+              ]
+            },
+            {
               "type": "colab",
               "notebook_asset": "notebook_attention",
-              "executed_asset": "notebook_attention_executed",
               "section": "סעיף 3",
-              "lead": "מחברת לשלב הזה בלבד: משקלי הקשב שהמודל הקטן מחשב בפועל לאותם משפטים, כולל מה שהם לא מראים.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_attention_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "text",
@@ -1032,12 +1092,32 @@
           "title": "רשות – במחברת: בדיקה אוטומטית של הפלט (סעיף 4)",
           "blocks": [
             {
+              "type": "text",
+              "body": [
+                "מחברת לשלב הזה בלבד: מודל קטן ממציא שעת איסוף, ותא בודק פלט [[JSON]] מול ההודעה – החליפו את הדוגמה שבתא (נכתבה ביד) בתשובה שקיבלתם לבקשה 2 והריצו."
+              ]
+            },
+            {
               "type": "colab",
               "notebook_asset": "notebook_grounding",
-              "executed_asset": "notebook_grounding_executed",
               "section": "סעיף 4",
-              "lead": "המחברת מראה מודל קטן שממציא שעת איסוף, ובודקת פלט [[JSON]] מול ההודעה – החליפו את הדוגמה שבתא (נכתבה ביד) בתשובה שקיבלתם לבקשה 2 והריצו.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_grounding_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "text",

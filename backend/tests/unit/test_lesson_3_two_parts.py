@@ -292,8 +292,9 @@ def test_each_colab_step_opens_its_own_notebook(p1, p2):
         for key, (clean, executed) in nbs.items():
             block, assets = colab[key], lesson["assets"]
             assert assets[block["notebook_asset"]]["path"] == "/" + str(clean.relative_to(ASSETS_ROOT))
-            assert assets[block["executed_asset"]]["path"] == "/" + str(executed.relative_to(ASSETS_ROOT))
-            assert block["lead"] and not block.get("instructions")
+            step = next(s for s in lesson["steps"] if s["key"] == key)
+            offered = {assets[b["asset"]]["path"] for b in _blocks(step["blocks"]) if b["type"] == "download"}
+            assert offered == {"/" + str(executed.relative_to(ASSETS_ROOT))}, key  # its own executed copy
             intro = "".join(_nb(clean)["cells"][0]["source"])
             assert f"המחברת הזו היא לשלב {letters[key]} (" in intro, (key, intro[:120])
             # Only this step's sections: the notebook's section numbers are the ones the block names.

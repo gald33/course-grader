@@ -56,8 +56,20 @@ def _download(asset: str, label: str) -> dict:
     return {"type": "download", "asset": asset, "label": label}
 
 
-def _colab(asset: str, lead: str) -> dict:
-    return {"type": "colab", "notebook_asset": asset, "lead": ltr(lead), "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"}
+def _colab(asset: str, lead: str) -> list[dict]:
+    """The step's notebook: one line on what it is for, then its Colab block."""
+    return [
+        _text(lead),
+        {
+            "type": "colab",
+            "notebook_asset": asset,
+            "instructions": [
+                ltr("הורידו את המחברת (הכפתור למטה), פתחו את colab.research.google.com, בחרו Upload והעלו את הקובץ."),
+                ltr("מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל (CPU) מספיק."),
+            ],
+            "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר",
+        },
+    ]
 
 
 def seed_to_content(
@@ -178,7 +190,7 @@ _PREPARED: dict[str, dict] = {
         "colab": {
             "dessert": (
                 "notebook",
-                "מחברת לשלב הזה: מחשבון דוכן הקינוחים מוכן להרצה – שנו את הכמות ובדקו 100, 66 ו-67 מארזים וכמות שלילית.",
+                "מחברת לשלב הזה בלבד: מחשבון דוכן הקינוחים, מוכן להרצה בקולאב.",
             )
         },
     },
@@ -290,7 +302,7 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
             step: [_download(a, assets[a]["label"]) for a in keys] for step, keys in prepared.get("downloads", {}).items()
         }
         for step, (asset, lead) in prepared.get("colab", {}).items():
-            downloads.setdefault(step, []).append(_colab(asset, lead))
+            downloads.setdefault(step, []).extend(_colab(asset, lead))
         if slug not in AUTHORED:
             contents[slug] = seed_to_content(seed, code, assets, downloads)
         ready = readiness.get(number, {})

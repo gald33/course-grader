@@ -59,6 +59,7 @@ graph TD
   lesson_3_part_b_deeper["✓ Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::done
   lesson_3_review_fixes["Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::claimed
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
+  lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
@@ -78,6 +79,7 @@ graph TD
   course_42052_whole_syllabus --> lesson_3_how_language_models_work
   lesson_3_how_language_models_work --> lesson_3_part_b_deeper
   course_42052_whole_syllabus --> lesson_4_coding_agent
+  lesson_4_coding_agent --> lesson_5_product_definition
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
@@ -587,6 +589,7 @@ graph TD
 - **status:** done
 - **priority:** next
 - **blocked on:** `course-42052-whole-syllabus`
+- **blocks:** `lesson-5-product-definition`
 - **refs:**
   - `content/course-42052/lessons/lesson-04.json`
   - `content/course-42052/readiness.json`
@@ -633,6 +636,73 @@ graph TD
 > and a homework brief.
 >
 > SHIPPED: #34, merged as 035c8b0.
+
+</details>
+
+### `lesson-5-product-definition`
+
+- **title:** Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice
+- **status:** verifying
+- **priority:** next
+- **claimed by:** claude/lesson-5-product-definition (since 2026-11-03T18:00:00Z)
+- **blocked on:** `lesson-4-coding-agent`
+- **refs:**
+  - `content/course-42052/lessons/lesson-05.json`
+  - `content/course-42052/sources/syllabus-2.txt`
+  - `content/course-42052/fixtures/bakery-orders.json`
+  - `content/course-42052/fixtures/product-test-cases.json`
+  - `content/course-42052/materials/lesson-05/SPEC.md`
+  - `backend/app/lessons/course_plan.py`
+  - `backend/app/lessons/schema.py`
+  - `backend/app/lessons/content/course-42052/lesson-05.json`
+  - `frontend/components/lessons/widgets.tsx`
+  - `frontend/public/lessons/lesson-05/v1/`
+
+<details><summary>evidence</summary>
+
+> Dispatch (Marshal), 2026-11-03: build lesson 5 from its seed in the
+> style of lessons 3 and 4, as a team activity, on top of lesson 4
+> (Antigravity, AGENTS.md, save points). No migration.
+>
+> VERIFIED at 3708797. The plan generates lesson-05 from its seed: four
+> steps (need / mvp / architecture / wrap-up), one paragraph of
+> explanation, one of action and one check each. The syllabus (lesson 5)
+> asks for a team idea with an AI API, a spec/PRD written with the agent,
+> an MVP, frontend/backend/API/data with where the AI fits, and a project
+> proposal + spec submission. readiness.json entry 5 lists an expanded
+> flow, a runnable demo or labeled mock, tool/API access and homework as
+> still needed.
+>
+> This item: lesson 5 authored in the repository (the plan build leaves an
+> authored fixture alone). Five steps, each with a goal, an explanation,
+> one required action, a checkpoint and a next-step hint: (A) user +
+> situation + difficulty, fact / assumption / question, and a team chatbot
+> prompt that asks clarifying questions and compares two directions
+> without deciding; (B) MVP, in/out of scope, expected answers for three
+> synthetic examples (the bakery case from bakery-orders.json), and the
+> four case kinds of product-test-cases.json as future checks; (C)
+> frontend / backend / database / API, where the AI API call sits, the key
+> never in the frontend, Gemini API's free tier as the default with
+> Anthropic/OpenAI as options (no pricing claims, access left to lesson
+> 7), and a new architecture_map block (keyboard-friendly selects, model
+> mapping with a reason per item shown only on request; a self-check, not
+> a keyed question); (D) SPEC.md written by the agent in Antigravity after
+> interviewing the team (plan first, ask before assuming, no code), with a
+> downloadable template (sha256 in assets), a planned test-command line in
+> AGENTS.md, and a chatbot copy-paste fallback; (E) the seed's worked
+> example, exit check and work product, and one line that the instructor
+> will publish how and when the proposal + spec is submitted. The seed's
+> checks l05-q1..q3 and the exit check are kept verbatim (tested); four
+> formative checks are added. Answer keys are not in the repository
+> (tested). The homework stays a proposal in the instructor's readiness
+> table ("הצעת פרויקט + SPEC.md (לפי התבנית)"; no deadline or weight).
+>
+> Done when: lesson 5 previews end to end in Hebrew at 390 and 1280 by
+> keyboard inside its lesson page; the map works by keyboard with labels
+> and reveals only on request; the template downloads with its sha256;
+> backend tests pass on SQLite and Postgres; tsc and Playwright are green.
+> Not in this item: a real Antigravity spec interview, the instructor's
+> review and live check, and a homework brief or route.
 
 </details>
 

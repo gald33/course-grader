@@ -16,7 +16,7 @@
 
 import { useEffect, useId, useMemo, useState } from 'react';
 
-import { InlineText, Ltr } from '@/components/lessons/inline';
+import { InlineText, Ltr, plainInline } from '@/components/lessons/inline';
 import type { AttentionSentence, Block, EmbeddingMapData, NeuronInput, NextWordData } from '@/components/lessons/types';
 
 type BlockOf<T extends Block['type']> = Extract<Block, { type: T }>;
@@ -842,5 +842,91 @@ export function ImageBlockView({ block, path }: { block: BlockOf<'image'>; path:
         </figcaption>
       ) : null}
     </figure>
+  );
+}
+
+/* =============== Architecture map (a self-check) =============== */
+
+/** Sort the product's pieces into parts with native selects (keyboard and
+ * screen-reader operable, no dragging). The lesson's own mapping, with one
+ * reason per item, appears only after "השוו לגרסה שלנו" is pressed, and hides
+ * again on request. Nothing is sent or saved: it is practice, not a check. */
+export function ArchitectureMap({ block }: { block: BlockOf<'architecture_map'> }) {
+  const id = useId();
+  const [picks, setPicks] = useState<Record<string, string>>({});
+  const [shown, setShown] = useState(false);
+  const partLabel = (pid: string) => block.parts.find((p) => p.id === pid)?.label ?? pid;
+  const chosen = block.items.filter((i) => picks[i.id]).length;
+  const matching = block.items.filter((i) => picks[i.id] === i.model_part).length;
+  return (
+    <section aria-labelledby={`${id}-t`} className={BOX} data-testid="architecture-map">
+      <h4 id={`${id}-t`} className="font-hebrew text-[17px]">
+        {block.caption ? <InlineText text={block.caption} /> : 'מפת ארכיטקטורה'}
+      </h4>
+      <p id={`${id}-help`} className="text-[13px] text-ink-2">
+        לכל פריט, בחרו מהרשימה את החלק שעושה אותו. אפשר לעבור בין הרשימות במקש <Ltr>Tab</Ltr> ולבחור בחיצים.
+      </p>
+      <fieldset className="grid grid-cols-1 gap-2" aria-describedby={`${id}-help`}>
+        <legend className="sr-only">שיוך כל פריט לחלק במוצר</legend>
+        <ul className="grid grid-cols-1 gap-2">
+          {block.items.map((item) => {
+            const pick = picks[item.id] ?? '';
+            const same = pick === item.model_part;
+            return (
+              <li key={item.id} className="grid grid-cols-1 gap-2 rounded-md bg-paper-2 p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,16rem)] md:items-center" data-testid={`arch-item-${item.id}`}>
+                <label htmlFor={`${id}-${item.id}`} className="text-[15px] font-semibold">
+                  <InlineText text={item.label} />
+                </label>
+                <select
+                  id={`${id}-${item.id}`}
+                  value={pick}
+                  onChange={(e) => setPicks({ ...picks, [item.id]: e.target.value })}
+                  className={`min-h-[44px] w-full min-w-0 rounded-md border border-border bg-card px-2 text-[15px] ${FOCUS}`}
+                >
+                  <option value="">בחרו חלק…</option>
+                  {block.parts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {plainInline(p.label)}
+                    </option>
+                  ))}
+                </select>
+                {shown ? (
+                  <p className="text-[14px] leading-relaxed md:col-span-2" data-testid="arch-model">
+                    <span className={`pill ${pick ? (same ? 'pill-ok' : 'pill-warn') : ''} me-2`}>
+                      {pick ? (same ? '✓ כמו אצלנו' : '≠ אצלנו אחרת') : 'לא בחרתם'}
+                    </span>
+                    <b>
+                      אצלנו: <InlineText text={partLabel(item.model_part)} />.
+                    </b>{' '}
+                    <InlineText text={item.reason} />
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </fieldset>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          aria-expanded={shown}
+          aria-controls={`${id}-result`}
+          onClick={() => setShown(!shown)}
+          className={`min-h-[44px] rounded-md border border-forest px-4 font-semibold text-forest ${FOCUS}`}
+        >
+          {shown ? 'הסתרת הגרסה שלנו' : 'השוו לגרסה שלנו'}
+        </button>
+        <span className="text-[13px] text-ink-3">
+          בחרתם <Ltr>{chosen}</Ltr> מתוך <Ltr>{block.items.length}</Ltr>. תרגול בלבד: שום דבר לא נשמר ולא נבדק.
+        </span>
+      </div>
+      <p id={`${id}-result`} aria-live="polite" className="text-[14px]" data-testid="arch-summary">
+        {shown ? (
+          <>
+            <Ltr>{matching}</Ltr> מתוך <Ltr>{block.items.length}</Ltr> כמו בגרסה שלנו. הבדל אינו בהכרח טעות – בדקו את הנימוק.
+          </>
+        ) : null}
+      </p>
+    </section>
   );
 }

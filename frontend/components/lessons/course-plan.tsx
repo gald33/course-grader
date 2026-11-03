@@ -44,7 +44,7 @@ type PlanSession = {
   fixture_key: string;
   lesson: PlanLesson | null;
   existing_lessons: PlanLesson[];
-  enrichment_lessons?: PlanLesson[];
+  part_lessons?: PlanLesson[]; // the session's further required lessons (part 2, ...)
   content_status: string | null;
   checks: string[];
   homework: { status: string | null; text: string | null } | null;
@@ -308,9 +308,9 @@ function ReadinessTable({
                     ) : (
                       <span className="font-mono text-[12px] text-ink-3">{s.lesson_slug}</span>
                     )}
-                    {(s.enrichment_lessons ?? []).map((l) => (
-                      <div key={l.id} className="mt-1 text-[12px] text-ink-3" data-testid={`enrichment-${s.session}`}>
-                        + enrichment (optional):{' '}
+                    {(s.part_lessons ?? []).map((l, i) => (
+                      <div key={l.id} className="mt-1 text-[12px] text-ink-3" data-testid={`part-${s.session}`}>
+                        + part {i + 2} (required):{' '}
                         <a
                           className="font-mono text-forest hover:underline"
                           href={`/course/${courseId}/lessons/${l.id}/preview`}
@@ -321,7 +321,7 @@ function ReadinessTable({
                         </a>{' '}
                         ({l.status}
                         {l.published_version ? `, v${l.published_version} live` : ''})
-                        <div className="text-[11px]">If it appears last in your lesson list, move it after {s.lesson_slug}.</div>
+                        <div className="text-[11px]">Students take it after {s.lesson_slug}; if it appears last in your lesson list, move it there.</div>
                       </div>
                     ))}
                     {s.existing_lessons.map((l) => (

@@ -326,7 +326,7 @@ type PlanSessionRef = {
   session: number;
   lesson: PlanLessonRef | null;
   existing_lessons: PlanLessonRef[];
-  enrichment_lessons?: PlanLessonRef[];
+  part_lessons?: PlanLessonRef[];
   readiness: { drafted: boolean; reviewed_at: string | null; published: boolean; live_verified_at: string | null };
 };
 type PlanRef = { plan_code: string | null; sessions: PlanSessionRef[] };
@@ -334,12 +334,12 @@ type PlanRef = { plan_code: string | null; sessions: PlanSessionRef[] };
 type IndexEntry = {
   lesson: LessonSummary;
   session: number | null;
-  /** Its session's own plan lesson (readiness speaks to it), an existing lesson the session also names, or optional enrichment. */
-  role: 'plan' | 'existing' | 'enrichment' | null;
+  /** Its session's own plan lesson (part 1; readiness speaks to it), a further required part of the session, or an existing lesson the session also names. */
+  role: 'plan' | 'part' | 'existing' | null;
   readiness: PlanSessionRef['readiness'] | null;
 };
 
-const ROLE_RANK = { plan: 0, existing: 1, enrichment: 2 } as const;
+const ROLE_RANK = { plan: 0, part: 1, existing: 2 } as const;
 
 /** Every lesson once, in session order; lessons no session names come last, by position. */
 function indexEntries(lessons: LessonSummary[], plan: PlanRef | null): IndexEntry[] {
@@ -350,8 +350,8 @@ function indexEntries(lessons: LessonSummary[], plan: PlanRef | null): IndexEntr
       found.set(id, { session: s.session, role, readiness: role === 'plan' ? s.readiness : null });
     };
     put(s.lesson?.id, 'plan');
+    (s.part_lessons ?? []).forEach((l) => put(l.id, 'part'));
     (s.existing_lessons ?? []).forEach((l) => put(l.id, 'existing'));
-    (s.enrichment_lessons ?? []).forEach((l) => put(l.id, 'enrichment'));
   }
   return lessons
     .map((lesson) => ({ lesson, ...(found.get(lesson.id) ?? { session: null, role: null, readiness: null }) }))
@@ -820,7 +820,7 @@ function LessonCard({
             </h2>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-ink-3">
               <span className="font-mono text-[12px]">{lesson.slug}</span>
-              {entry.role === 'existing' ? <span>existing lesson</span> : entry.role === 'enrichment' ? <span>enrichment (optional)</span> : null}
+              {entry.role === 'existing' ? <span>existing lesson</span> : entry.role === 'part' ? <span>part 2 of session {entry.session}</span> : null}
               <span className={LESSON_STATUS_PILL[lesson.status]}>{lesson.status}</span>
               {live ? (
                 <span title={`published ${fmtDate(live.published_at)}`}>v{live.number} live</span>

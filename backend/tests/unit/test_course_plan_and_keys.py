@@ -45,6 +45,8 @@ def _choice_keys(fixture_key: str) -> list[str]:
 
 # Lessons 3, 4 and 5 are authored in the repository (more checks than their seeds' three).
 L03_CHECKS = _choice_keys("42052-lesson-03")
+# Session 3 part 2 holds the seed's l03-q1 (the example question several tests use).
+D03_CHECKS = _choice_keys("42052-lesson-03-deeper")
 L04_CHECKS = _choice_keys("42052-lesson-04")
 L05_CHECKS = _choice_keys("42052-lesson-05")
 
@@ -135,7 +137,12 @@ def test_each_plan_lesson_is_a_valid_keyless_draft(key):
     assert all(q["mode"] == "check" for q in checks)  # no reveal before an answer
     # A generated lesson has its seed's three checks; an authored one has at least those.
     seed_checks = load_plan("42052")["lessons"][raw["slug"]]["checks"]
-    assert len(seed_checks) == 3 and set(seed_checks) <= {q["key"] for q in checks}
+    assert len(seed_checks) == 3
+    # A session taught in parts (session 3) spreads its seed's checks across them.
+    session = next(s for s in load_plan("42052")["sessions"] if s["fixture_key"] == key)
+    in_parts = {q for k in [key, *session["part_fixture_keys"]] for q, v in load_fixture(k)["questions"].items()
+                if v["type"] == "single_choice"}
+    assert set(seed_checks) <= in_parts
     if raw["slug"] not in course_plan.AUTHORED:
         assert len(checks) == 3
     assert all("answer" not in q for q in raw["questions"].values())
@@ -328,19 +335,19 @@ def test_a_stored_key_that_no_longer_fits_a_revised_version_blocks_publishing(pe
     course = _plan_course(env)
     _import(env, course)
     base = f"/api/courses/{course.id}/lessons"
-    lesson = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-03")
-    _ok(_upload(env, course, fake_key_file(["42052-lesson-03"])))  # FAKE: l03-q1's right option is "3"
+    lesson = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-03-deeper")
+    _ok(_upload(env, course, fake_key_file(["42052-lesson-03-deeper"])))  # FAKE: l03-q1's right option is "3"
     _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
 
-    revised = load_fixture("42052-lesson-03")
+    revised = load_fixture("42052-lesson-03-deeper")
     revised["questions"]["l03-q1"]["options"] = [o for o in revised["questions"]["l03-q1"]["options"] if o["id"] != "3"]
-    fixture = tmp_path / "lesson-03.json"
+    fixture = tmp_path / "lesson-03-deeper.json"
     fixture.write_text(json.dumps(revised, ensure_ascii=False), encoding="utf-8")
-    monkeypatch.setitem(FIXTURES, "42052-lesson-03", fixture)
-    v2 = _ok(env.client.post(f"{base}/install", json={"fixture_key": "42052-lesson-03"}))
+    monkeypatch.setitem(FIXTURES, "42052-lesson-03-deeper", fixture)
+    v2 = _ok(env.client.post(f"{base}/install", json={"fixture_key": "42052-lesson-03-deeper"}))
     assert v2["answer_keys"]["latest"]["mismatched"] == ["l03-q1"]
     assert v2["answer_keys"]["latest"]["missing"] == ["l03-q1"]  # no usable key
-    assert v2["answer_keys"]["live"] == {"version_number": 1, "needed": len(L03_CHECKS), "missing": [], "mismatched": []}
+    assert v2["answer_keys"]["live"] == {"version_number": 1, "needed": len(D03_CHECKS), "missing": [], "mismatched": []}
 
     res = env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": v2["draft_version"]["id"]})
     assert _code(res, 422) == "answer_key_mismatch" and res.json()["detail"]["questions"] == ["l03-q1"]
@@ -351,7 +358,7 @@ def test_a_stored_key_that_no_longer_fits_a_revised_version_blocks_publishing(pe
     assert evaluated["feedback"] == {"correct": None}
 
     # A corrected key fits v2; v1 (which had option 3) still fits it too here.
-    fixed = {"lessons": {"lesson-03": {"l03-q1": {"correct_choice_id": "2", "feedback_he": FAKE}}}}
+    fixed = {"lessons": {"lesson-03-deeper": {"l03-q1": {"correct_choice_id": "2", "feedback_he": FAKE}}}}
     result = _ok(_upload(env, course, fixed))
     assert result["replaced"] == 1 and result["older_versions_not_fitting"] == []
     _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": v2["draft_version"]["id"]}))
@@ -456,18 +463,18 @@ def test_publishing_needs_keys_and_the_preview_warns_the_instructor(penv):
     env = penv
     course = _plan_course(env)
     _import(env, course)
-    lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-03")
+    lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-03-deeper")
     base = f"/api/courses/{course.id}/lessons/{lesson['id']}"
     preview = _ok(env.client.get(f"{base}/preview"))
-    assert preview["missing_answer_keys"] == L03_CHECKS
+    assert preview["missing_answer_keys"] == D03_CHECKS
     evaluated = _ok(env.client.post(f"{base}/preview/evaluate", json={"question_key": "l03-q1", "answer": {"choice": "1"}}))
     assert evaluated["feedback"] == {"correct": None}  # nothing to check against
     res = env.client.post(f"{base}/publish", json={"version_id": lesson["draft_version"]["id"]})
-    assert _code(res, 422) == "missing_answer_keys" and res.json()["detail"]["questions"] == L03_CHECKS
+    assert _code(res, 422) == "missing_answer_keys" and res.json()["detail"]["questions"] == D03_CHECKS
 
-    _ok(_upload(env, course, fake_key_file(["42052-lesson-03"])))
+    _ok(_upload(env, course, fake_key_file(["42052-lesson-03-deeper"])))
     assert _ok(env.client.get(f"{base}/preview"))["missing_answer_keys"] == []
-    q = load_fixture("42052-lesson-03")["questions"]["l03-q1"]
+    q = load_fixture("42052-lesson-03-deeper")["questions"]["l03-q1"]
     right = q["options"][-1]["id"]
     evaluated = _ok(env.client.post(f"{base}/preview/evaluate", json={"question_key": "l03-q1", "answer": {"choice": right}}))
     assert evaluated["feedback"] == {"correct": True, "explanation": f"{FAKE} l03-q1", "correct_options": [right]}
@@ -492,7 +499,7 @@ def test_student_endpoints_never_return_keys_before_an_answer(penv):
     course = _plan_course(env)
     _import(env, course)
     _ok(_upload(env, course, fake_key_file(INSTALLED_KEYS)))
-    lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-03")
+    lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-03-deeper")
     _ok(env.client.post(f"/api/courses/{course.id}/lessons/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
     alice = Browser(env.client, course.tokens["Alice"], course.ids["Alice"])
     bob = Browser(env.client, course.tokens["Bob"], course.ids["Bob"])
@@ -502,48 +509,48 @@ def test_student_endpoints_never_return_keys_before_an_answer(penv):
     _assert_clean(env.client.get(f"/api/r/{course.tokens['Alice']}", headers=cookie))
     _assert_clean(env.client.get("/api/student-auth/me", headers=cookie))
     _assert_clean(alice.call("GET"))
-    payload = alice.lesson("lesson-03")
+    payload = alice.lesson("lesson-03-deeper")
     _assert_clean(payload)
     body = payload.json()
     assert not PRIVATE_FIELDS & _keys_in(body["content"])
     assert all(state["feedback"] is None for state in body["questions"].values())
 
     # Every write a student can make, before answering the question.
-    reveal = alice.call("POST", "/lesson-03/questions/l03-q1/reveal", json={"request_id": _rid()})
+    reveal = alice.call("POST", "/lesson-03-deeper/questions/l03-q1/reveal", json={"request_id": _rid()})
     assert _code(reveal, 409) == "answer_first"  # check mode: no reveal before an answer
     _assert_clean(reveal)
-    _assert_clean(alice.progress({"expected_revision": 0, "current_step_key": "tokens", "viewed_add": ["tokens"]}, slug="lesson-03"))
+    _assert_clean(alice.progress({"expected_revision": 0, "current_step_key": "tokens", "viewed_add": ["tokens"]}, slug="lesson-03-deeper"))
     run = "6f1d3c2a-1b2c-4d3e-8f9a-0b1c2d3e4f5a"
-    exp = alice.call("PUT", f"/lesson-03/experiments/{run}", json={
+    exp = alice.call("PUT", f"/lesson-03-deeper/experiments/{run}", json={
         "expected_revision": None, "depth_kind": None, "depth": None, "training_examples": None,
         "train_accuracy_pct": None, "validation_accuracy_pct": None, "baseline_validation_pct": None,
         "hypothesis": "A guess.", "observation": "", "explanation": ""})
     _assert_clean(exp)
-    _assert_clean(alice.call("DELETE", f"/lesson-03/experiments/{run}", params={"expected_revision": 1}))
-    commit = alice.call("POST", "/lesson-03/commitments", json={
+    _assert_clean(alice.call("DELETE", f"/lesson-03-deeper/experiments/{run}", params={"expected_revision": 1}))
+    commit = alice.call("POST", "/lesson-03-deeper/commitments", json={
         "request_id": _rid(), "run_uuid": None, "depth_kind": "limited", "depth": 3,
         "training_examples": 100, "justification": "Chosen for the test."})
     _assert_clean(commit)
-    final = alice.call("PATCH", f"/lesson-03/commitments/{commit.json()['commitments'][0]['id']}/final",
+    final = alice.call("PATCH", f"/lesson-03-deeper/commitments/{commit.json()['commitments'][0]['id']}/final",
                        json={"final_accuracy_pct": 70, "final_precision_pct": None, "final_recall_pct": None, "final_note": ""})
     _assert_clean(final)
-    _assert_clean(alice.answer("l03-q1", {"choice": "nope"}, slug="lesson-03"))  # invalid: not an answer
+    _assert_clean(alice.answer("l03-q1", {"choice": "nope"}, slug="lesson-03-deeper"))  # invalid: not an answer
 
     # After answering: feedback for that question only, never the email.
-    q1 = load_fixture("42052-lesson-03")["questions"]["l03-q1"]
+    q1 = load_fixture("42052-lesson-03-deeper")["questions"]["l03-q1"]
     wrong = q1["options"][0]["id"]
-    answered = alice.answer("l03-q1", {"choice": wrong}, slug="lesson-03")
+    answered = alice.answer("l03-q1", {"choice": wrong}, slug="lesson-03-deeper")
     _assert_clean(answered, before_answer=False)
     feedback = answered.json()["question"]["feedback"]
     assert feedback == {"correct": False, "explanation": f"{FAKE} l03-q1", "correct_options": [q1["options"][-1]["id"]]}
-    after = alice.lesson("lesson-03")
+    after = alice.lesson("lesson-03-deeper")
     _assert_clean(after, before_answer=False)
     states = after.json()["questions"]
     assert states["l03-q1"]["feedback"]["correct"] is False
-    assert all(states[k]["feedback"] is None for k in ("l03-q2", "l03-q3", "lesson-03-exit"))
-    assert FAKE + " l03-q2" not in after.text and not PRIVATE_FIELDS & _keys_in(after.json()["content"])
+    assert all(states[k]["feedback"] is None for k in ("l03-tokens-ratio", "l03-q3", "lesson-03-deeper-exit"))
+    assert FAKE + " l03-tokens-ratio" not in after.text and not PRIVATE_FIELDS & _keys_in(after.json()["content"])
     # Another student who hasn't answered gets nothing.
-    _assert_clean(bob.lesson("lesson-03"))
+    _assert_clean(bob.lesson("lesson-03-deeper"))
     _assert_clean(env.client.get(f"/api/r/{course.tokens['Alice']}", headers=cookie), before_answer=False)
     # The instructor's "view as student" shows the student page, not the keys.
     _assert_clean(env.client.get(f"/api/courses/{course.id}/peer/student-view/{course.ids['Bob']}"))

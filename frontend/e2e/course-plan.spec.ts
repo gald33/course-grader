@@ -76,7 +76,7 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   const three = row(3);
   await expect(three).toContainText('✓ v1');
   await expect(three).toContainText('built here, not reviewed');
-  await expect(three).toContainText('8/8 loaded');
+  await expect(three).toContainText('9/9 loaded'); // part 1 of session 3 (lesson-03)
   await expect(row(4)).toContainText('built here, not reviewed');
   await expect(row(4)).toContainText('8/8 loaded');
   await expect(row(5)).toContainText('built here, not reviewed');

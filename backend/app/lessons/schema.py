@@ -492,7 +492,10 @@ class LessonContent(_Model):
     course_code: Annotated[str, Field(min_length=1, max_length=64)]
     date: str | None = None
     intro: Inline | None = None
-    enrichment: bool | None = None  # optional extra lesson ("go deeper"); never required
+    # Deprecated and ignored: a lesson version installed while session 3's
+    # second lesson was an optional extra may still carry it. Lessons are no
+    # longer marked optional; a session's parts are all required.
+    enrichment: bool | None = None
     assets: dict[str, Asset]
     steps: Annotated[list[LessonStep], Field(min_length=1)]
     questions: dict[str, Question]

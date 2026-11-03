@@ -199,9 +199,10 @@ _PREPARED: dict[str, dict] = {
 # ran; the instructor's own review is still the reviewed/live-verified marks.
 AUTHORED: dict[str, dict] = {
     "lesson-03": {
-        "runnable": "Colab notebook built and executed end to end in this repository on CPU, no API key or paid "
-        "service (real tokenizers, a small open model, a labeled attention illustration); not yet run by the "
-        "instructor in Colab",
+        "runnable": "Two required parts (lesson-03, then lesson-03-deeper), each with a Colab notebook built and "
+        "executed end to end in this repository on CPU, no API key or paid service (part 1: a neuron, a tiny "
+        "network trained, real embeddings; part 2: real tokenizers, a small open model's next-token "
+        "probabilities and measured attention, grounding checks); not yet run by the instructor in Colab",
     },
     "lesson-04": {
         "runnable": "Starter web app (zip) built here; its check (node check.js, and check.html in a browser) runs "
@@ -222,11 +223,13 @@ AUTHORED: dict[str, dict] = {
     },
 }
 
-# Optional extra lessons ("go deeper") taught alongside a session's lesson,
-# authored in this repository (no seed): installed as drafts with the plan,
-# listed after the session's own lesson, and marked enrichment in their
-# content. Slugs of fixtures in content/course-<code>/.
-_ENRICHMENT: dict[int, list[str]] = {3: ["lesson-03-deeper"]}
+# Sessions taught in more than one REQUIRED lesson: the session's own lesson
+# is part 1, and these follow it in order (part 2, ...). Authored in this
+# repository, installed as drafts with the plan right after the session's
+# lesson. Slugs of fixtures in content/course-<code>/. Session 3: part 1
+# lesson-03 (neurons, training, embeddings), part 2 lesson-03-deeper (how a
+# language model writes).
+_PARTS: dict[int, list[str]] = {3: ["lesson-03-deeper"]}
 
 # A session whose topic an installed fixture already teaches (the live lesson
 # 2, "from-data-to-prediction", fixture key lesson-2).
@@ -302,7 +305,7 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
                 "lesson_slug": slug,
                 "fixture_key": fixture_key(code, slug),
                 "existing_fixture_keys": _EXISTING_FIXTURES.get(number, []),
-                "enrichment_fixture_keys": [fixture_key(code, s) for s in _ENRICHMENT.get(number, [])],
+                "part_fixture_keys": [fixture_key(code, s) for s in _PARTS.get(number, [])],
                 "presentation_round": entry["presentation_round"],
                 "final_presentation_part": entry["final_presentation_part"],
                 "formal_presentations": entry["formal_presentations"],

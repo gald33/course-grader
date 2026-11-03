@@ -192,7 +192,7 @@ _PREPARED: dict[str, dict] = {
 }
 
 # Lessons authored in this repository: an expanded student flow written from
-# the seed (more steps, a notebook, chatbot exercises), not generated from it.
+# the seed (more steps, runnable material, exercises), not generated from it.
 # build_plan leaves their fixture alone (it is not stale against the seed), and
 # a test checks that the seed's checks, worked example, exit check and work
 # product survive in it unchanged. "runnable" is what this repository built and
@@ -202,6 +202,15 @@ AUTHORED: dict[str, dict] = {
         "runnable": "Colab notebook built and executed end to end in this repository on CPU, no API key or paid "
         "service (real tokenizers, a small open model, a labeled attention illustration); not yet run by the "
         "instructor in Colab",
+    },
+    "lesson-04": {
+        "runnable": "Starter web app (zip) built here; its check (node check.js, and check.html in a browser) runs "
+        "in CI with the documented output. The Google Antigravity steps were checked against Google's docs on "
+        "2026-11-03 but not run in Antigravity, here or by the instructor",
+        # The seed's homework proposal adapted to the lesson's tool; still a
+        # proposal (instructor's readiness table only, no deadline or weight).
+        "homework_he": "הצעה: בצוות, יישמו שינוי קטן אחד בתיקייה או במאגר של הפרויקט שלכם בעזרת Google Antigravity, "
+        "ותעדו תוכנית, נקודת שמירה, שינוי, diff, הרצה ובדיקה. אין להניח גישה חינמית או רישיון לכל ספק.",
     },
 }
 
@@ -271,10 +280,13 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
                 "still_needed": ready.get("still_needed", []),
                 "published_or_taught_verified": bool(ready.get("published_or_taught_verified")),
             },
-            "homework": {"status": seed.get("homework_status"), "text": seed.get("homework_he")},
+            "homework": {
+                "status": seed.get("homework_status"),
+                "text": AUTHORED.get(slug, {}).get("homework_he", seed.get("homework_he")),
+            },
         }
         if slug in AUTHORED:
-            lessons[slug]["authored"] = AUTHORED[slug]
+            lessons[slug]["authored"] = {k: v for k, v in AUTHORED[slug].items() if k != "homework_he"}
         sessions.append(
             {
                 "session": number,

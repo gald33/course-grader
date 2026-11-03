@@ -28,8 +28,8 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
-| `lesson-3-how-language-models-work` | claude/lesson-3-how-language-models-work | 2026-11-03T12:00:00Z |
 | `lesson-3-part-b-deeper` | claude/lesson-3-part-b-deeper | 2026-11-03T10:30:00Z |
+| `lesson-4-coding-agent` | claude/lesson-4-coding-agent | 2026-11-03T14:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -54,8 +54,9 @@ graph TD
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
-  lesson_3_how_language_models_work["Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::claimed
+  lesson_3_how_language_models_work["✓ Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::done
   lesson_3_part_b_deeper["Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::claimed
+  lesson_4_coding_agent["Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::claimed
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
@@ -73,6 +74,7 @@ graph TD
   unteamed_students_need_instructor_approved_auto_assign["After teams lock, propose teams for unteamed students and apply them only on the instructor's approval"]:::ready
   course_42052_whole_syllabus --> lesson_3_how_language_models_work
   lesson_3_how_language_models_work --> lesson_3_part_b_deeper
+  course_42052_whole_syllabus --> lesson_4_coding_agent
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
@@ -174,7 +176,7 @@ graph TD
 - **title:** The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository
 - **status:** done
 - **priority:** now
-- **blocks:** `lesson-3-how-language-models-work`
+- **blocks:** `lesson-3-how-language-models-work`, `lesson-4-coding-agent`
 - **refs:**
   - `content/course-42052/COURSE-HANDOFF.txt`
   - `backend/app/lessons/schema.py`
@@ -373,9 +375,8 @@ graph TD
 ### `lesson-3-how-language-models-work`
 
 - **title:** Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-3-how-language-models-work (since 2026-11-03T12:00:00Z)
 - **blocked on:** `course-42052-whole-syllabus`
 - **blocks:** `lesson-3-part-b-deeper`
 - **refs:**
@@ -419,6 +420,8 @@ graph TD
 > credentials; no answer key in the repository (tested); CI is green.
 > Not in this item: the instructor's own review and live check in class,
 > the real Colab share link (set by the instructor), and a homework brief.
+>
+> SHIPPED: #33, merged as 47632b6.
 
 </details>
 
@@ -468,6 +471,60 @@ graph TD
 > every widget works by keyboard (Playwright); the notebook runs clean on CPU;
 > no answer key in the repository (tested); the tokenizer chunk size is
 > reported; CI is green.
+
+</details>
+
+### `lesson-4-coding-agent`
+
+- **title:** Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
+- **status:** claimed
+- **priority:** next
+- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-03T14:00:00Z)
+- **blocked on:** `course-42052-whole-syllabus`
+- **refs:**
+  - `content/course-42052/lessons/lesson-04.json`
+  - `content/course-42052/readiness.json`
+  - `content/course-42052/fixtures/bakery-orders.json`
+  - `content/course-42052/materials/lesson-04/bakery-orders-starter/`
+  - `backend/app/lessons/course_plan.py`
+  - `backend/app/lessons/content/course-42052/lesson-04.json`
+  - `backend/scripts/build_lesson_4_starter.py`
+  - `frontend/public/lessons/lesson-04/v1/`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03: students' hands-on tool for lesson 4 is Google
+> Antigravity ("They should have available anti-gravity"); Claude Code and
+> Codex appear only as a short comparison. Priority below
+> lesson-3-part-b-deeper. No new migration.
+>
+> VERIFIED at d267a80. The plan generates lesson-04 from its seed: three
+> steps (agent / loop / context), each one paragraph of explanation, one of
+> action and one check, then a wrap-up. readiness.json entry 4 lists as
+> still needed: an expanded student flow, a runnable demo or clearly
+> labeled mock, current tool/API access, and any homework.
+>
+> This item: lesson 4 authored in the repository from the seed (the plan
+> build leaves an authored fixture alone): five steps (chatbot vs coding
+> agent with Antigravity install and a describe-only prompt; a save point,
+> i.e. git and a first commit; the loop with the expected result written
+> first, /plan, the diff in the Review pane and the check; an AGENTS.md
+> instructions file without secrets; a wrap-up with "when the agent is
+> wrong"). The seed's checks, worked example, exit check and work product
+> are kept verbatim. Antigravity steps are checked against Google's docs
+> (antigravity.google/docs) on 2026-11-03, with no pricing or quota claims.
+> A labeled fallback covers students who can't install. A starter web app
+> (bakery order summary, synthetic data from bakery-orders.json) ships as a
+> zip that opens from index.html with no build step; `node check.js` (or
+> check.html in a browser) prints the documented output, and CI runs it.
+> The homework stays a proposal in the instructor's readiness table (no
+> deadline, no weight). Answer keys are not in the repository (tested).
+>
+> Done when: lesson 4 previews end to end in Hebrew on desktop and phone;
+> the starter's check prints the documented output in CI; no answer key in
+> the repository (tested); CI is green. Not in this item: a real run in
+> Antigravity with screenshots, the instructor's review and live check,
+> and a homework brief.
 
 </details>
 

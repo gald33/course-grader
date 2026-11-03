@@ -1,0 +1,44 @@
+id: assignments-need-custom-rubrics
+title: Assignments are graded on one fixed rubric instead of rubrics that fit the task
+status: ready
+priority: now
+claim:
+  by: claude/assignments-need-custom-rubrics
+  at: '2026-10-21T10:25:06Z'
+blocked_on: []
+refs:
+- 'backend/app/services/scoring.py'
+- 'backend/app/services/code_metrics.py'
+- 'backend/app/services/llm_code_review.py'
+- 'backend/app/tasks/jobs.py'
+- 'backend/app/models/entities.py'
+- 'backend/app/services/student_grades.py'
+evidence: |
+  Operator, 2026-10-21: "Rubrics need to fit the actual task. for now we can
+  simply add custom rubrics. later we would cluster among those rubrics and
+  offer rubrics per assignment."
+
+  VERIFIED by reading the code at 5b530b6. HW2 and project code are scored
+  on the same twelve dimensions for every assignment
+  (scoring.py:38 CODE_DIMENSIONS, weights fixed in code). Ten come from
+  deterministic counting rules (code_metrics.py:402
+  all_deterministic_scores) and english_comments; two are scored by the LLM
+  from a fixed list (llm_code_review.py:28 CODE_REVIEW_DIMENSIONS, system
+  prompt cached at :142, called from jobs.py:345). Each 0-5 score goes
+  through the course's per-dimension curve (scoring.py:119 apply_curve,
+  applied at jobs.py:361) and the component is multiplied by the run-ratio
+  penalty (notebook_runner.py:121, scoring.py:305, :486). An assignment
+  (entities.py:92) has no way to say what it should be graded on.
+
+  Phase 1 only: custom rubrics stored as structured criteria rows, the
+  LLM scoring each criterion with the deterministic metrics as evidence,
+  instructor overrides, the gradebook using the rubric. Clustering is
+  suggest-rubrics-per-assignment-from-clusters.
+
+  Done when: an instructor can author a rubric for an assignment (create,
+  edit, reorder, delete, copy from another assignment), run the autograder,
+  see per-criterion LLM scores with rationales citing cells, override them
+  (overrides survive re-runs), and the gradebook total for that assignment
+  comes from the rubric. An LLM failure leaves criteria "not scored" and
+  the run still succeeds. Assignments without a custom rubric score exactly
+  as before, proven by a regression test.

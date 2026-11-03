@@ -6,53 +6,55 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Warm cream palette evolved from the original cream/teal/amber.
-        background: '#f5f1e8',
-        paper: '#f5f1e8',
-        'paper-2': '#efe9dc',
-        card: '#fdfbf6',
-        foreground: '#2a2620',
-        ink: '#2a2620',
-        'ink-2': '#5b554b',
-        'ink-3': '#8a8378',
-        'ink-4': '#b6ad9e',
-        border: '#e3dccd',
-        'line-soft': '#ece5d4',
-        forest: '#2d5d4f',
-        'forest-soft': '#cee3da',
-        'forest-tint': '#e8f1ec',
-        terracotta: '#c97852',
-        'terracotta-soft': '#f5d9c8',
-        'terracotta-tint': '#fbe9dd',
-        honey: '#d9a441',
-        rose: '#c45a6b',
-        primary: '#2d5d4f',
-        accent: '#c97852',
-        ok: '#4a7a5d',
-        'ok-soft': '#d6e6db',
-        warn: '#b8722f',
-        'warn-soft': '#f3dfc4',
-        bad: '#a44545',
-        'bad-soft': '#ebcccb',
-        info: '#4a6c7a',
-        'info-soft': '#d4e0e6'
+        // Dark, Linear-style palette: near-black ground, zinc greys, a mint accent.
+        // Token names are kept from the earlier cream theme so every screen inherits it.
+        background: '#09090b',
+        paper: '#09090b',
+        'paper-2': '#18181b',
+        sunken: '#0e0e10',
+        card: '#111113',
+        foreground: '#fafafa',
+        ink: '#fafafa',
+        'ink-2': '#a1a1aa',
+        'ink-3': '#8e8e96',
+        'ink-4': '#63636b',
+        border: '#27272a',
+        'line-soft': '#1f1f23',
+        forest: '#34d399',
+        'forest-soft': '#14532d',
+        'forest-tint': '#0f2a21',
+        terracotta: '#fb923c',
+        'terracotta-soft': '#5a2e0e',
+        'terracotta-tint': '#2a1a0e',
+        honey: '#fcd34d',
+        rose: '#fda4af',
+        primary: '#34d399',
+        accent: '#fb923c',
+        ok: '#6ee7b7',
+        'ok-soft': '#0f2a21',
+        warn: '#fdba74',
+        'warn-soft': '#2a1b0c',
+        bad: '#fca5a5',
+        'bad-soft': '#2d1414',
+        info: '#7dd3fc',
+        'info-soft': '#0c2230'
       },
       fontFamily: {
-        sans: ['Inter', '"IBM Plex Sans"', '"Segoe UI"', 'sans-serif'],
-        display: ['Newsreader', '"Source Serif Pro"', 'Georgia', 'serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'Menlo', 'monospace'],
-        hebrew: ['"Frank Ruhl Libre"', 'Newsreader', 'system-ui', 'serif']
+        sans: ['Geist', 'Inter', '"Segoe UI"', 'sans-serif'],
+        display: ['Geist', 'Inter', '"Segoe UI"', 'sans-serif'],
+        mono: ['"Geist Mono"', 'ui-monospace', 'Menlo', 'monospace'],
+        hebrew: ['Heebo', 'Geist', 'system-ui', 'sans-serif']
       },
       borderRadius: {
         sm: '6px',
-        DEFAULT: '10px',
-        lg: '16px',
-        xl: '22px'
+        DEFAULT: '8px',
+        lg: '14px',
+        xl: '20px'
       },
       boxShadow: {
-        soft: '0 1px 0 rgba(42, 38, 32, 0.04), 0 1px 2px rgba(42, 38, 32, 0.04)',
-        card: '0 1px 0 rgba(42, 38, 32, 0.04), 0 4px 14px rgba(42, 38, 32, 0.06)',
-        lift: '0 1px 0 rgba(42, 38, 32, 0.04), 0 8px 28px rgba(42, 38, 32, 0.08)'
+        soft: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
+        card: 'inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 24px -12px rgba(0, 0, 0, 0.6)',
+        lift: 'inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 40px -12px rgba(0, 0, 0, 0.7)'
       }
     }
   },

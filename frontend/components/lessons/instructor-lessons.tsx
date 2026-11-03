@@ -1,5 +1,6 @@
 'use client';
 
+import { Eye } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnswerKeysCard, CoursePlanCard, type AnswerKeyStatus } from '@/components/lessons/course-plan';
@@ -641,7 +642,7 @@ function LessonCard({
               rel="noreferrer"
               className="inline-flex items-center rounded-md border border-terracotta-soft bg-terracotta-tint px-2.5 py-1 text-[13px] text-ink hover:border-terracotta"
             >
-              👁 Preview version {latest.number} ↗
+              <Eye className="me-1.5 h-3.5 w-3.5" aria-hidden />Preview version {latest.number} ↗
             </a>
           ) : null}
           {lesson.draft_version ? (

@@ -1,5 +1,6 @@
 'use client';
 
+import { BookText, FileArchive, FileText, Paperclip, Presentation, Sheet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { apiBase, apiFetch } from '@/lib/api';
@@ -40,16 +41,16 @@ export function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function fileIcon(filename: string): string {
+export function fileIcon(filename: string): React.ReactNode {
   const ext = filename.split('.').pop()?.toLowerCase() ?? '';
-  if (ext === 'pdf') return '📄';
-  if (ext === 'docx' || ext === 'doc') return '📝';
-  if (ext === 'ipynb') return '📓';
-  if (ext === 'csv' || ext === 'tsv') return '🗒';
-  if (ext === 'xlsx' || ext === 'xls') return '🟩';
-  if (ext === 'pptx' || ext === 'ppt') return '🟧';
-  if (ext === 'zip') return '🗜';
-  return '📎';
+  // Sized in em so each call site keeps the size its text set.
+  const cls = 'inline-block h-[1em] w-[1em] align-[-0.125em] text-ink-2';
+  if (ext === 'pdf' || ext === 'docx' || ext === 'doc') return <FileText className={cls} strokeWidth={1.8} />;
+  if (ext === 'ipynb') return <BookText className={cls} strokeWidth={1.8} />;
+  if (ext === 'csv' || ext === 'tsv' || ext === 'xlsx' || ext === 'xls') return <Sheet className={cls} strokeWidth={1.8} />;
+  if (ext === 'pptx' || ext === 'ppt') return <Presentation className={cls} strokeWidth={1.8} />;
+  if (ext === 'zip') return <FileArchive className={cls} strokeWidth={1.8} />;
+  return <Paperclip className={cls} strokeWidth={1.8} />;
 }
 
 function ext(filename: string): string {
@@ -130,7 +131,7 @@ function FileHeader({ artifact }: { artifact: Artifact }) {
       <a
         href={`${apiBase()}/api/artifacts/${artifact.id}`}
         download={artifact.filename}
-        className="rounded-md bg-forest px-2.5 py-1 text-[12px] font-medium text-paper hover:bg-[#244c41]"
+        className="rounded-md bg-forest px-2.5 py-1 text-[12px] font-medium text-paper hover:bg-forest/90"
         title={`Download ${artifact.filename}`}
       >
         ⬇ Download
@@ -198,11 +199,11 @@ function TextView({ artifact }: { artifact: Artifact }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-white">
+    <div className="h-full overflow-auto bg-card">
       <div
         className="mx-auto max-w-[820px] px-10 py-8"
         style={{
-          fontFamily: e === 'md' ? 'Newsreader, Georgia, serif' : 'var(--font-mono)',
+          fontFamily: e === 'md' ? 'var(--font-sans)' : 'var(--font-mono)',
           fontSize: 13.5,
           lineHeight: 1.65,
           color: 'var(--ink)',
@@ -259,7 +260,7 @@ function CsvTableView({ text, delimiter }: { text: string; delimiter: string }) 
   const truncated = body.length > 200;
   const visible = body.slice(0, 200);
   return (
-    <div className="h-full overflow-auto bg-white">
+    <div className="h-full overflow-auto bg-card">
       <div className="px-6 py-4 text-[11px] uppercase tracking-wider text-ink-3">
         {body.length} rows × {header.length} columns
         {truncated ? <span className="ml-2 text-warn">· showing first 200</span> : null}
@@ -339,7 +340,7 @@ function DocxView({ artifact }: { artifact: Artifact }) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-white">
+    <div className="h-full overflow-auto bg-card">
       <div
         className="docx-render mx-auto max-w-[760px] px-12 py-10"
         style={{
@@ -401,7 +402,7 @@ function NotebookView({ artifact }: { artifact: Artifact }) {
   const sourceOf = (s: string | string[]) => (Array.isArray(s) ? s.join('') : s);
 
   return (
-    <div className="h-full overflow-auto bg-white p-6 font-mono text-[13px]">
+    <div className="h-full overflow-auto bg-card p-6 font-mono text-[13px]">
       {cells.map((c, i) => {
         const src = sourceOf(c.source);
         if (c.cell_type === 'markdown') {
@@ -457,7 +458,7 @@ function DownloadHero({ artifact }: { artifact: Artifact }) {
         </div>
         <div className="mt-4 flex justify-center gap-2">
           <a
-            className="inline-flex items-center justify-center rounded-md bg-forest px-3.5 py-2 text-sm font-medium text-paper transition hover:bg-[#244c41]"
+            className="inline-flex items-center justify-center rounded-md bg-forest px-3.5 py-2 text-sm font-medium text-paper transition hover:bg-forest/90"
             href={`${apiBase()}/api/artifacts/${artifact.id}`}
             download={artifact.filename}
           >

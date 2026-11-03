@@ -603,7 +603,7 @@ export function TrainingDemo({ block }: { block: BlockOf<'training_demo'> }) {
               y1={toPx(line[0][0], line[0][1])[1]}
               x2={toPx(line[1][0], line[1][1])[0]}
               y2={toPx(line[1][0], line[1][1])[1]}
-              stroke="#2a2620"
+              stroke="#fafafa"
               strokeWidth={2}
               strokeDasharray="6 4"
               data-testid="boundary"
@@ -612,9 +612,9 @@ export function TrainingDemo({ block }: { block: BlockOf<'training_demo'> }) {
           {block.points.map((pt, i) => {
             const [cx, cy] = toPx(...scale(pt));
             return pt.label ? (
-              <circle key={i} cx={cx} cy={cy} r={6} fill="#2d5d4f" />
+              <circle key={i} cx={cx} cy={cy} r={6} fill="#34d399" />
             ) : (
-              <rect key={i} x={cx - 5.5} y={cy - 5.5} width={11} height={11} fill="#c97852" />
+              <rect key={i} x={cx - 5.5} y={cy - 5.5} width={11} height={11} fill="#fb923c" />
             );
           })}
         </svg>
@@ -665,11 +665,11 @@ function isMap(d: unknown): d is EmbeddingMapData {
 }
 
 const GROUP_COLORS: Record<string, string> = {
-  bakery: '#c97852',
-  drinks: '#4a6c7a',
-  days: '#d9a441',
-  feelings: '#c45a6b',
-  people: '#2d5d4f'
+  bakery: '#fb923c',
+  drinks: '#7dd3fc',
+  days: '#fcd34d',
+  feelings: '#fda4af',
+  people: '#34d399'
 };
 const GROUP_HE: Record<string, string> = { bakery: 'מאפייה', drinks: 'משקאות', days: 'ימים', feelings: 'רגשות', people: 'אנשים' };
 
@@ -714,7 +714,7 @@ export function EmbeddingMap({ block, path }: { block: BlockOf<'embedding_map'>;
                     if (!o) return null;
                     const [ax, ay] = px(selected);
                     const [bx, by] = px(o);
-                    return <line key={n.id} x1={ax} y1={ay} x2={bx} y2={by} stroke="#2a2620" strokeOpacity={0.35} />;
+                    return <line key={n.id} x1={ax} y1={ay} x2={bx} y2={by} stroke="#fafafa" strokeOpacity={0.35} />;
                   })
                 : null}
               {data.words.map((w) => {
@@ -723,9 +723,9 @@ export function EmbeddingMap({ block, path }: { block: BlockOf<'embedding_map'>;
                 const lit = near.has(w.id);
                 return (
                   <g key={w.id} opacity={sel && !on && !lit ? 0.35 : 1}>
-                    <circle cx={cx} cy={cy} r={on ? 7 : 4.5} fill={GROUP_COLORS[w.group] ?? '#8a8378'} stroke={on ? '#2a2620' : 'none'} strokeWidth={2} />
+                    <circle cx={cx} cy={cy} r={on ? 7 : 4.5} fill={GROUP_COLORS[w.group] ?? '#8e8e96'} stroke={on ? '#fafafa' : 'none'} strokeWidth={2} />
                     {on || lit ? (
-                      <text x={cx} y={cy - 9} fontSize={11} textAnchor="middle" fill="#2a2620" direction={w.lang === 'he' ? 'rtl' : 'ltr'}>
+                      <text x={cx} y={cy - 9} fontSize={11} textAnchor="middle" fill="#fafafa" direction={w.lang === 'he' ? 'rtl' : 'ltr'}>
                         {w.text}
                       </text>
                     ) : null}

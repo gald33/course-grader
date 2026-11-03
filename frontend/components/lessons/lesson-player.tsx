@@ -1031,7 +1031,7 @@ function StatusBar({
         </span>
         <span role="status" aria-live="polite" className="flex shrink-0 items-center gap-2">
           {preview ? (
-            <span className="font-semibold text-[#9a5533]">תצוגה מקדימה – שום דבר לא נשמר</span>
+            <span className="font-semibold text-terracotta">תצוגה מקדימה – שום דבר לא נשמר</span>
           ) : blocked ? (
             // Blocked: the action that unblocks it, right here (the card is at the top of the page).
             <>
@@ -1134,7 +1134,7 @@ function LessonMap({
                 >
                   <span
                     className={`grid h-7 min-w-7 place-items-center rounded px-1 text-[13px] font-semibold ${
-                      s.optional ? 'border border-dashed border-terracotta text-[#9a5533]' : 'bg-paper-2 text-ink'
+                      s.optional ? 'border border-dashed border-terracotta text-terracotta' : 'bg-paper-2 text-ink'
                     }`}
                   >
                     {s.letter}
@@ -1169,7 +1169,7 @@ function LessonMap({
                     here
                       ? 'bg-forest text-paper'
                       : s.optional
-                        ? 'border border-dashed border-terracotta bg-card text-[#9a5533]'
+                        ? 'border border-dashed border-terracotta bg-card text-terracotta'
                         : 'border border-border bg-paper text-ink'
                   }`}
                 >

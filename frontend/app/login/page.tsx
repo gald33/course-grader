@@ -10,7 +10,7 @@ import { AuthCard, Field, SubmitButton, studentAuthCall, type Destinations } fro
 
 type LoginResult = Destinations | { must_change_password: true };
 
-const inputClass = 'h-11 w-full rounded-md border border-border bg-white px-3 text-left';
+const inputClass = 'h-11 w-full rounded-md border border-border bg-card px-3 text-left';
 
 // ?next= — where a student page sent us (e.g. a lesson after the session
 // expired). Only this site's student links: a path under /r/<token>, never

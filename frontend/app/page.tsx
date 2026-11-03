@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
+import { ProgressRing } from '@/components/ui/progress-ring';
 import { apiGet, apiPost, errorMessage } from '@/lib/api';
 
 type Course = {
@@ -113,25 +114,37 @@ export default function HomePage() {
   };
 
   return (
-    <main className="mx-auto max-w-[1200px] px-10 pb-20 pt-14">
+    <>
+    <div className="flex h-[52px] items-center gap-3 border-b border-line-soft px-5">
+      <div className="grid h-6 w-6 place-items-center rounded-[7px] bg-forest text-[11px] font-semibold tracking-tight text-paper">
+        cg
+      </div>
+      <span className="text-[13px] font-medium tracking-tight">course-grader</span>
+      <span className="text-ink-4">/</span>
+      <span className="text-[13px] text-ink-2">Courses</span>
+    </div>
+    <main className="mx-auto max-w-[1120px] px-6 pb-20 pt-12">
       {/* Hero */}
-      <header className="mb-10">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-lg bg-forest font-display text-xl tracking-tight text-paper">
-            cg
-          </div>
-          <span className="font-display text-lg text-ink-2">course-grader</span>
-        </div>
-        <h1 className="font-display text-[44px] leading-tight tracking-tight">
-          {greeting()}.
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-5">
+        <div>
+        <h1 className="text-[36px] font-medium leading-[1.1] tracking-[-0.035em]">
+          {greeting()}
         </h1>
-        <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink-2">
+        <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-ink-2">
           {courses.length === 0
             ? "No active courses yet — start one when you're ready."
             : remaining > 0
               ? `You have ${remaining} submissions left to grade across ${courses.length} ${courses.length === 1 ? 'course' : 'courses'}.`
               : `${courses.length} ${courses.length === 1 ? 'course' : 'courses'} on file. All caught up.`}
         </p>
+        </div>
+        <button
+          onClick={() => setShowNew(true)}
+          className="inline-flex h-9 items-center gap-2 rounded-[8px] bg-ink px-3.5 text-[13px] font-medium text-paper transition hover:bg-ink/90"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden />
+          New course
+        </button>
       </header>
 
       {/* Welcome hint */}
@@ -146,11 +159,9 @@ export default function HomePage() {
       </div>
 
       {/* Active courses */}
-      <div className="mb-3.5 flex items-baseline justify-between">
-        <div className="label-eyebrow">Active</div>
-        <Button variant="soft" size="sm" onClick={() => setShowNew(true)}>
-          + New course
-        </Button>
+      <div className="mb-3.5 flex items-center gap-2.5">
+        <h2 className="text-[14px] font-medium tracking-normal">Active courses</h2>
+        <span className="tnum rounded-[6px] bg-paper-2 px-1.5 text-[12px] text-ink-2">{courses.length}</span>
       </div>
 
       {loading ? (
@@ -158,7 +169,7 @@ export default function HomePage() {
       ) : null}
       {error ? <p className="text-sm text-bad">{error}</p> : null}
 
-      <div className="grid gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))' }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))' }}>
         {courses.map((course) => (
           <CourseCard key={course.id} course={course} onArchive={() => void setArchivedState(course, true)} />
         ))}
@@ -168,10 +179,12 @@ export default function HomePage() {
         {!showNew && courses.length < 6 ? (
           <button
             onClick={() => setShowNew(true)}
-            className="grid place-items-center gap-2 rounded-lg border-[1.5px] border-dashed border-border p-8 text-ink-3 transition-colors hover:border-ink-4 hover:text-ink"
+            className="grid min-h-[200px] place-content-center justify-items-center gap-2.5 rounded-lg border border-dashed border-border p-8 text-[13px] text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
           >
-            <span className="text-2xl leading-none">+</span>
-            <span className="text-sm">Start a new course</span>
+            <span className="grid h-9 w-9 place-items-center rounded-[10px] border border-border bg-card">
+              <Plus className="h-4 w-4" aria-hidden />
+            </span>
+            <span>Start a new course</span>
           </button>
         ) : null}
       </div>
@@ -201,49 +214,47 @@ export default function HomePage() {
         </section>
       ) : null}
     </main>
+    </>
   );
 }
 
 function CourseCard({ course, onArchive }: { course: CourseStats; onArchive: () => void }) {
   const remaining = course.submissions_total - course.submissions_graded;
+  const pct = course.submissions_total > 0 ? Math.round((course.submissions_graded / course.submissions_total) * 100) : 0;
   return (
     <Link
       href={`/course/${course.id}`}
-      className="block rounded-lg border border-border bg-card p-[22px] text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ink-4 hover:shadow-card"
+      className="flex flex-col gap-5 rounded-lg border border-line-soft bg-card p-5 text-ink no-underline shadow-card transition hover:-translate-y-0.5 hover:border-border hover:shadow-lift"
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="mb-1 text-[12px] uppercase tracking-wider text-ink-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-mono text-[11px] uppercase tracking-[0.02em] text-ink-3">
             {course.code} · {course.year} · Sem {course.semester}
           </div>
-          <div className="font-display text-[22px] leading-tight">{course.name}</div>
+          <div className="mt-1 text-[17px] font-medium leading-tight tracking-[-0.02em]">{course.name}</div>
         </div>
-        <ProgressRing
-          value={course.submissions_graded}
-          max={Math.max(course.submissions_total, 1)}
-          size={56}
-          stroke={5}
-        />
-      </div>
-
-      <div className="mb-2.5 flex items-baseline justify-between">
-        <div className="text-[13px] text-ink-2">
-          <span className="font-display tnum text-base text-ink">{course.submissions_graded}</span>
-          <span className="text-ink-3"> / {course.submissions_total} graded</span>
+        <div className="relative shrink-0">
+          <ProgressRing
+            value={course.submissions_graded}
+            max={Math.max(course.submissions_total, 1)}
+            size={48}
+            stroke={4}
+          />
+          <span className="tnum absolute inset-0 grid place-items-center text-[11px] font-medium">{pct}%</span>
         </div>
-        {course.last_touched ? <div className="text-xs text-ink-3">{course.last_touched}</div> : null}
       </div>
-      <ProgressBar
-        value={course.submissions_total > 0 ? (course.submissions_graded / course.submissions_total) * 100 : 0}
-      />
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="pill">{course.student_count} students</span>
+      <div className="flex items-baseline gap-1.5">
+        <span className="tnum text-[24px] font-medium tracking-[-0.03em]">{course.submissions_graded}</span>
+        <span className="text-[13px] text-ink-3">/ {course.submissions_total} graded</span>
         {remaining > 0 ? (
-          <span className="pill pill-terra">{remaining} to grade</span>
+          <span className="pill pill-terra ml-auto">{remaining} to grade</span>
         ) : (
-          <span className="pill pill-ok">All graded</span>
+          <span className="pill pill-ok ml-auto">All graded</span>
         )}
+      </div>
+      <div className="flex items-center gap-3 border-t border-line-soft pt-3.5 text-[12px] text-ink-2">
+        <span>{course.student_count} students</span>
+        {course.last_touched ? <span>{course.last_touched}</span> : null}
         <button
           onClick={(e) => {
             // The card is a link; keep the click from navigating.
@@ -251,7 +262,7 @@ function CourseCard({ course, onArchive }: { course: CourseStats; onArchive: () 
             e.stopPropagation();
             onArchive();
           }}
-          className="ml-auto text-xs text-ink-3 hover:text-ink hover:underline"
+          className="ml-auto text-ink-3 hover:text-ink"
         >
           Archive
         </button>

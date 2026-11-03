@@ -60,3 +60,6 @@ frontend/playwright-report/
 
 # roadmap-core store: derived from roadmap/items/*.yaml by `roadmap push`
 roadmap/roadmap.db
+
+# Local repoctx tool state (per-machine consent/index)
+.repoctx/

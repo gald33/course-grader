@@ -23,7 +23,7 @@
     <line x1="180" y1="222" x2="180" y2="250" stroke="#5b554b" stroke-width="1.6" marker-end="url(#a)"/>
 
     <rect x="30" y="254" width="300" height="176" rx="14" fill="none" stroke="#2d5d4f" stroke-width="2" stroke-dasharray="7 5"/>
-    <text x="180" y="276" font-size="13" fill="#2d5d4f">3. שכבה – חוזרת שוב ושוב (עשרות פעמים)</text>
+    <text x="180" y="276" font-size="13" fill="#2d5d4f">3. שכבות – הרבה בזו אחר זו (בדרך כלל עשרות)</text>
     <rect x="60" y="288" width="240" height="48" rx="10" fill="#cee3da" stroke="#2d5d4f"/>
     <text x="180" y="310">קשב (attention)</text>
     <text x="180" y="328" font-size="12" fill="#5b554b">כל טוקן נשען על הטוקנים שלפניו</text>
@@ -31,7 +31,6 @@
     <rect x="60" y="364" width="240" height="48" rx="10" fill="#cee3da" stroke="#2d5d4f"/>
     <text x="180" y="386">רשת נוירונים קטנה</text>
     <text x="180" y="404" font-size="12" fill="#5b554b">מעבדת כל ייצוג (שלבים A–B)</text>
-    <path d="M318 388 C346 388 346 312 318 312" fill="none" stroke="#2d5d4f" stroke-width="1.6" marker-end="url(#a)"/>
 
     <line x1="180" y1="432" x2="180" y2="460" stroke="#5b554b" stroke-width="1.6" marker-end="url(#a)"/>
     <rect x="60" y="464" width="240" height="56" rx="10" fill="#f3dfc4" stroke="#b8722f"/>

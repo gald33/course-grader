@@ -344,6 +344,7 @@ export function NextWordGuess({ block, path }: { block: BlockOf<'next_word_guess
                   <input
                     id={`${id}-temp`}
                     type="range"
+                    dir="ltr"
                     min={0.2}
                     max={2}
                     step={0.1}
@@ -430,11 +431,11 @@ function SentenceAttention({ sentence }: { sentence: AttentionSentence }) {
         {ranked.length
           ? ranked.map((x, i) => (
               <span key={x.j}>
-                {i ? '، ' : ''}«<bdi>{sentence.tokens[x.j]}</bdi>» (<Ltr>{Math.round(x.w * 100)}%</Ltr>)
+                {i ? ', ' : ''}«<bdi>{sentence.tokens[x.j]}</bdi>» (<Ltr>{Math.round(x.w * 100)}%</Ltr>)
               </span>
             ))
-          : 'רק על עצמה (זו המילה הראשונה).'}
-        . מילים שאחריה מסומנות — : המודל מסתכל רק אחורה.
+          : 'רק על עצמה (זו המילה הראשונה)'}
+        . מילים שאחריה מסומנות ב-—, כי המודל מסתכל רק אחורה.
       </p>
     </div>
   );
@@ -478,7 +479,7 @@ export function NeuronPlayground({ block }: { block: BlockOf<'neuron_playground'
         <span>{label}</span>
         <Ltr className="font-mono tabular-nums">{fmt(value)}</Ltr>
       </label>
-      <input id={`${id}-${key}`} type="range" min={min} max={max} step={step} value={value} onChange={(e) => set(Number(e.target.value))} className={FOCUS} />
+      <input id={`${id}-${key}`} type="range" dir="ltr" min={min} max={max} step={step} value={value} onChange={(e) => set(Number(e.target.value))} className={FOCUS} />
     </div>
   );
   const update = (arr: number[], i: number, v: number) => arr.map((x, j) => (j === i ? v : x));
@@ -671,6 +672,14 @@ const GROUP_COLORS: Record<string, string> = {
   feelings: '#fda4af',
   people: '#34d399'
 };
+// Where each neighbour's rank number sits around its dot (1..5), so close dots don't merge their numbers.
+const RANK_OFFSETS: [number, number][] = [
+  [9, -5],
+  [-9, -5],
+  [9, 12],
+  [-9, 12],
+  [0, -11]
+];
 const GROUP_HE: Record<string, string> = { bakery: 'מאפייה', drinks: 'משקאות', days: 'ימים', feelings: 'רגשות', people: 'אנשים' };
 
 export function EmbeddingMap({ block, path }: { block: BlockOf<'embedding_map'>; path: string | null }) {
@@ -681,8 +690,17 @@ export function EmbeddingMap({ block, path }: { block: BlockOf<'embedding_map'>;
   const selected = sel ? byId.get(sel) : undefined;
   const near = new Set(selected?.neighbors.map((n) => n.id) ?? []);
   const S = 320;
-  const P = 18;
+  const P = 26;
   const px = (w: { x: number; y: number }) => [P + w.x * (S - 2 * P), S - P - w.y * (S - 2 * P)];
+  // The selected word's label grows inward near an edge, so it is never
+  // clipped; neighbours carry their rank (1-5), named in the list beside.
+  const anchorFor = (w: { x: number; lang: string }): 'start' | 'middle' | 'end' => {
+    const inward = w.x < 0.2 ? 'right' : w.x > 0.8 ? 'left' : null;
+    if (!inward) return 'middle';
+    const rtl = w.lang === 'he';
+    return inward === 'right' ? (rtl ? 'end' : 'start') : rtl ? 'start' : 'end';
+  };
+  const rankOf = (wid: string) => (selected?.neighbors.findIndex((n) => n.id === wid) ?? -1) + 1;
   return (
     <section aria-labelledby={`${id}-t`} className={BOX} data-testid="embedding-map">
       <h4 id={`${id}-t`} className="font-hebrew text-[17px]">
@@ -724,9 +742,34 @@ export function EmbeddingMap({ block, path }: { block: BlockOf<'embedding_map'>;
                 return (
                   <g key={w.id} opacity={sel && !on && !lit ? 0.35 : 1}>
                     <circle cx={cx} cy={cy} r={on ? 7 : 4.5} fill={GROUP_COLORS[w.group] ?? '#8e8e96'} stroke={on ? '#fafafa' : 'none'} strokeWidth={2} />
-                    {on || lit ? (
-                      <text x={cx} y={cy - 9} fontSize={11} textAnchor="middle" fill="#fafafa" direction={w.lang === 'he' ? 'rtl' : 'ltr'}>
+                    {on ? (
+                      <text
+                        x={cx}
+                        y={cy - 11}
+                        fontSize={12}
+                        fontWeight={700}
+                        textAnchor={anchorFor(w)}
+                        fill="#fafafa"
+                        stroke="#09090b"
+                        strokeWidth={3}
+                        paintOrder="stroke"
+                        direction={w.lang === 'he' ? 'rtl' : 'ltr'}
+                      >
                         {w.text}
+                      </text>
+                    ) : lit ? (
+                      // A neighbour shows its rank; the numbered list beside the map names it.
+                      <text
+                        x={cx + RANK_OFFSETS[(rankOf(w.id) - 1 + 5) % 5][0]}
+                        y={cy + RANK_OFFSETS[(rankOf(w.id) - 1 + 5) % 5][1]}
+                        fontSize={10}
+                        textAnchor="middle"
+                        fill="#fafafa"
+                        stroke="#09090b"
+                        strokeWidth={3}
+                        paintOrder="stroke"
+                      >
+                        {rankOf(w.id)}
                       </text>
                     ) : null}
                   </g>
@@ -768,6 +811,7 @@ export function EmbeddingMap({ block, path }: { block: BlockOf<'embedding_map'>;
                 ))}
               </div>
               <p className="text-[12px] text-ink-3">
+                <span className="me-2">הצבעים: נושא שקבענו ביד –</span>
                 {Object.entries(GROUP_HE).map(([g, he]) => (
                   <span key={g} className="me-3 whitespace-nowrap">
                     <span aria-hidden className="me-1 inline-block h-2 w-2 rounded-full align-middle" style={{ backgroundColor: GROUP_COLORS[g] }} />

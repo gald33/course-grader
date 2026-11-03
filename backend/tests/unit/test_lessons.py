@@ -234,6 +234,46 @@ def test_install_is_idempotent_and_versions_published_content(env):
     assert _rows(env, LessonProgress) == 0 and _rows(env, LessonAttempt) == 0
 
 
+def test_reinstall_syncs_the_lesson_title_from_the_fixture(env):
+    """The lesson row's title follows the fixture on every install path
+    (update_draft, new_version, and unchanged content installed before the
+    sync existed); published versions keep their content."""
+    course = _course(env, "AI", [])
+    first = _install(env, course)
+    assert first["title"] == "שיעור ניסוי"
+
+    content = sample_content()
+    content["title"] = "כותרת חדשה"
+    _write_fixture(env, content)
+    updated = _install(env, course)  # update_draft
+    assert updated["title"] == "כותרת חדשה" and [v["number"] for v in updated["versions"]] == [1]
+    published = _publish(env, course, updated)
+
+    content["title"] = "כותרת שלישית"
+    _write_fixture(env, content)
+    v2 = _install(env, course)  # new_version
+    assert v2["title"] == "כותרת שלישית"
+    assert [(v["number"], v["status"]) for v in v2["versions"]] == [(1, "published"), (2, "draft")]
+    with env.Session() as db:  # the published snapshot keeps its own title
+        v1 = db.get(LessonVersion, published["active_version"]["id"])
+        assert json.loads(v1.content_json)["title"] == "כותרת חדשה"
+
+    with env.Session() as db:  # a row left stale by an older install
+        lesson = db.get(Lesson, first["id"])
+        lesson.title = "כותרת ישנה"
+        db.commit()
+    with env.Session() as db:
+        plan = lessons_svc.plan_install(db, db.get(Course, course.id), "test-lesson")
+        assert plan.action == "unchanged" and plan.renames
+    again = _install(env, course)  # unchanged content, title still synced
+    assert again["title"] == "כותרת שלישית" and again["versions"] == v2["versions"]
+    with env.Session() as db:
+        stamp = db.get(Lesson, first["id"]).updated_at
+    assert _install(env, course)["title"] == "כותרת שלישית"  # idempotent
+    with env.Session() as db:
+        assert db.get(Lesson, first["id"]).updated_at == stamp
+
+
 def test_install_refuses_another_course_and_invalid_content(env):
     other = _course(env, "OTHER", [])
     res = env.client.post(f"{_base(other)}/install", json={"fixture_key": "test-lesson"})

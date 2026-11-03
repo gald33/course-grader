@@ -523,6 +523,11 @@ class InstallPlan:
             return f"add draft version {self.version_number} to lesson '{self.slug}' (published versions stay as they are)"
         return f"nothing: lesson '{self.slug}' version {self.version_number} already has this content"
 
+    @property
+    def renames(self) -> bool:
+        """The lesson exists under another title than the fixture's."""
+        return self.lesson is not None and self.lesson.title != self.title
+
 
 def plan_install(db: Session, course: Course, fixture_key: str, allow_course_mismatch: bool = False) -> InstallPlan:
     """What installing the fixture into the course would do. Writes nothing."""
@@ -600,8 +605,12 @@ def install_fixture(
                 created_at=now,
             )
         )
-    if plan.action != "unchanged" or lesson.fixture_key != fixture_key:
+    # The lesson row's title comes from the fixture too: keep it in step on
+    # every install, including "unchanged" (content installed before this
+    # sync existed). Published versions' content is never touched.
+    if plan.action != "unchanged" or lesson.fixture_key != fixture_key or lesson.title != plan.title:
         lesson.fixture_key = fixture_key
+        lesson.title = plan.title
         lesson.updated_at = now
     try:
         db.commit()

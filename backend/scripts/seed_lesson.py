@@ -85,6 +85,8 @@ def main(argv: list[str] | None = None, session_factory: Callable[[], Session] |
         if plan.course_code != course.code:
             print(f"Warning: fixture '{args.fixture}' is for course {plan.course_code}; installing anyway.")
         print(f"Fixture '{args.fixture}' (content sha256 {plan.content_hash}): will {plan.describe()}.")
+        if plan.renames:
+            print(f"Lesson title: '{plan.lesson.title}' -> '{plan.title}' (from the fixture).")
         target = plan.version
         already_live = (
             target is not None

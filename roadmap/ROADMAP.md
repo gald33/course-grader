@@ -31,6 +31,7 @@ _Nothing deferred._
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
+| `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -63,6 +64,7 @@ graph TD
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
+  lesson_title_sync_on_install["Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles"]:::claimed
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
@@ -779,6 +781,34 @@ graph TD
 > backend tests pass on SQLite and Postgres; tsc and Playwright are green.
 > Not in this item: a real Antigravity spec interview, the instructor's
 > review and live check, and a homework brief or route.
+
+</details>
+
+### `lesson-title-sync-on-install`
+
+- **title:** Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/exit-check-no-chatbot (since 2026-11-03T19:15:00Z)
+- **refs:**
+  - `backend/app/services/lessons.py`
+  - `backend/scripts/seed_lesson.py`
+
+<details><summary>evidence</summary>
+
+> Marshal, 2026-11-03: live course 3 shows "איך מודלי שפה עובדים?" and
+> "להעמיק: מרשתות נוירונים למודלי שפה" after update_draft/new_version.
+> VERIFIED at 1fac480: install_fixture sets Lesson.title only when it creates
+> the lesson; update_draft, new_version and unchanged leave the row's title
+> as first installed.
+>
+> This item: every install path syncs Lesson.title from the fixture,
+> including "unchanged" (the live drafts already hold the new content).
+> Idempotent; published versions untouched. The fixture carries no order,
+> part or summary field: position is the instructor's (update_lesson) and
+> part/role lives in CoursePlanSession, which the plan import already syncs.
+> No migration. After rollout, re-run the course-3 import to fix the live
+> titles.
 
 </details>
 

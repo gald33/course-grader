@@ -19,6 +19,15 @@ export type Seed = {
   test_student: { id: number; name: string };
   /** The imported 42052 course plan's draft lessons (slug -> lesson id), with FAKE answer keys loaded. */
   plan_lessons: Record<string, number>;
+  /** Custom rubrics, in a course of their own: an HW2 without one, and a
+   * project whose submission has one criterion scored by the LLM and one not. */
+  rubrics: {
+    course_id: number;
+    hw2_id: number;
+    project_id: number;
+    project_submission_id: number;
+    criteria: { id: number; name: string; description: string; max_points: number }[];
+  };
 };
 
 export function loadSeed(): Seed {

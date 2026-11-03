@@ -34,7 +34,13 @@ from app.core.config import get_settings  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.lessons import load_fixture, load_plan  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models.entities import Enrollment, Student  # noqa: E402
+from app.models.entities import (  # noqa: E402
+    Assignment,
+    CriterionResult,
+    Enrollment,
+    Student,
+    Submission,
+)
 from app.services import student_session  # noqa: E402
 
 COURSE = {"code": "E2E101", "name": "Smoke Test Course", "year": 2026, "semester": "A"}
@@ -58,6 +64,10 @@ LESSON_STUDENTS = [
     ("resilience", "900000015", "Yael Lesson"),
     ("access", "900000016", "Rina Lesson"),
 ]
+# Custom rubrics are seeded in a second course (see seed()).
+RUBRIC_COURSE = {"code": "E2E102", "name": "Rubric Test Course", "year": 2026, "semester": "A"}
+RUBRIC_SCORED = {"name": "השוואת מודלים", "description": "Three or more models, compared on one metric", "max_points": 20}
+RUBRIC_UNSCORED = {"name": "Plots", "description": "Results plotted and explained", "max_points": 10}
 
 
 # The plan imported into the course (its code differs, so with an override).
@@ -145,6 +155,49 @@ def seed() -> dict:
             plan_keys.update(fake_keys(session["fixture_key"]))
         _ok(c.post(f"/api/courses/{course_id}/answer-keys", json={"lessons": plan_keys}))
         plan_lessons = {s["lesson_slug"]: s["lesson"]["id"] for s in plan["sessions"]}
+        # Custom rubrics, in a course of their own so its submission stays off
+        # the main course's pages: an HW2 with none (the tests author one), and
+        # a project whose rubric has one criterion the LLM scored and one it
+        # could not, on one submission.
+        rubric_course_id = _ok(c.post("/api/courses", json=RUBRIC_COURSE))["id"]
+        with SessionLocal() as db:
+            hw2 = Assignment(course_id=rubric_course_id, workcode=2, name="HW2 smoke", assignment_type="HW2")
+            project = Assignment(course_id=rubric_course_id, workcode=3, name="Project smoke", assignment_type="PROJECT")
+            db.add_all([hw2, project])
+            db.flush()
+            submission = Submission(course_id=rubric_course_id, assignment_id=project.id, group_identifier="Alpha")
+            db.add(submission)
+            db.commit()
+            hw2_id, project_id, submission_id = hw2.id, project.id, submission.id
+        rubric = _ok(
+            c.put(
+                f"/api/courses/{rubric_course_id}/assignments/{project_id}/rubric",
+                json={"criteria": [RUBRIC_SCORED, RUBRIC_UNSCORED]},
+            )
+        )["rubric"]
+        scored, unscored = (crit["id"] for crit in rubric["criteria"])
+        with SessionLocal() as db:
+            db.add(
+                CriterionResult(
+                    submission_id=submission_id,
+                    criterion_id=scored,
+                    status="scored",
+                    score=14,
+                    rationale="[cell 3] שלושה מודלים הושוו",
+                    model="seed",
+                )
+            )
+            db.add(
+                CriterionResult(
+                    submission_id=submission_id,
+                    criterion_id=unscored,
+                    status="not_scored",
+                    rationale="",
+                    model="seed",
+                    error="ANTHROPIC_API_KEY is not set",
+                )
+            )
+            db.commit()
 
     def signed_in(name: str) -> dict:
         student_id = ids[name]
@@ -164,6 +217,13 @@ def seed() -> dict:
         "lesson_students": {role: signed_in(name) for role, _nid, name in LESSON_STUDENTS},
         "plan_lessons": plan_lessons,
         "test_student": {"id": ids[STUDENTS[3][1]], "name": STUDENTS[3][1]},
+        "rubrics": {
+            "course_id": rubric_course_id,
+            "hw2_id": hw2_id,
+            "project_id": project_id,
+            "project_submission_id": submission_id,
+            "criteria": [{"id": scored, **RUBRIC_SCORED}, {"id": unscored, **RUBRIC_UNSCORED}],
+        },
     }
 
 

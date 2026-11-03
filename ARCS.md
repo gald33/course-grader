@@ -19,6 +19,7 @@ The narrative layer above `roadmap/ROADMAP.md`: *why* each theme is still open. 
 
 Startable and legitimate — an item does not need an arc. Listed so the narrative layer's coverage gap is visible rather than implied.
 
+- `assignments-need-custom-rubrics` — Assignments are graded on one fixed rubric instead of rubrics that fit the task
 - `autograder-needs-a-proper-redesign` — The notebook autograder needs a proper redesign, once there is enough graded data
 - `course-42052-whole-syllabus` — The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository
 - `courses-and-submissions-cannot-be-deleted` — Courses, assignments and submissions can't be deleted or archived
@@ -34,6 +35,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `roster-reimport-email-conflicts-are-not-shown` — Roster re-import reports email conflicts that the UI never shows
 - `student-portal-is-one-long-scroll` — The student portal is one long scroll with no navigation
 - `students-cannot-see-their-own-grades` — Students cannot see their own grades, feedback or attendance status
+- `suggest-rubrics-per-assignment-from-clusters` — Suggest a rubric for a new assignment from clusters of past rubrics
 - `team-formation-closes-at-a-deadline` — Let students form their own teams until a deadline, then lock teams automatically
 - `unreleasing-a-peer-round-keeps-its-gradebook-scores` — Un-releasing a peer round leaves its applied scores in the gradebook
 - `unteamed-students-need-instructor-approved-auto-assign` — After teams lock, propose teams for unteamed students and apply them only on the instructor's approval

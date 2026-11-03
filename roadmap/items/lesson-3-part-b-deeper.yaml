@@ -1,10 +1,8 @@
 id: lesson-3-part-b-deeper
 title: Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser
-status: ready
+status: done
 priority: now
-claim:
-  by: claude/lesson-3-part-b-deeper
-  at: '2026-11-03T10:30:00Z'
+claim: null
 blocked_on:
 - lesson-3-how-language-models-work
 refs:
@@ -44,3 +42,5 @@ evidence: |
   every widget works by keyboard (Playwright); the notebook runs clean on CPU;
   no answer key in the repository (tested); the tokenizer chunk size is
   reported; CI is green.
+
+  SHIPPED: #35, merged as 2563c11.

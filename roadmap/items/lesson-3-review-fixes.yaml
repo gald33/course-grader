@@ -1,0 +1,39 @@
+id: lesson-3-review-fixes
+title: Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)
+status: ready
+priority: now
+claim:
+  by: claude/lesson-3-review-fixes
+  at: '2026-11-03T14:00:00Z'
+blocked_on: []
+refs:
+- 'backend/app/lessons/content/course-42052/lesson-03.json'
+- 'backend/app/lessons/content/course-42052/lesson-03-deeper.json'
+- 'frontend/public/lessons/lesson-03/v1/'
+- 'frontend/public/lessons/lesson-03-deeper/v1/transformer-pipeline.svg'
+- 'frontend/components/lessons/widgets.tsx'
+evidence: |
+  Lesson Planner, 2026-11-03: the operator asked for an adversarial review of
+  lesson 3; verdict on main 2563c11 UNSOUND on text facts only (numbers,
+  notebooks, generators and the 20 question picks all reproduced).
+
+  VERIFIED at 9488201:
+  - lesson-03 l03-context-shift says coffee/wine got "most of the
+    probability" in 2א; the raw top token is 45.5% (coffee) and 18.0%
+    (wine). The 73%/89% are shares among four words (2ב).
+  - The lesson-03 notebooks still say chatbot models are "tens and hundreds
+    of times" larger and that models have "dozens of heads per layer";
+    Qwen2.5-0.5B's config has 14 heads x 24 layers, and sizes of chatbot
+    models are often undisclosed.
+  - lesson-03-deeper says לחם/bread are close because they share contexts;
+    paraphrase-multilingual-MiniLM-L12-v2 was trained on translation pairs.
+  - lesson-03-deeper and its SVG describe one layer that repeats; a
+    transformer stacks many layers with their own weights.
+  - Plus the planner's non-blocking text, label and widget fixes (cosine
+    scale, one required action per step, attention summary punctuation,
+    map labels clipped at 390 px, LTR sliders, missing next hints).
+
+  Done when: the corrections are in, question keys and option ids unchanged,
+  notebooks edited in markdown only with sha256 updated, tests guard each
+  corrected claim, lesson-3 specs green at 390 and 1280 px, and the changed
+  feedback_he sent privately to the planner.

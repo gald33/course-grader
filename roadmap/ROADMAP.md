@@ -29,8 +29,7 @@ _Nothing deferred._
 |---|---|---|
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
-| `lesson-3-part-b-deeper` | claude/lesson-3-part-b-deeper | 2026-11-03T10:30:00Z |
-| `lesson-4-coding-agent` | claude/lesson-4-coding-agent | 2026-11-03T14:00:00Z |
+| `lesson-3-review-fixes` | claude/lesson-3-review-fixes | 2026-11-03T14:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -57,8 +56,9 @@ graph TD
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
   instructor_pages_are_walls_of_text["Instructor and student pages are walls of text, with no sign of what needs attention"]:::claimed
   lesson_3_how_language_models_work["✓ Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::done
-  lesson_3_part_b_deeper["Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::claimed
-  lesson_4_coding_agent["Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::claimed
+  lesson_3_part_b_deeper["✓ Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::done
+  lesson_3_review_fixes["Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::claimed
+  lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
@@ -492,9 +492,8 @@ graph TD
 ### `lesson-3-part-b-deeper`
 
 - **title:** Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-3-part-b-deeper (since 2026-11-03T10:30:00Z)
 - **blocked on:** `lesson-3-how-language-models-work`
 - **refs:**
   - `backend/app/lessons/schema.py`
@@ -535,15 +534,58 @@ graph TD
 > every widget works by keyboard (Playwright); the notebook runs clean on CPU;
 > no answer key in the repository (tested); the tokenizer chunk size is
 > reported; CI is green.
+>
+> SHIPPED: #35, merged as 2563c11.
+
+</details>
+
+### `lesson-3-review-fixes`
+
+- **title:** Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/lesson-3-review-fixes (since 2026-11-03T14:00:00Z)
+- **refs:**
+  - `backend/app/lessons/content/course-42052/lesson-03.json`
+  - `backend/app/lessons/content/course-42052/lesson-03-deeper.json`
+  - `frontend/public/lessons/lesson-03/v1/`
+  - `frontend/public/lessons/lesson-03-deeper/v1/transformer-pipeline.svg`
+  - `frontend/components/lessons/widgets.tsx`
+
+<details><summary>evidence</summary>
+
+> Lesson Planner, 2026-11-03: the operator asked for an adversarial review of
+> lesson 3; verdict on main 2563c11 UNSOUND on text facts only (numbers,
+> notebooks, generators and the 20 question picks all reproduced).
+>
+> VERIFIED at 9488201:
+> - lesson-03 l03-context-shift says coffee/wine got "most of the
+>   probability" in 2א; the raw top token is 45.5% (coffee) and 18.0%
+>   (wine). The 73%/89% are shares among four words (2ב).
+> - The lesson-03 notebooks still say chatbot models are "tens and hundreds
+>   of times" larger and that models have "dozens of heads per layer";
+>   Qwen2.5-0.5B's config has 14 heads x 24 layers, and sizes of chatbot
+>   models are often undisclosed.
+> - lesson-03-deeper says לחם/bread are close because they share contexts;
+>   paraphrase-multilingual-MiniLM-L12-v2 was trained on translation pairs.
+> - lesson-03-deeper and its SVG describe one layer that repeats; a
+>   transformer stacks many layers with their own weights.
+> - Plus the planner's non-blocking text, label and widget fixes (cosine
+>   scale, one required action per step, attention summary punctuation,
+>   map labels clipped at 390 px, LTR sliders, missing next hints).
+>
+> Done when: the corrections are in, question keys and option ids unchanged,
+> notebooks edited in markdown only with sha256 updated, tests guard each
+> corrected claim, lesson-3 specs green at 390 and 1280 px, and the changed
+> feedback_he sent privately to the planner.
 
 </details>
 
 ### `lesson-4-coding-agent`
 
 - **title:** Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
-- **status:** claimed
+- **status:** done
 - **priority:** next
-- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-03T14:00:00Z)
 - **blocked on:** `course-42052-whole-syllabus`
 - **refs:**
   - `content/course-42052/lessons/lesson-04.json`
@@ -589,6 +631,8 @@ graph TD
 > the repository (tested); CI is green. Not in this item: a real run in
 > Antigravity with screenshots, the instructor's review and live check,
 > and a homework brief.
+>
+> SHIPPED: #34, merged as 035c8b0.
 
 </details>
 

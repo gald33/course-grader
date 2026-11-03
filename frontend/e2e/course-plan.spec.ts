@@ -49,6 +49,9 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`/course/${seed.course.id}`);
   await page.locator('.nav-step').filter({ hasText: 'Lessons' }).click();
+  // The plan and its readiness table have their own page, one click from the lessons index.
+  await page.getByRole('link', { name: /^Course plan & readiness/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/course/${seed.course.id}/lessons/plan$`));
 
   const plan = page.getByTestId('course-plan');
   await expect(plan).toContainText('Course plan');
@@ -93,6 +96,9 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await three.getByRole('checkbox', { name: 'Session 3 reviewed' }).click();
   await expect(three.getByRole('checkbox', { name: 'Session 3 reviewed' })).not.toBeChecked();
 
+  await page.getByRole('link', { name: '← All lessons' }).click();
+  await page.getByRole('link', { name: /^Answer keys/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/course/${seed.course.id}/lessons/keys$`));
   const keys = page.getByTestId('answer-keys');
   await expect(keys).toContainText('every installed lesson has its keys');
   await expect(keys).not.toContainText('FAKE');

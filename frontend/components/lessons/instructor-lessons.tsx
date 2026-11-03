@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnswerKeysCard, CoursePlanCard, type AnswerKeyStatus } from '@/components/lessons/course-plan';
@@ -11,6 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiBase, apiGet, apiPatch, apiPost, errorMessage } from '@/lib/api';
+import { lessonsHref } from '@/lib/course-sections';
 
 /* Guided lessons, instructor side: install the lesson file bundled with the
  * app into this course as a draft, preview any version exactly as students
@@ -313,31 +315,113 @@ function StepLabel({ step, fallback }: { step: StepStats | undefined; fallback: 
 
 /* =============== Step =============== */
 
+/* What the index needs from the course plan: which session each lesson
+ * belongs to, and that session's readiness. The plan view has more (see
+ * course-plan.tsx); this reads only these fields. */
+type PlanLessonRef = { id: number };
+type PlanSessionRef = {
+  session: number;
+  lesson: PlanLessonRef | null;
+  existing_lessons: PlanLessonRef[];
+  enrichment_lessons?: PlanLessonRef[];
+  readiness: {
+    drafted: boolean;
+    reviewed_at: string | null;
+    published: boolean;
+    live_verified_at: string | null;
+  };
+};
+type PlanRef = { plan_code: string | null; plans: { code: string }[]; sessions: PlanSessionRef[] };
+
+type IndexEntry = {
+  lesson: LessonSummary;
+  session: number | null;
+  /** Its session's own plan lesson (readiness speaks to it), an existing lesson the session also names, or optional enrichment. */
+  role: 'plan' | 'existing' | 'enrichment' | null;
+  readiness: PlanSessionRef['readiness'] | null;
+};
+
+const ROLE_RANK = { plan: 0, existing: 1, enrichment: 2 } as const;
+
+/** Every lesson once, in session order; lessons no session names come last, by position. */
+function indexEntries(lessons: LessonSummary[], plan: PlanRef | null): IndexEntry[] {
+  const found = new Map<number, Omit<IndexEntry, 'lesson'>>();
+  for (const s of plan?.sessions ?? []) {
+    const put = (id: number | undefined, role: NonNullable<IndexEntry['role']>) => {
+      if (id == null || found.has(id)) return;
+      found.set(id, { session: s.session, role, readiness: role === 'plan' ? s.readiness : null });
+    };
+    put(s.lesson?.id, 'plan');
+    (s.existing_lessons ?? []).forEach((l) => put(l.id, 'existing'));
+    (s.enrichment_lessons ?? []).forEach((l) => put(l.id, 'enrichment'));
+  }
+  return lessons
+    .map((lesson) => ({ lesson, ...(found.get(lesson.id) ?? { session: null, role: null, readiness: null }) }))
+    .sort(
+      (a, b) =>
+        (a.session ?? Infinity) - (b.session ?? Infinity) ||
+        (a.role ? ROLE_RANK[a.role] : 3) - (b.role ? ROLE_RANK[b.role] : 3) ||
+        a.lesson.position - b.lesson.position ||
+        a.lesson.id - b.lesson.id
+    );
+}
+
+/** The furthest readiness state reached, and the next one not yet reached —
+ * the five states stay apart (the full table is on the plan page). */
+function readinessShort(r: IndexEntry['readiness']): { text: string; title: string } {
+  if (!r) return { text: '', title: '' };
+  const title =
+    `drafted: ${r.drafted ? 'yes' : 'no'} · reviewed: ${r.reviewed_at ? fmtShortDate(r.reviewed_at) : 'no'} · ` +
+    `published: ${r.published ? 'yes' : 'no'} · live verified: ${r.live_verified_at ? fmtShortDate(r.live_verified_at) : 'no'}`;
+  if (r.live_verified_at) return { text: 'live verified', title };
+  if (r.published) return { text: 'published · not verified live', title };
+  if (r.reviewed_at) return { text: 'reviewed · not published', title };
+  if (r.drafted) return { text: 'drafted · not reviewed', title };
+  return { text: 'not imported', title };
+}
+
+function keysShort(lesson: LessonSummary): { text: string; pill: string } {
+  const latest = lesson.answer_keys?.latest;
+  if (!latest) return { text: 'keys —', pill: 'pill' };
+  if (!latest.needed) return { text: 'no keys needed', pill: 'pill' };
+  const loaded = latest.needed - latest.missing.length;
+  return { text: `keys ${loaded}/${latest.needed}`, pill: loaded === latest.needed ? 'pill pill-ok' : 'pill pill-warn' };
+}
+
+const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-forest focus-visible:ring-offset-1';
+
+/** The Lessons section: an index of the course's lessons by default; `view`
+ * opens one lesson, the course plan, or the answer keys, each on its own URL. */
 export function LessonsStep({
   courseId,
   course,
+  view,
   setToast
 }: {
   courseId: number;
   course: CourseInfo;
+  /** From /course/[id]/lessons/[view]: a lesson id, "plan" or "keys"; absent on the index. */
+  view?: string;
   setToast: (m: string) => void;
 }) {
   const base = `/api/courses/${courseId}/lessons`;
   const [lessons, setLessons] = useState<LessonSummary[] | null>(null);
   const [fixtures, setFixtures] = useState<FixtureRow[]>([]);
+  const [plan, setPlan] = useState<PlanRef | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
 
   const load = useCallback(async () => {
-    const [list, fx] = await Promise.all([apiGet<LessonSummary[]>(base), apiGet<FixtureRow[]>(`${base}/fixtures`)]);
+    const [list, fx, pl] = await Promise.all([
+      apiGet<LessonSummary[]>(base),
+      apiGet<FixtureRow[]>(`${base}/fixtures`),
+      // Only orders the index; the plan page reports its own errors.
+      apiGet<PlanRef>(`/api/courses/${courseId}/plan`).catch(() => null)
+    ]);
     setLessons(list);
     setFixtures(fx);
+    setPlan(pl);
     setLoadError(null);
-    setSelected((cur) => {
-      if (cur && list.some((l) => l.id === cur)) return cur;
-      return (list.find((l) => l.status === 'published') ?? list[0])?.id ?? null;
-    });
-  }, [base]);
+  }, [base, courseId]);
 
   useEffect(() => {
     void load().catch((e) => setLoadError(errorMessage(e)));
@@ -355,6 +439,8 @@ export function LessonsStep({
     },
     [load, setToast]
   );
+
+  const entries = useMemo(() => indexEntries(lessons ?? [], plan), [lessons, plan]);
 
   if (loadError && !lessons) {
     return (
@@ -375,10 +461,146 @@ export function LessonsStep({
   }
   if (!lessons) return <div className="pt-6 text-ink-3">Loading…</div>;
 
-  const selectedLesson = lessons.find((l) => l.id === selected) ?? null;
+  // Lesson files not managed by a course plan: installed here, from the plan page.
+  const looseFixtures = fixtures.filter((f) => !f.plan_code);
+  const fixtureCards = looseFixtures.map((f) => (
+    <FixtureCard
+      key={f.key}
+      base={base}
+      course={course}
+      fixture={f}
+      lesson={lessons.find((l) => l.id === f.installed_lesson_id) ?? null}
+      run={run}
+    />
+  ));
+
+  if (view === 'plan') {
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pt-6">
+        <BackToIndex courseId={courseId} />
+        <CoursePlanCard courseId={courseId} course={course} reloadLessons={load} setToast={setToast} />
+        {looseFixtures.length ? (
+          <section className="grid gap-3" aria-label="Lesson files">
+            <h2 className="mt-2 font-display text-[22px] leading-tight">Lesson files</h2>
+            <p className="-mt-2 text-[13px] text-ink-3">Lessons bundled with the app that aren’t part of a course plan.</p>
+            {fixtureCards}
+          </section>
+        ) : null}
+      </div>
+    );
+  }
+  if (view === 'keys') {
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pt-6">
+        <BackToIndex courseId={courseId} />
+        <AnswerKeysCard courseId={courseId} reloadLessons={load} setToast={setToast} />
+      </div>
+    );
+  }
+  if (view != null) {
+    const at = entries.findIndex((e) => String(e.lesson.id) === view);
+    if (at < 0) {
+      return (
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pt-6">
+          <BackToIndex courseId={courseId} />
+          <Card>
+            <div className="text-[14px] text-ink-2">This lesson isn’t part of this course.</div>
+          </Card>
+        </div>
+      );
+    }
+    const { lesson } = entries[at];
+    return (
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pt-6">
+        <LessonNav courseId={courseId} entries={entries} at={at} />
+        <LessonCard key={lesson.id} base={base} courseId={courseId} course={course} lesson={lesson} run={run} />
+        <InsightsPanel key={`insights-${lesson.id}`} courseId={courseId} lesson={lesson} setToast={setToast} />
+      </div>
+    );
+  }
 
   return (
-    <div className="grid gap-4 pt-6">
+    <LessonsIndex
+      courseId={courseId}
+      entries={entries}
+      plan={plan}
+      looseFixtures={looseFixtures}
+      lessons={lessons}
+    />
+  );
+}
+
+function BackToIndex({ courseId }: { courseId: number }) {
+  return (
+    <div className="text-[14px]">
+      <Link href={lessonsHref(courseId)} className={`rounded text-forest hover:underline ${FOCUS}`}>
+        ← All lessons
+      </Link>
+    </div>
+  );
+}
+
+/** Back to the index, where this lesson sits in it, and the lessons either side. */
+function LessonNav({ courseId, entries, at }: { courseId: number; entries: IndexEntry[]; at: number }) {
+  const prev = entries[at - 1]?.lesson;
+  const next = entries[at + 1]?.lesson;
+  const link = `inline-flex min-w-0 max-w-full items-baseline gap-1.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-[13px] text-ink no-underline hover:bg-paper-2 ${FOCUS}`;
+  return (
+    <nav aria-label="Lesson navigation" className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <Link href={lessonsHref(courseId)} className={`rounded text-[14px] text-forest hover:underline ${FOCUS}`}>
+        ← All lessons
+      </Link>
+      <span className="text-[13px] text-ink-3">
+        Lesson {at + 1} of {entries.length}
+        {entries[at].session != null ? ` · session ${entries[at].session}` : ''}
+      </span>
+      <span className="flex min-w-0 max-w-full flex-wrap gap-2 sm:ml-auto">
+        {prev ? (
+          <Link href={lessonsHref(courseId, prev.id)} className={link} rel="prev" aria-label={`Previous lesson: ${prev.title}`}>
+            <span aria-hidden>←</span>
+            <span className="shrink-0">Previous</span>
+            <span dir="rtl" className="min-w-0 max-w-[16rem] truncate text-ink-3">
+              {prev.title}
+            </span>
+          </Link>
+        ) : null}
+        {next ? (
+          <Link href={lessonsHref(courseId, next.id)} className={link} rel="next" aria-label={`Next lesson: ${next.title}`}>
+            <span className="shrink-0">Next</span>
+            <span dir="rtl" className="min-w-0 max-w-[16rem] truncate text-ink-3">
+              {next.title}
+            </span>
+            <span aria-hidden>→</span>
+          </Link>
+        ) : null}
+      </span>
+    </nav>
+  );
+}
+
+function LessonsIndex({
+  courseId,
+  entries,
+  plan,
+  looseFixtures,
+  lessons
+}: {
+  courseId: number;
+  entries: IndexEntry[];
+  plan: PlanRef | null;
+  looseFixtures: FixtureRow[];
+  lessons: LessonSummary[];
+}) {
+  const imported = !!plan?.plan_code && plan.sessions.length > 0;
+  const keysMissing = lessons.filter((l) => (l.answer_keys?.latest?.missing.length ?? 0) > 0).length;
+  const keysNeeded = lessons.some((l) => (l.answer_keys?.latest?.needed ?? 0) > 0);
+  const filesToLoad = looseFixtures.filter(
+    (f) => f.installed_lesson_id == null || !f.valid || lessons.find((l) => l.id === f.installed_lesson_id)?.fixture_update_available
+  ).length;
+  const tile = `grid gap-0.5 rounded-lg border border-border bg-card px-4 py-3 no-underline shadow-soft hover:border-ink-4 ${FOCUS}`;
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 pt-6">
       <div className="hint">
         <span className="hint-icon">i</span>
         <div>
@@ -392,41 +614,82 @@ export function LessonsStep({
         </div>
       </div>
 
-      <CoursePlanCard courseId={courseId} course={course} reloadLessons={load} setToast={setToast} />
-      <AnswerKeysCard courseId={courseId} reloadLessons={load} setToast={setToast} />
+      {plan?.plans.length || looseFixtures.length || keysNeeded ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {plan?.plans.length || looseFixtures.length ? (
+            <Link href={lessonsHref(courseId, 'plan')} className={tile}>
+              <span className="font-semibold text-ink">Course plan &amp; readiness →</span>
+              <span className="text-[13px] text-ink-3">
+                {imported ? `Plan ${plan?.plan_code} imported · readiness of every session` : 'Import the course plan as draft lessons'}
+                {filesToLoad ? ` · ${filesToLoad} lesson file${filesToLoad === 1 ? '' : 's'} to install or update` : ''}
+              </span>
+            </Link>
+          ) : null}
+          <Link href={lessonsHref(courseId, 'keys')} className={tile}>
+            <span className="font-semibold text-ink">Answer keys →</span>
+            <span className="text-[13px] text-ink-3">
+              {keysMissing
+                ? `${keysMissing} lesson${keysMissing === 1 ? '' : 's'} missing keys · import the private key file`
+                : 'Import or replace the private answer-key file'}
+            </span>
+          </Link>
+        </div>
+      ) : null}
 
-      {fixtures.filter((f) => !f.plan_code).map((f) => (
-        <FixtureCard
-          key={f.key}
-          base={base}
-          course={course}
-          fixture={f}
-          lesson={lessons.find((l) => l.id === f.installed_lesson_id) ?? null}
-          run={run}
-        />
-      ))}
-      {!fixtures.length && !lessons.length ? (
+      {entries.length ? (
+        <section aria-labelledby="lessons-index-heading" className="grid gap-2">
+          <h2 id="lessons-index-heading" className="font-display text-[22px] leading-tight">
+            {entries.length} lesson{entries.length === 1 ? '' : 's'}
+          </h2>
+          <ol className="overflow-hidden rounded-lg border border-border bg-card shadow-soft" data-testid="lessons-index">
+            {entries.map((e) => {
+              const keys = keysShort(e.lesson);
+              const ready = readinessShort(e.readiness);
+              return (
+                <li key={e.lesson.id} className="border-b border-line-soft last:border-b-0" data-lesson-id={e.lesson.id}>
+                  <Link
+                    href={lessonsHref(courseId, e.lesson.id)}
+                    className={`grid grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 px-4 py-3 text-ink no-underline hover:bg-paper-2 md:grid-cols-[2.5rem_minmax(0,1fr)_auto] md:items-center ${FOCUS}`}
+                  >
+                    <span className="font-display text-[20px] leading-none text-ink-2 tnum" title={e.session != null ? `Session ${e.session}` : 'Not in the course plan'}>
+                      {e.session ?? '—'}
+                    </span>
+                    <span className="min-w-0">
+                      <span dir="rtl" className="block truncate text-left text-[15px] font-semibold">
+                        {e.lesson.title}
+                      </span>
+                      <span className="block text-[12px] text-ink-3">
+                        <span className="font-mono">{e.lesson.slug}</span>
+                        {e.role === 'existing' ? ' · existing lesson' : e.role === 'enrichment' ? ' · enrichment (optional)' : ''}
+                      </span>
+                    </span>
+                    <span className="col-start-2 flex flex-wrap items-center gap-1.5 md:col-start-3 md:justify-end">
+                      <span className={LESSON_STATUS_PILL[e.lesson.status]}>{e.lesson.status}</span>
+                      <span className={keys.pill}>{keys.text}</span>
+                      {ready.text ? (
+                        <span className="pill" title={ready.title}>
+                          {ready.text}
+                        </span>
+                      ) : null}
+                      <span aria-hidden className="hidden text-ink-3 md:inline">
+                        →
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : (
         <Card>
-          <div className="text-[14px] text-ink-3">No lesson files are bundled with this server, and no lessons are installed.</div>
+          <div className="text-[14px] text-ink-3">
+            {plan?.plans.length || looseFixtures.length
+              ? 'No lessons are installed yet. Import the course plan, or install a lesson file, from Course plan & readiness.'
+              : 'No lesson files are bundled with this server, and no lessons are installed.'}
+          </div>
         </Card>
-      ) : null}
-
-      {lessons.map((l) => (
-        <LessonCard
-          key={l.id}
-          base={base}
-          courseId={courseId}
-          course={course}
-          lesson={l}
-          selected={l.id === selectedLesson?.id}
-          onSelect={() => setSelected(l.id)}
-          run={run}
-        />
-      ))}
-
-      {selectedLesson ? (
-        <InsightsPanel key={selectedLesson.id} courseId={courseId} lesson={selectedLesson} setToast={setToast} />
-      ) : null}
+      )}
     </div>
   );
 }
@@ -569,16 +832,12 @@ function LessonCard({
   courseId,
   course,
   lesson,
-  selected,
-  onSelect,
   run
 }: {
   base: string;
   courseId: number;
   course: CourseInfo;
   lesson: LessonSummary;
-  selected: boolean;
-  onSelect: () => void;
   run: Run;
 }) {
   const live = lesson.status === 'published' ? lesson.active_version : null;
@@ -607,7 +866,7 @@ function LessonCard({
   };
 
   return (
-    <Card className={`grid gap-4 ${selected ? 'border-forest ring-1 ring-forest-soft' : ''}`}>
+    <Card className="grid gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="label-eyebrow mb-1">
@@ -635,14 +894,12 @@ function LessonCard({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {latest ? (
-            <a
+            <Link
               href={previewHref(latest.number)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center rounded-md border border-terracotta-soft bg-terracotta-tint px-2.5 py-1 text-[13px] text-ink hover:border-terracotta"
+              className={`inline-flex items-center rounded-md border border-terracotta-soft bg-terracotta-tint px-2.5 py-1 text-[13px] text-ink no-underline hover:border-terracotta ${FOCUS}`}
             >
-              👁 Preview version {latest.number} ↗
-            </a>
+              👁 Preview version {latest.number}
+            </Link>
           ) : null}
           {lesson.draft_version ? (
             <Button
@@ -691,14 +948,13 @@ function LessonCard({
                 <Td className="text-[13px] text-ink-2">{fmtDate(v.published_at)}</Td>
                 <Td className="pr-5 text-right">
                   <div className="flex justify-end gap-2">
-                    <a
+                    <Link
                       href={previewHref(v.number)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center rounded-md px-2.5 py-1 text-[13px] text-forest hover:bg-paper-2"
+                      className={`inline-flex items-center rounded-md px-2.5 py-1 text-[13px] text-forest hover:bg-paper-2 ${FOCUS}`}
+                      aria-label={`Preview version ${v.number}`}
                     >
-                      Preview ↗
-                    </a>
+                      Preview
+                    </Link>
                     {!isLive ? (
                       <Button size="sm" variant={v.status === 'draft' ? 'default' : 'outline'} onClick={() => publish(v)}>
                         {v.status === 'published' ? `Make version ${v.number} live` : `Publish version ${v.number}`}
@@ -712,7 +968,7 @@ function LessonCard({
         </tbody>
       </TableCard>
 
-      <MissingKeys lesson={lesson} />
+      <MissingKeys courseId={courseId} lesson={lesson} />
 
       <ColabUrlField base={base} lesson={lesson} run={run} />
 
@@ -727,11 +983,9 @@ function LessonCard({
           One row per enrolled student: status, required steps done, experiments, commitment, first-try correct count,
           last saved activity. Test and withdrawn students are marked.
         </span>
-        {!selected ? (
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={onSelect}>
-            Show class insights ↓
-          </Button>
-        ) : null}
+        <a href="#class-insights" className={`ml-auto rounded-md px-2.5 py-1 text-[13px] text-forest hover:bg-paper-2 ${FOCUS}`}>
+          Class insights ↓
+        </a>
       </div>
     </Card>
   );
@@ -739,7 +993,7 @@ function LessonCard({
 
 /** Questions without a loaded answer key can't be checked: the live version's
  * students get no feedback on them, and a version missing keys can't be published. */
-function MissingKeys({ lesson }: { lesson: LessonSummary }) {
+function MissingKeys({ courseId, lesson }: { courseId: number; lesson: LessonSummary }) {
   const { latest, live } = lesson.answer_keys ?? { latest: null, live: null };
   const published = lesson.status === 'published' && live != null;
   const liveMissing = published ? live.missing : [];
@@ -777,7 +1031,13 @@ function MissingKeys({ lesson }: { lesson: LessonSummary }) {
             . It isn’t used (never marking answers wrong against an option that’s gone); import a corrected key.
           </div>
         ) : null}
-        <div className="text-[13px] text-ink-2">Import the private answer keys above; the file is never stored in the app’s code.</div>
+        <div className="text-[13px] text-ink-2">
+          Import the private answer keys on the{' '}
+          <Link href={lessonsHref(courseId, 'keys')} className="text-forest hover:underline">
+            Answer keys
+          </Link>{' '}
+          page; the file is never stored in the app’s code.
+        </div>
       </div>
     </div>
   );
@@ -947,7 +1207,7 @@ function InsightsPanel({
   };
 
   return (
-    <section className="grid gap-4" aria-label="Class insights">
+    <section id="class-insights" className="grid scroll-mt-4 gap-4" aria-label="Class insights">
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-6">
         <div className="min-w-0">
           <div className="label-eyebrow mb-1">Class insights</div>

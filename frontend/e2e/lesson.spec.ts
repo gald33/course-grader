@@ -809,6 +809,9 @@ test('instructor insights show a student’s first wrong answer, kept apart from
   await instructor.setViewportSize({ width: 1440, height: 1000 });
   await instructor.goto(`/course/${seed.course.id}`);
   await instructor.locator('.nav-step').filter({ hasText: 'Lessons' }).click();
+  // Each lesson has its own page; its class insights are on it.
+  await instructor.locator(`[data-testid="lessons-index"] li[data-lesson-id="${seed.lesson.id}"] a`).click();
+  await expect(instructor).toHaveURL(new RegExp(`/course/${seed.course.id}/lessons/${seed.lesson.id}$`));
   const breakdown = instructor
     .locator('div')
     .filter({ has: instructor.getByRole('heading', { name: 'Where understanding breaks down' }) })

@@ -54,6 +54,7 @@ graph TD
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
   lesson_3_how_language_models_work["Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::claimed
+  lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
@@ -415,6 +416,50 @@ graph TD
 > credentials; no answer key in the repository (tested); CI is green.
 > Not in this item: the instructor's own review and live check in class,
 > the real Colab share link (set by the instructor), and a homework brief.
+
+</details>
+
+### `lessons-one-page-per-lesson`
+
+- **title:** The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page
+- **status:** verifying
+- **priority:** now
+- **claimed by:** claude/lessons-one-page-per-lesson (since 2026-11-03T15:00:00Z)
+- **refs:**
+  - `frontend/components/lessons/instructor-lessons.tsx`
+  - `frontend/app/course/[id]/page.tsx`
+  - `frontend/app/course/[id]/lessons/[lessonId]/page.tsx`
+  - `frontend/app/course/[id]/lessons/[lessonId]/preview/page.tsx`
+  - `frontend/lib/course-sections.ts`
+  - `frontend/e2e/lessons-index.spec.ts`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03: "don't crowd all the lessons in the same page".
+>
+> VERIFIED at 47632b6. LessonsStep (instructor-lessons.tsx) rendered, in
+> one column: the CoursePlanCard with its 1080px readiness table, the
+> AnswerKeysCard, a FixtureCard per lesson file outside the plan, a full
+> LessonCard (versions, publish, Colab link, export) for every lesson —
+> 14 once the 42052 plan is imported — and the InsightsPanel of one
+> selected lesson. The student side was already an index
+> (/r/[token]/lessons) with a page per lesson (/r/[token]/lessons/[slug]),
+> so it needs no change.
+>
+> This item: the Lessons section is an index, one row per lesson in session
+> order (session, Hebrew title, slug, status, answer keys n/m, the furthest
+> readiness state reached), each linking to /course/[id]/lessons/[lessonId]
+> — the same course page and sidebar with that lesson's card and class
+> insights, a back link and previous/next. The plan with its readiness table
+> and lesson files (/lessons/plan) and the answer keys (/lessons/keys) are
+> one click from the index. Every action and confirmation is unchanged; no
+> API or migration change. Preview opens in the same tab and returns to its
+> lesson. On a phone the course sidebar folds into a "Sections" menu.
+>
+> Done when: with the 42052 plan imported, the Lessons section shows the
+> index only; each lesson opens on its own URL with publish, Colab link,
+> preview and insights working; plan/readiness and keys are one click away;
+> Playwright covers index → lesson page → preview → back at 390 and 1280.
 
 </details>
 

@@ -186,8 +186,11 @@ function useSectionInUrl(): [SectionKey | null, (s: SectionKey) => void] {
 
 /* =============== Page =============== */
 
-export default function CoursePage({ params }: { params: { id: string } }) {
+export default function CoursePage({ params }: { params: { id: string; lessonId?: string } }) {
   const courseId = Number(params.id);
+  // Set on /course/[id]/lessons/[lessonId]: one page of the Lessons section.
+  const lessonsView = params.lessonId;
+  const router = useRouter();
   const [course, setCourse] = useState<Course | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -195,7 +198,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [activeCurve, setActiveCurve] = useState<ActiveCurve | null>(null);
   const [dimensionDistributions, setDimensionDistributions] = useState<Record<string, number[]>>({});
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
-  const [urlSection, setSection] = useSectionInUrl();
+  const [urlSection, setSectionHere] = useSectionInUrl();
+  // On a lesson page the other sections live at the course URL, not here.
+  const setSection = useCallback(
+    (s: SectionKey) => (lessonsView == null ? setSectionHere(s) : router.push(courseSectionHref(courseId, s))),
+    [lessonsView, setSectionHere, router, courseId]
+  );
   // Where the bare course URL opens, decided once on the first load so that
   // uploading the roster doesn't move you off the page you're on.
   const [defaultSection, setDefaultSection] = useState<SectionKey | null>(null);
@@ -250,11 +258,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     return <div className="p-10 text-ink-3">Loading…</div>;
   }
 
-  const step: SectionKey = urlSection ?? defaultSection ?? 'queue';
+  const step: SectionKey = lessonsView != null ? 'lessons' : urlSection ?? defaultSection ?? 'queue';
   const stepInfo = SECTIONS.find((s) => s.key === step) ?? SECTIONS[0];
 
   return (
-    <div className="grid min-h-screen" style={{ gridTemplateColumns: '248px 1fr' }}>
+    <div className="grid min-h-screen md:grid-cols-[248px_minmax(0,1fr)]">
       <Sidebar
         course={course}
         graded={graded}
@@ -267,18 +275,18 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
       <div className="min-w-0">
         {/* Section header */}
-        <div className="mx-auto max-w-[1500px] px-10 pt-9">
+        <div className="mx-auto max-w-[1500px] px-4 pt-5 md:px-10 md:pt-9">
           <div className="flex items-end justify-between gap-6">
             <div>
               <div className="label-eyebrow mb-1.5">{stepInfo.group}</div>
-              <h1 className="font-display text-[34px] leading-tight tracking-tight">{stepInfo.label}</h1>
+              <h1 className="font-display text-[28px] leading-tight tracking-tight md:text-[34px]">{stepInfo.label}</h1>
               <p className="mt-1 text-[15px] text-ink-3">{stepInfo.sub}</p>
             </div>
           </div>
           <div className="mt-5 h-px bg-border" />
         </div>
 
-        <div className="mx-auto max-w-[1500px] px-10 pb-20">
+        <div className="mx-auto max-w-[1500px] px-4 pb-20 md:px-10">
           {step === 'students' ? (
             <StudentsStep courseId={courseId} setToast={setToast} refresh={loadAll} />
           ) : null}
@@ -298,7 +306,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             <RubricsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
           ) : null}
           {step === 'peer' ? <PeerReviewStep courseId={courseId} setToast={setToast} /> : null}
-          {step === 'lessons' ? <LessonsStep courseId={courseId} course={course} setToast={setToast} /> : null}
+          {step === 'lessons' ? <LessonsStep
+              courseId={courseId}
+              course={course}
+              view={lessonsView}
+              setToast={setToast}
+            /> : null}
           {step === 'curve' ? (
             <CurveStep
               courseId={courseId}
@@ -388,9 +401,53 @@ function Sidebar({
     </a>
   );
   const settings = SECTIONS.find((s) => s.key === 'settings')!;
+  const current = SECTIONS.find((s) => s.key === step);
 
   return (
-    <aside className="sticky top-0 flex h-screen flex-col gap-1 overflow-y-auto border-r border-border bg-paper-2 px-[18px] py-6">
+    <>
+    {/* Phones: the sections fold into a menu above the page. Its links aren't
+        .nav-step, so the desktop sidebar's stay the only ones. */}
+    <details className="group border-b border-border bg-paper-2 px-4 py-2.5 md:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-forest [&::-webkit-details-marker]:hidden">
+        <span className="font-display text-[16px] tracking-tight text-ink">cg</span>
+        <span className="min-w-0 flex-1 truncate text-ink-2">
+          {course.code} · {current?.label}
+        </span>
+        <span className="text-[13px] text-forest">
+          Sections <span aria-hidden>▾</span>
+        </span>
+      </summary>
+      <nav aria-label="Course sections" className="grid gap-0.5 pb-1 pt-2">
+        {[...SECTIONS.filter((s) => s.key !== 'settings'), settings].map((s) => (
+          <a
+            key={s.key}
+            href={courseSectionHref(course.id, s.key)}
+            aria-current={step === s.key ? 'page' : undefined}
+            className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[14px] no-underline outline-none focus-visible:ring-2 focus-visible:ring-forest ${
+              step === s.key ? 'bg-card font-semibold text-ink' : 'text-ink-2'
+            }`}
+            onClick={(e) => {
+              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+              e.preventDefault();
+              (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open');
+              setStep(s.key);
+            }}
+          >
+            <span className="w-[18px] text-center" aria-hidden>
+              {s.icon}
+            </span>
+            {s.label}
+          </a>
+        ))}
+        <Link href={`/course/${course.id}/student-view`} className="flex items-center gap-2 rounded-md px-2.5 py-2 text-[14px] text-ink-2 no-underline">
+          <span className="w-[18px] text-center" aria-hidden>
+            👁
+          </span>
+          View as student
+        </Link>
+      </nav>
+    </details>
+    <aside className="sticky top-0 hidden h-screen flex-col md:flex gap-1 overflow-y-auto border-r border-border bg-paper-2 px-[18px] py-6">
       <Link href="/" className="mb-2 flex items-center gap-2.5 border-b border-border px-2 pb-4 pt-1 no-underline">
         <span className="grid h-[30px] w-[30px] place-items-center rounded-lg bg-forest font-display text-[18px] tracking-tight text-paper">
           cg
@@ -444,6 +501,7 @@ function Sidebar({
         </Link>
       </div>
     </aside>
+    </>
   );
 }
 

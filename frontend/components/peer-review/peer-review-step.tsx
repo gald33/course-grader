@@ -72,10 +72,11 @@ type Overview = {
   student_count: number;
 };
 
-type TabKey = 'schedule' | 'teams' | 'rubrics' | 'reviews' | 'scores';
+// Teams, accounts and the students' links are course pages of their own
+// (Students and Teams in the course sidebar); peer review uses them.
+type TabKey = 'schedule' | 'rubrics' | 'reviews' | 'scores';
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'schedule', label: 'Schedule & windows' },
-  { key: 'teams', label: 'Teams & links' },
   { key: 'rubrics', label: 'Rubrics' },
   { key: 'reviews', label: 'Reviews & participation' },
   { key: 'scores', label: 'Scores & export' }
@@ -198,14 +199,14 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
           </button>
         ))}
         <a
-          href={`/course/${courseId}/student-view`}
+          href={`/course/${courseId}/student-view?tab=review`}
           className="ml-auto rounded-full border border-terracotta-soft bg-terracotta-tint px-3.5 py-1.5 text-[13px] text-ink hover:border-terracotta"
         >
           👁 View as student
         </a>
       </div>
 
-      {tab !== 'teams' && tab !== 'rubrics' ? (
+      {tab !== 'rubrics' ? (
         <div className="flex flex-wrap gap-2">
           {overview.rounds.map((r) => (
             <button
@@ -224,12 +225,6 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
       ) : null}
 
       {tab === 'schedule' ? <ScheduleTab base={base} overview={overview} round={round} run={run} /> : null}
-      {tab === 'teams' ? (
-        <>
-          <AccountsCard courseId={courseId} setToast={setToast} />
-          <TeamsTab base={base} courseId={courseId} run={run} setToast={setToast} />
-        </>
-      ) : null}
       {tab === 'rubrics' ? <RubricsTab base={base} setToast={setToast} /> : null}
       {tab === 'reviews' ? <ReviewsTab key={round.id} base={base} round={round} run={run} /> : null}
       {tab === 'scores' ? <ScoresTab key={round.id} base={base} courseId={courseId} round={round} run={run} setToast={setToast} /> : null}
@@ -910,7 +905,7 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
     );
 
   return (
-    <Card className="mb-4 grid gap-3">
+    <Card className="grid gap-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="font-display text-[20px]">Student accounts</h3>
@@ -1015,7 +1010,53 @@ function AccountsCard({ courseId, setToast }: { courseId: number; setToast: (m: 
   );
 }
 
-/* =============== Teams & links =============== */
+/* =============== Students and Teams (course pages of their own) =============== */
+
+/** Copies text, falling back to a prompt where the clipboard is blocked. */
+async function copyText(text: string, msg: string, setToast: (m: string) => void) {
+  try {
+    await navigator.clipboard.writeText(text);
+    setToast(msg);
+  } catch {
+    window.prompt('Copy:', text);
+  }
+}
+
+/** Runs an instructor action with a toast on success or failure. */
+function useToastRun(setToast: (m: string) => void): Run {
+  return useCallback(
+    async (fn: () => Promise<unknown>, success?: string) => {
+      try {
+        await fn();
+        if (success) setToast(success);
+      } catch (e) {
+        setToast(errorMessage(e));
+      }
+    },
+    [setToast]
+  );
+}
+
+/** The course page's Teams section. */
+export function TeamsStep({ courseId, setToast }: { courseId: number; setToast: (m: string) => void }) {
+  const run = useToastRun(setToast);
+  return (
+    <div className="grid gap-4 pt-6">
+      <TeamsTab base={`/api/courses/${courseId}/peer`} run={run} setToast={setToast} />
+    </div>
+  );
+}
+
+/** Sign-in accounts and personal links: on the course page's Students section. */
+export function StudentAccessCards({ courseId, setToast }: { courseId: number; setToast: (m: string) => void }) {
+  const run = useToastRun(setToast);
+  return (
+    <>
+      <AccountsCard courseId={courseId} setToast={setToast} />
+      <StudentLinksCard base={`/api/courses/${courseId}/peer`} courseId={courseId} run={run} setToast={setToast} />
+    </>
+  );
+}
 
 type TeamsData = {
   settings: { teams_open: boolean; max_team_size: number; teams_deadline: string | null; teams_locked: boolean };
@@ -1234,50 +1275,23 @@ function AutoAssignPanel({
   );
 }
 
-function TeamsTab({
-  base,
-  courseId,
-  run,
-  setToast
-}: {
-  base: string;
-  courseId: number;
-  run: Run;
-  setToast: (m: string) => void;
-}) {
+function TeamsTab({ base, run, setToast }: { base: string; run: Run; setToast: (m: string) => void }) {
   const [data, setData] = useState<TeamsData | null>(null);
-  const [links, setLinks] = useState<LinkRow[]>([]);
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
-  const [origin, setOrigin] = useState('');
 
   const load = useCallback(async () => {
-    const [t, l] = await Promise.all([apiGet<TeamsData>(`${base}/teams`), apiGet<LinkRow[]>(`${base}/links`)]);
-    setData(t);
-    setLinks(l);
+    setData(await apiGet<TeamsData>(`${base}/teams`));
   }, [base]);
   useEffect(() => {
     void load();
-    try {
-      setOrigin(localStorage.getItem('cg-review-link-origin') || window.location.origin);
-    } catch {
-      setOrigin(window.location.origin);
-    }
   }, [load]);
 
   const act = async (fn: () => Promise<unknown>, msg?: string) => {
     await run(fn, msg);
     await load();
   };
-  const linkFor = (token: string) => `${origin.replace(/\/$/, '')}/r/${token}`;
-  const copy = async (text: string, msg: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setToast(msg);
-    } catch {
-      window.prompt('Copy:', text);
-    }
-  };
+  const copy = (text: string, msg: string) => copyText(text, msg, setToast);
 
   if (!data) return <div className="text-ink-3">Loading…</div>;
   const counts = data.students.reduce<Record<number, number>>((acc, s) => {
@@ -1479,102 +1493,137 @@ function TeamsTab({
         </Card>
       </div>
 
-      <Card className="grid gap-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h3 className="font-display text-[20px]">Student review links</h3>
-            <p className="max-w-2xl text-[13px] text-ink-3">
-              Each student gets a personal link — their only credential. Share it privately (e.g. email). Anyone with the
-              link can review as that student, so regenerate a link if it leaks.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <div>
-              <Label>Link base URL</Label>
-              <Input
-                className="h-9 w-[280px]"
-                value={origin}
-                onChange={(e) => {
-                  setOrigin(e.target.value);
-                  try {
-                    localStorage.setItem('cg-review-link-origin', e.target.value);
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              />
-            </div>
-            <Button size="sm" variant="soft" onClick={() => act(() => apiPost(`${base}/links/generate`), 'Links generated')}>
-              Generate missing links
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!links.some((l) => l.token)}
-              onClick={() =>
-                copy(
-                  ['national_id,name,team,link']
-                    .concat(
-                      links
-                        .filter((l) => l.token)
-                        .map((l) => [l.national_id, `"${l.name}"`, `"${l.team_name ?? ''}"`, linkFor(l.token!)].join(','))
-                    )
-                    .join('\n'),
-                  'All links copied as CSV'
-                )
-              }
-            >
-              Copy all (CSV)
-            </Button>
-          </div>
-        </div>
-        <div className="max-h-[420px] overflow-auto">
-          <table className="w-full border-collapse text-[13px]">
-            <tbody>
-              {links.map((l) => (
-                <tr key={l.enrollment_id} className="border-b border-line-soft last:border-b-0">
-                  <td className="py-1.5 pr-3">
-                    <BilingualName name={l.name} />
-                  </td>
-                  <td className="py-1.5 pr-3 text-ink-3">{l.team_name ?? '—'}</td>
-                  <td className="py-1.5 pr-3 font-mono text-[11px] text-ink-3">
-                    {l.token ? `${linkFor(l.token).slice(0, 48)}…` : 'no link yet'}
-                  </td>
-                  <td className="py-1.5 text-right">
-                    {l.token ? (
-                      <>
-                        <button className="mr-3 text-forest hover:underline" onClick={() => copy(linkFor(l.token!), 'Link copied')}>
-                          Copy
-                        </button>
-                        <a
-                          className="mr-3 text-forest hover:underline"
-                          href={`/course/${courseId}/student-view?student=${l.student_id}`}
-                          title="See this student's page, read-only"
-                        >
-                          Preview
-                        </a>
-                        <a className="mr-3 text-forest hover:underline" href={`/r/${l.token}`} target="_blank" rel="noreferrer">
-                          Open
-                        </a>
-                        <button
-                          className="text-ink-3 hover:text-bad"
-                          onClick={() =>
-                            window.confirm(`Replace ${l.name}'s link? The old link stops working.`) &&
-                            act(() => apiPost(`${base}/links/${l.enrollment_id}/regenerate`), 'New link created')
-                          }
-                        >
-                          Regenerate
-                        </button>
-                      </>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
+  );
+}
+
+/** Each student's personal portal link (grades, team, peer review, lessons). */
+function StudentLinksCard({
+  base,
+  courseId,
+  run,
+  setToast
+}: {
+  base: string;
+  courseId: number;
+  run: Run;
+  setToast: (m: string) => void;
+}) {
+  const [links, setLinks] = useState<LinkRow[]>([]);
+  const [origin, setOrigin] = useState('');
+  const load = useCallback(async () => setLinks(await apiGet<LinkRow[]>(`${base}/links`)), [base]);
+  useEffect(() => {
+    void load();
+    try {
+      setOrigin(localStorage.getItem('cg-review-link-origin') || window.location.origin);
+    } catch {
+      setOrigin(window.location.origin);
+    }
+  }, [load]);
+
+  const act = async (fn: () => Promise<unknown>, msg?: string) => {
+    await run(fn, msg);
+    await load();
+  };
+  const linkFor = (token: string) => `${origin.replace(/\/$/, '')}/r/${token}`;
+  const copy = (text: string, msg: string) => copyText(text, msg, setToast);
+
+  return (
+    <Card className="grid gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h3 className="font-display text-[20px]">Personal links</h3>
+          <p className="max-w-2xl text-[13px] text-ink-3">
+            Each student's own page: grades, team, peer reviews and lessons. The link opens it without a password, so
+            share it privately (e.g. email). Anyone with the link can act as that student; regenerate a link if it leaks.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <Label>Link base URL</Label>
+            <Input
+              className="h-9 w-[280px]"
+              value={origin}
+              onChange={(e) => {
+                setOrigin(e.target.value);
+                try {
+                  localStorage.setItem('cg-review-link-origin', e.target.value);
+                } catch {
+                  /* ignore */
+                }
+              }}
+            />
+          </div>
+          <Button size="sm" variant="soft" onClick={() => act(() => apiPost(`${base}/links/generate`), 'Links generated')}>
+            Generate missing links
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!links.some((l) => l.token)}
+            onClick={() =>
+              copy(
+                ['national_id,name,team,link']
+                  .concat(
+                    links
+                      .filter((l) => l.token)
+                      .map((l) => [l.national_id, `"${l.name}"`, `"${l.team_name ?? ''}"`, linkFor(l.token!)].join(','))
+                  )
+                  .join('\n'),
+                'All links copied as CSV'
+              )
+            }
+          >
+            Copy all (CSV)
+          </Button>
+        </div>
+      </div>
+      <div className="max-h-[420px] overflow-auto">
+        <table className="w-full border-collapse text-[13px]">
+          <tbody>
+            {links.map((l) => (
+              <tr key={l.enrollment_id} className="border-b border-line-soft last:border-b-0">
+                <td className="py-1.5 pr-3">
+                  <BilingualName name={l.name} />
+                </td>
+                <td className="py-1.5 pr-3 text-ink-3">{l.team_name ?? '—'}</td>
+                <td className="py-1.5 pr-3 font-mono text-[11px] text-ink-3">
+                  {l.token ? `${linkFor(l.token).slice(0, 48)}…` : 'no link yet'}
+                </td>
+                <td className="py-1.5 text-right">
+                  {l.token ? (
+                    <>
+                      <button className="mr-3 text-forest hover:underline" onClick={() => copy(linkFor(l.token!), 'Link copied')}>
+                        Copy
+                      </button>
+                      <a
+                        className="mr-3 text-forest hover:underline"
+                        href={`/course/${courseId}/student-view?student=${l.student_id}`}
+                        title="See this student's page, read-only"
+                      >
+                        Preview
+                      </a>
+                      <a className="mr-3 text-forest hover:underline" href={`/r/${l.token}`} target="_blank" rel="noreferrer">
+                        Open
+                      </a>
+                      <button
+                        className="text-ink-3 hover:text-bad"
+                        onClick={() =>
+                          window.confirm(`Replace ${l.name}'s link? The old link stops working.`) &&
+                          act(() => apiPost(`${base}/links/${l.enrollment_id}/regenerate`), 'New link created')
+                        }
+                      >
+                        Regenerate
+                      </button>
+                    </>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 

@@ -175,7 +175,13 @@ def test_antigravity_is_cited_with_no_pricing_claims_and_a_labeled_fallback(less
     assert "http" not in text  # site names only, as plain text
     assert "[[antigravity.google/docs]]" in text and "3 בנובמבר 2026" in text
     assert "[[antigravity.google/download]]" in text and "[[antigravity.google/docs/rules]]" in text
-    assert "`AGENTS.md`" in text
+    assert "`AGENTS.md`" in text and "`GEMINI.md`" in text
+    # Sign-in prerequisites as Google states them, cited; nothing about institutional accounts.
+    prereq = json.dumps(lesson["steps"][0]["blocks"][0], ensure_ascii=False)
+    assert "חשבון Google אישי" in prereq and "מגיל 18" in prereq and "[[antigravity.google/docs/faq]]" in prereq
+    assert "מסלול חלופי" in prereq
+    for word in ("מוסד", "של עבודה", "Workspace"):
+        assert word not in text, word
     # Limits: a pointer to the current ones, never a price or quota.
     assert "[[antigravity.google/docs/plans]]" in text
     for claim in ("₪", "$", "USD", "Ultra", "Pro ", "מכסת", "לשבוע", "בחינם"):

@@ -47,7 +47,7 @@ const questionCard = (page: Page, key: string) => page.locator(`article[aria-lab
 test('the readiness table keeps drafted, reviewed, runnable, published and live verified apart', async ({ page }) => {
   const problems = await watchForErrors(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/course/${seed.course.id}`);
+  await page.goto(`/course/${seed.course.id}?section=lessons`);
   await page.locator('.nav-step').filter({ hasText: 'Lessons' }).click();
 
   const plan = page.getByTestId('course-plan');

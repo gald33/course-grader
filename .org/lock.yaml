@@ -1,0 +1,109 @@
+org_core: 0.74.0
+manifest_version: 1
+generated_at: '2026-11-03T09:29:54+00:00'
+ports:
+  work_store: roadmap-core
+  coordination: switchboard
+  code_context: repoctx
+  checks: absent
+  tickets: absent
+  prod_read: null
+  vcs: github
+  sessions: claude-code-remote
+  operator_surface: docs/human/state-of-the-org.md
+suite:
+  org-core:
+    policy: vendored
+    cli: org
+  switchboard:
+    policy: tracking
+    spec: agent-switchboard[all]
+    cli: switchboard
+    mcp: switchboard
+  roadmap-core:
+    policy: pinned
+    spec: roadmap-core[files]>=0.5,<0.6
+    cli: roadmap
+    mcp: roadmap
+  repoctx:
+    policy: pinned
+    spec: repoctx-mcp>=1.6
+    cli: repoctx
+    mcp: repoctx
+  db:
+    policy: service
+  gh:
+    policy: external
+    cli: gh
+files:
+  .claude/agents/builder.md:
+    role: builder
+    kind: agent
+    template_version: 0.3.3
+    template_sha256: 9d29a3d0bcd5f7bc3194dfd63236a5285fbff9244f03353f642fdd774f6d9522
+    rendered_sha256: 5c13eb9c263bb815c225fe6b84da82ca0184c9c41a23676d62478c8ac5878b1b
+    base_sha256: 94260de28cc39228c931533b31066641db2e4bb20124a6d74102730bd30d605b
+  .claude/agents/ceo.md:
+    role: ceo
+    kind: agent
+    template_version: 0.3.8
+    template_sha256: 80b33f5e9c30bc94f0af3dff74e7b7f257dd18069f82237b5f95d0b441b71e18
+    rendered_sha256: d4650a5a9865352925e11e045aa7c6688f555b9091a4b94a61ffcdef558ef61e
+    base_sha256: 5e3680737c0cbb87414f00cd13c14a80570d81e5456bead2e1d4662e3d6ce323
+  .claude/agents/dispatcher.md:
+    role: dispatcher
+    kind: agent
+    template_version: 0.3.7
+    template_sha256: 9d29a3d0bcd5f7bc3194dfd63236a5285fbff9244f03353f642fdd774f6d9522
+    rendered_sha256: d4ebc57631c159279db8d9643de92980df4dcbfc62b3e56ceeeb7ed16ee0eb5a
+    base_sha256: e842811975ef642d06483a17126205021c5414537a008838c11a364c01f8a2a5
+  .claude/agents/reviewer.md:
+    role: reviewer
+    kind: agent
+    template_version: 0.3.4
+    template_sha256: 9d29a3d0bcd5f7bc3194dfd63236a5285fbff9244f03353f642fdd774f6d9522
+    rendered_sha256: 14703133c6c835ca0156b2566c1ca4a74333056cbe8165392045d20edfc730fc
+    base_sha256: fc62a7e73cf73f9cc00b9030dac2931a08ccb0651c102442dc00804f7fb009c9
+  .claude/hooks/org-setup.sh:
+    role: org
+    kind: setup
+    template_version: 0.74.0
+    template_sha256: 9a9c48c7a80049a0ab9fac047bdca6b582cf82dc7c60f07190f133603d4c85b4
+    rendered_sha256: ede98c835783187f318270ab9cc5fd304986179e8b170749751bcfc1b9db98eb
+    base_sha256: null
+  .claude/skills/builder/SKILL.md:
+    role: builder
+    kind: skill
+    template_version: 0.3.3
+    template_sha256: 33fc554a79d2c55661f1283f3fc86f7defa8460302dfdc009f7e86ba48ca3488
+    rendered_sha256: 67d5a1806636c7743ae63f320f173153c903402a4871533984d7824aa13e5249
+    base_sha256: 0d5551f0b618c808868fbdf2ab8126130e6f78a1c3d3f35c53f80041720abd44
+  .claude/skills/ceo/SKILL.md:
+    role: ceo
+    kind: skill
+    template_version: 0.3.8
+    template_sha256: 33fc554a79d2c55661f1283f3fc86f7defa8460302dfdc009f7e86ba48ca3488
+    rendered_sha256: 63e69cfba9c04b5125de1828850328ce25b813fc23287143e4a8c1ef7e57c11c
+    base_sha256: 648db9c2a6366a69b29417529d2c3f0227a7b9702447109e8b80ed174bbc69f2
+  .claude/skills/dispatcher/SKILL.md:
+    role: dispatcher
+    kind: skill
+    template_version: 0.3.7
+    template_sha256: 33fc554a79d2c55661f1283f3fc86f7defa8460302dfdc009f7e86ba48ca3488
+    rendered_sha256: a8830f8a9312f5f14565d191eda022d8c14b009435141190a05a8bdf6b2a9d2f
+    base_sha256: ece4e09d1a1ece842878ca136c064875c673173f283ea0533f4395aa08e859fa
+  .claude/skills/reviewer/SKILL.md:
+    role: reviewer
+    kind: skill
+    template_version: 0.3.4
+    template_sha256: 33fc554a79d2c55661f1283f3fc86f7defa8460302dfdc009f7e86ba48ca3488
+    rendered_sha256: fb184075a586e934b9dca69e3e1e4b520e1ef3dcc0af13496702a8e99dee33c9
+    base_sha256: c8567e55331faec95a9846279f990ec38d2eefd4b7cdb5e7469d6e0ec504399e
+  docs/ai/lessons.md:
+    role: org
+    kind: lessons
+    template_version: 0.74.0
+    template_sha256: 0c23ac9bd6d749e0e41a88dce87a803ffd01ed963d254e69a0215578e02cebe2
+    rendered_sha256: 95a321cab5a364d17120c10bae211b35f53ef9325b415f455f4e1c50d631ba5d
+    base_sha256: 92b695d4dfdc1e08f047ce8f6c0c11b0e5b96a5e8559294b24f023882d7f855a
+vendored_wheel: .org/wheels/org_core-0.74.0-py3-none-any.whl

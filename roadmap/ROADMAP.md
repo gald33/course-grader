@@ -27,7 +27,6 @@ _Nothing deferred._
 
 | item | held by | since |
 |---|---|---|
-| `course-42052-whole-syllabus` | claude/course-42052-whole-syllabus | 2026-10-27T16:00:00Z |
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-how-language-models-work` | claude/lesson-3-how-language-models-work | 2026-11-03T12:00:00Z |
 
@@ -49,7 +48,7 @@ graph TD
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
   assignments_need_custom_rubrics["✓ Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::done
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
-  course_42052_whole_syllabus["The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::claimed
+  course_42052_whole_syllabus["✓ The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
@@ -170,9 +169,8 @@ graph TD
 ### `course-42052-whole-syllabus`
 
 - **title:** The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/course-42052-whole-syllabus (since 2026-10-27T16:00:00Z)
 - **blocks:** `lesson-3-how-language-models-work`
 - **refs:**
   - `content/course-42052/COURSE-HANDOFF.txt`
@@ -213,6 +211,8 @@ graph TD
 >
 > Later phases, not in this item: runnable exercises and notebooks for
 > lessons 3-13 per readiness.json, and homework briefs.
+>
+> SHIPPED: #29, merged as 161530d.
 
 </details>
 

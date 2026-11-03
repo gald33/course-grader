@@ -19,6 +19,24 @@ export type Seed = {
   test_student: { id: number; name: string };
   /** The imported 42052 course plan's draft lessons (slug -> lesson id), with FAKE answer keys loaded. */
   plan_lessons: Record<string, number>;
+  /** Assignment pages, in a course of their own: an HW1 without a submission,
+   * an HW2 scored 4/5 on every fixed dimension (80), and a project on a
+   * custom rubric; HW2 and the project are released. */
+  assignments: {
+    course_id: number;
+    student: { id: number; name: string; token: string };
+    hw1: { id: number; name: string };
+    hw2: { id: number; name: string; score: number; feedback: string };
+    /** Scored on a custom rubric (#26) and released: criterion 1 by the LLM
+     * (with a rationale), criterion 2 overridden by the instructor. */
+    project: {
+      id: number;
+      name: string;
+      criteria: { name: string; description: string; max_points: number }[];
+      scores: number[];
+      rationale: string;
+    };
+  };
   /** Custom rubrics, in a course of their own: an HW2 without one, and a
    * project whose submission has one criterion scored by the LLM and one not. */
   rubrics: {

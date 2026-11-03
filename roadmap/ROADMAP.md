@@ -16,6 +16,7 @@ Claim before starting: `roadmap claim <key>`
   - ↔ related: **`team-formation-closes-at-a-deadline`** — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
 - `later` **`retire-bonus-points-phase-2-drop-column`** — enrollments.bonus_points is zeroed but still in the schema
 - `later` **`roster-reimport-email-conflicts-are-not-shown`** — Roster re-import reports email conflicts that the UI never shows
+- `later` **`suggest-rubrics-per-assignment-from-clusters`** — Suggest a rubric for a new assignment from clusters of past rubrics
 - `later` **`unreleasing-a-peer-round-keeps-its-gradebook-scores`** — Un-releasing a peer round leaves its applied scores in the gradebook
 
 ## ⏸ Deferred — startable, deliberately not now
@@ -26,16 +27,13 @@ _Nothing deferred._
 
 | item | held by | since |
 |---|---|---|
-| `assignments-need-custom-rubrics` | claude/assignments-need-custom-rubrics | 2026-10-21T10:25:06Z |
 | `course-42052-whole-syllabus` | claude/course-42052-whole-syllabus | 2026-10-27T16:00:00Z |
-| `student-portal-is-one-long-scroll` | claude/student-portal-is-one-long-scroll | 2026-10-20T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
 ## ⛔ Blocked
 
-- **`suggest-rubrics-per-assignment-from-clusters`** — Suggest a rubric for a new assignment from clusters of past rubrics  
-  waiting on `assignments-need-custom-rubrics`
+_Nothing blocked._
 
 ## Dependency graph
 
@@ -47,7 +45,7 @@ graph TD
   classDef claimed stroke:#8250df,stroke-width:2px
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
-  assignments_need_custom_rubrics["Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::claimed
+  assignments_need_custom_rubrics["✓ Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::done
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
   course_42052_whole_syllabus["The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::claimed
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
@@ -61,9 +59,10 @@ graph TD
   retire_bonus_points_phase_2_drop_column["enrollments.bonus_points is zeroed but still in the schema"]:::ready
   roster_cannot_be_edited_per_student["✓ Add, remove, withdraw or fix a single student without re-importing the roster"]:::done
   roster_reimport_email_conflicts_are_not_shown["Roster re-import reports email conflicts that the UI never shows"]:::ready
-  student_portal_is_one_long_scroll["The student portal is one long scroll with no navigation"]:::claimed
+  student_portal_is_one_long_scroll["✓ The student portal is one long scroll with no navigation"]:::done
   students_cannot_see_their_own_grades["✓ Students cannot see their own grades, feedback or attendance status"]:::done
-  suggest_rubrics_per_assignment_from_clusters["Suggest a rubric for a new assignment from clusters of past rubrics"]:::blocked
+  students_need_an_assignment_page["✓ Students have no page for an assignment"]:::done
+  suggest_rubrics_per_assignment_from_clusters["Suggest a rubric for a new assignment from clusters of past rubrics"]:::ready
   team_formation_closes_at_a_deadline["✓ Let students form their own teams until a deadline, then lock teams automatically"]:::done
   unreleasing_a_peer_round_keeps_its_gradebook_scores["Un-releasing a peer round leaves its applied scores in the gradebook"]:::ready
   unteamed_students_need_instructor_approved_auto_assign["After teams lock, propose teams for unteamed students and apply them only on the instructor's approval"]:::ready
@@ -78,9 +77,8 @@ graph TD
 ### `assignments-need-custom-rubrics`
 
 - **title:** Assignments are graded on one fixed rubric instead of rubrics that fit the task
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/assignments-need-custom-rubrics (since 2026-10-21T10:25:06Z)
 - **blocks:** `suggest-rubrics-per-assignment-from-clusters`
 - **refs:**
   - `backend/app/services/scoring.py`
@@ -120,6 +118,8 @@ graph TD
 > comes from the rubric. An LLM failure leaves criteria "not scored" and
 > the run still succeeds. Assignments without a custom rubric score exactly
 > as before, proven by a regression test.
+>
+> SHIPPED: #26, merged as 62ba0ae.
 
 </details>
 
@@ -506,9 +506,8 @@ graph TD
 ### `student-portal-is-one-long-scroll`
 
 - **title:** The student portal is one long scroll with no navigation
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/student-portal-is-one-long-scroll (since 2026-10-20T00:00:00Z)
 - **refs:**
   - `frontend/components/student-view.tsx`
   - `frontend/components/my-grades.tsx`
@@ -546,6 +545,8 @@ graph TD
 > to the existing /r/<token>/lessons routes, and Home points at a lesson in
 > progress; the instructor preview gets the same portal; and the Playwright
 > smoke test covers switching tabs and the lessons entry point.
+>
+> SHIPPED: #24, merged as 89e6d5d.
 
 </details>
 
@@ -580,10 +581,67 @@ graph TD
 
 </details>
 
+### `students-need-an-assignment-page`
+
+- **title:** Students have no page for an assignment
+- **status:** done
+- **priority:** now
+- **refs:**
+  - `backend/app/models/entities.py`
+  - `backend/app/api/student_review.py`
+  - `backend/app/services/student_grades.py`
+  - `backend/app/services/student_assignments.py`
+  - `backend/app/services/scoring.py`
+  - `frontend/components/student-view.tsx`
+  - `frontend/components/assignment-page.tsx`
+  - `frontend/app/r/[token]/assignments/[id]/page.tsx`
+  - `frontend/app/course/[id]/student-view/assignments/[assignmentId]/page.tsx`
+
+<details><summary>evidence</summary>
+
+> VERIFIED at 89e6d5d. The student portal (#24) has no assignments at all:
+> `GET /api/r/{token}` (backend/app/api/student_review.py:269 `_payload`)
+> returns the course, team, rounds, released grades and lessons, and no
+> assignment list. The Grades tab shows one score and feedback line per
+> released component (backend/app/services/student_grades.py:36
+> `grades_view`), with no rubric and no per-dimension breakdown, though the
+> gradebook scores HW2 and the project on fixed rubric dimensions
+> (backend/app/services/scoring.py:38 `CODE_DIMENSIONS`, :53
+> `REPORT_DIMENSIONS`, summed by `component_score_from_rubric` at :272).
+>
+> What the data holds today: `Assignment` (backend/app/models/entities.py:92)
+> is id, course, workcode, name and type (HW1/HW2/PROJECT) only: no
+> description, instructions, deadline, files or links. `Submission` (:107)
+> has `feedback_student` (:118) and `created_at` (:128), which is when the
+> system recorded it (the Moodle zip import), not when the student handed it
+> in. The only deadlines in the model are the team deadline (:39) and the
+> review rounds' (:383).
+>
+> Done when: each assignment opens its own page at /r/<token>/assignments/<id>
+> from the portal's Course info and Grades tabs, showing its title, type,
+> submission status and the rubric criteria with their points; once its
+> grade component is released (#14's rules: HW1 -> hw1, HW2 -> hw2,
+> PROJECT -> project) it also shows the score, the per-criterion breakdown
+> with the rationales that still match their score, the instructor's
+> feedback and any applied peer-round part (#15), and un-releasing hides them
+> again; a custom rubric (assignments-need-custom-rubrics, PR #26, not on
+> main yet) renders in place of the fixed code rubric when the payload
+> carries one; test students and "view as student" see the same page; and a
+> Playwright test opens an assignment from the portal and comes back.
+>
+> Follow-ups (the data does not exist yet): assignment description and
+> instructions, a deadline (and so "late" and a Home "up next" item when it
+> is near), course files and links per assignment, and the student's real
+> hand-in time.
+>
+> SHIPPED: #27, merged as c0bb786.
+
+</details>
+
 ### `suggest-rubrics-per-assignment-from-clusters`
 
 - **title:** Suggest a rubric for a new assignment from clusters of past rubrics
-- **status:** blocked
+- **status:** ready
 - **priority:** later
 - **blocked on:** `assignments-need-custom-rubrics`
 - **refs:**

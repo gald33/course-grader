@@ -1,0 +1,473 @@
+{
+ "format": 1,
+ "model": "Qwen/Qwen2.5-0.5B",
+ "revision": "060db6499f32faf8b98477b0a26969ef7d8b9987",
+ "generated_at": "2026-11-03",
+ "script": "scripts/lesson-03/generate_next_word.py",
+ "library": "transformers 5.22.1, torch 2.15.0+cpu",
+ "note": "Precomputed offline from a small open model. Not the chatbot students use.",
+ "prompts": [
+  {
+   "id": "morning-he",
+   "context": "בבוקר, לפני העבודה, אני שותה כוס",
+   "lang": "he",
+   "candidates": [
+    {
+     "word": "קפה",
+     "share": 0.3586
+    },
+    {
+     "word": "תה",
+     "share": 0.0073
+    },
+    {
+     "word": "מים",
+     "share": 0.5692
+    },
+    {
+     "word": "יין",
+     "share": 0.0649
+    }
+   ],
+   "top_tokens": [
+    {
+     "token": "ה",
+     "p": 0.1579
+    },
+    {
+     "token": " של",
+     "p": 0.055
+    },
+    {
+     "token": " ח",
+     "p": 0.0345
+    },
+    {
+     "token": " ק",
+     "p": 0.0319
+    },
+    {
+     "token": "ות",
+     "p": 0.0311
+    },
+    {
+     "token": "ים",
+     "p": 0.0229
+    },
+    {
+     "token": " ש",
+     "p": 0.0224
+    },
+    {
+     "token": " ב",
+     "p": 0.0209
+    },
+    {
+     "token": " פ",
+     "p": 0.0204
+    },
+    {
+     "token": " מ",
+     "p": 0.0197
+    }
+   ],
+   "other_p": 0.5833
+  },
+  {
+   "id": "dinner-he",
+   "context": "בערב, עם הארוחה החגיגית, שתינו כוס",
+   "lang": "he",
+   "candidates": [
+    {
+     "word": "קפה",
+     "share": 0.1396
+    },
+    {
+     "word": "תה",
+     "share": 0.0115
+    },
+    {
+     "word": "מים",
+     "share": 0.7556
+    },
+    {
+     "word": "יין",
+     "share": 0.0934
+    }
+   ],
+   "top_tokens": [
+    {
+     "token": "ה",
+     "p": 0.1185
+    },
+    {
+     "token": "ות",
+     "p": 0.0979
+    },
+    {
+     "token": "ים",
+     "p": 0.0738
+    },
+    {
+     "token": " של",
+     "p": 0.0301
+    },
+    {
+     "token": "י",
+     "p": 0.0224
+    },
+    {
+     "token": " מ",
+     "p": 0.0144
+    },
+    {
+     "token": " ח",
+     "p": 0.0144
+    },
+    {
+     "token": " ו",
+     "p": 0.0131
+    },
+    {
+     "token": " אחד",
+     "p": 0.0126
+    },
+    {
+     "token": " ק",
+     "p": 0.0123
+    }
+   ],
+   "other_p": 0.5905
+  },
+  {
+   "id": "morning-en",
+   "context": "Every morning before work I drink a cup of",
+   "lang": "en",
+   "candidates": [
+    {
+     "word": "coffee",
+     "share": 0.7331
+    },
+    {
+     "word": "tea",
+     "share": 0.2488
+    },
+    {
+     "word": "water",
+     "share": 0.018
+    },
+    {
+     "word": "wine",
+     "share": 0.0001
+    }
+   ],
+   "top_tokens": [
+    {
+     "token": " coffee",
+     "p": 0.4549
+    },
+    {
+     "token": " tea",
+     "p": 0.1544
+    },
+    {
+     "token": " hot",
+     "p": 0.0682
+    },
+    {
+     "token": " green",
+     "p": 0.0584
+    },
+    {
+     "token": " herbal",
+     "p": 0.0339
+    },
+    {
+     "token": " ",
+     "p": 0.0178
+    },
+    {
+     "token": " black",
+     "p": 0.0143
+    },
+    {
+     "token": " water",
+     "p": 0.0112
+    },
+    {
+     "token": " warm",
+     "p": 0.0089
+    },
+    {
+     "token": " cold",
+     "p": 0.0078
+    }
+   ],
+   "other_p": 0.1702
+  },
+  {
+   "id": "dinner-en",
+   "context": "At the festive dinner we drank a glass of",
+   "lang": "en",
+   "candidates": [
+    {
+     "word": "coffee",
+     "share": 0.0192
+    },
+    {
+     "word": "tea",
+     "share": 0.0521
+    },
+    {
+     "word": "water",
+     "share": 0.0375
+    },
+    {
+     "word": "wine",
+     "share": 0.8912
+    }
+   ],
+   "top_tokens": [
+    {
+     "token": " wine",
+     "p": 0.1798
+    },
+    {
+     "token": " champagne",
+     "p": 0.0663
+    },
+    {
+     "token": " beer",
+     "p": 0.0382
+    },
+    {
+     "token": " orange",
+     "p": 0.0345
+    },
+    {
+     "token": " brand",
+     "p": 0.0256
+    },
+    {
+     "token": " milk",
+     "p": 0.0251
+    },
+    {
+     "token": " rum",
+     "p": 0.0235
+    },
+    {
+     "token": " lemon",
+     "p": 0.0228
+    },
+    {
+     "token": " hot",
+     "p": 0.0216
+    },
+    {
+     "token": " red",
+     "p": 0.0196
+    }
+   ],
+   "other_p": 0.543
+  },
+  {
+   "id": "bakery-he",
+   "context": "במאפייה שליד הבית אפשר לקנות כל בוקר",
+   "lang": "he",
+   "candidates": [
+    {
+     "word": "לחם",
+     "share": 0.674
+    },
+    {
+     "word": "עוגות",
+     "share": 0.0064
+    },
+    {
+     "word": "פיצה",
+     "share": 0.1583
+    },
+    {
+     "word": "נעליים",
+     "share": 0.1613
+    }
+   ],
+   "top_tokens": [
+    {
+     "token": " ב",
+     "p": 0.1041
+    },
+    {
+     "token": ",",
+     "p": 0.0609
+    },
+    {
+     "token": " או",
+     "p": 0.0392
+    },
+    {
+     "token": " על",
+     "p": 0.0315
+    },
+    {
+     "token": ".",
+     "p": 0.0308
+    },
+    {
+     "token": " מ",
+     "p": 0.0279
+    },
+    {
+     "token": " בש",
+     "p": 0.0261
+    },
+    {
+     "token": " ו",
+     "p": 0.0228
+    },
+    {
+     "token": " בא",
+     "p": 0.0173
+    },
+    {
+     "token": " את",
+     "p": 0.0135
+    }
+   ],
+   "other_p": 0.6259
+  },
+  {
+   "id": "order-he",
+   "context": "שלום, אני רוצה להזמין שלוש",
+   "lang": "he",
+   "candidates": [
+    {
+     "word": "עוגיות",
+     "share": 0.0011
+    },
+    {
+     "word": "לחמניות",
+     "share": 0.0
+    },
+    {
+     "word": "מכוניות",
+     "share": 0.1765
+    },
+    {
+     "word": "שעות",
+     "share": 0.8225
+    }
+   ],
+   "top_tokens": [
+    {
+     "token": "ה",
+     "p": 0.7018
+    },
+    {
+     "token": "ת",
+     "p": 0.1643
+    },
+    {
+     "token": "ות",
+     "p": 0.0082
+    },
+    {
+     "token": " מ",
+     "p": 0.0053
+    },
+    {
+     "token": " פע",
+     "p": 0.005
+    },
+    {
+     "token": " או",
+     "p": 0.0038
+    },
+    {
+     "token": " מה",
+     "p": 0.0031
+    },
+    {
+     "token": " ת",
+     "p": 0.0026
+    },
+    {
+     "token": " נ",
+     "p": 0.0026
+    },
+    {
+     "token": " ד",
+     "p": 0.0021
+    }
+   ],
+   "other_p": 0.1012
+  },
+  {
+   "id": "pickup-he",
+   "context": "מיכל רוצה שלוש עוגיות למחר. שעת האיסוף:",
+   "lang": "he",
+   "candidates": [
+    {
+     "word": "10:00",
+     "share": 0.7419
+    },
+    {
+     "word": "17:30",
+     "share": 0.1251
+    },
+    {
+     "word": "לא ידוע",
+     "share": 0.0003
+    },
+    {
+     "word": "מחר",
+     "share": 0.1327
+    }
+   ],
+   "top_tokens": [
+    {
+     "token": " ",
+     "p": 0.5089
+    },
+    {
+     "token": " ב",
+     "p": 0.0286
+    },
+    {
+     "token": " מ",
+     "p": 0.0281
+    },
+    {
+     "token": " א",
+     "p": 0.0214
+    },
+    {
+     "token": " ת",
+     "p": 0.014
+    },
+    {
+     "token": " ש",
+     "p": 0.0139
+    },
+    {
+     "token": " מה",
+     "p": 0.0137
+    },
+    {
+     "token": " כ",
+     "p": 0.0128
+    },
+    {
+     "token": " ה",
+     "p": 0.0113
+    },
+    {
+     "token": " י",
+     "p": 0.0106
+    }
+   ],
+   "other_p": 0.3367
+  }
+ ]
+}

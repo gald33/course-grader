@@ -15,6 +15,15 @@ import { QuestionCard } from '@/components/lessons/questions';
 import { LessonSummary } from '@/components/lessons/summary';
 import { ActualTree, ManualTree, SplitIllustration } from '@/components/lessons/trees';
 import type { Block, SectionLabel } from '@/components/lessons/types';
+import {
+  AttentionView,
+  EmbeddingMap,
+  ImageBlockView,
+  LiveTokenizer,
+  NeuronPlayground,
+  NextWordGuess,
+  TrainingDemo
+} from '@/components/lessons/widgets';
 
 export function BlockList({ blocks, api }: { blocks: Block[]; api: LessonApi }) {
   return (
@@ -89,6 +98,20 @@ function BlockView({ block, api }: { block: Block; api: LessonApi }) {
       return <LessonSummary api={api} />;
     case 'ack':
       return <AckBlock block={block} api={api} />;
+    case 'live_tokenizer':
+      return <LiveTokenizer block={block} />;
+    case 'next_word_guess':
+      return <NextWordGuess block={block} path={api.content.assets[block.asset]?.path ?? null} />;
+    case 'attention_view':
+      return <AttentionView block={block} />;
+    case 'neuron_playground':
+      return <NeuronPlayground block={block} />;
+    case 'training_demo':
+      return <TrainingDemo block={block} />;
+    case 'embedding_map':
+      return <EmbeddingMap block={block} path={api.content.assets[block.asset]?.path ?? null} />;
+    case 'image':
+      return <ImageBlockView block={block} path={api.content.assets[block.asset]?.path ?? null} />;
     default:
       return null;
   }

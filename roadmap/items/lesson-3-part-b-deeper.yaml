@@ -1,0 +1,46 @@
+id: lesson-3-part-b-deeper
+title: Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser
+status: ready
+priority: now
+claim:
+  by: claude/lesson-3-part-b-deeper
+  at: '2026-11-03T10:30:00Z'
+blocked_on:
+- lesson-3-how-language-models-work
+refs:
+- 'backend/app/lessons/schema.py'
+- 'frontend/components/lessons/widgets.tsx'
+- 'backend/app/lessons/content/course-42052/lesson-03.json'
+- 'backend/app/lessons/content/course-42052/lesson-03-deeper.json'
+- 'scripts/lesson-03/'
+evidence: |
+  Operator, 2026-11-03 (via Link): "teach about neural networks,
+  transformers and LLMs, embedding. not everything needs to fit one
+  lesson". Picked browser pieces: live tokenizer, guess the next word,
+  click-to-see attention. Link ruled #33 ships as lesson 3's core and this
+  is a follow-up stacked on it; the Lesson Planner's brief
+  (lesson-3-part-b-deeper) is the spec. Tokenizer chunk cap: about 2 MB
+  gzipped (Link).
+
+  VERIFIED at 461bcbe. Lesson 3 (#33) has tokens, next-token prediction,
+  attention and grounding as text, a Colab notebook and chatbot prompts.
+  The lesson engine has no interactive block besides lesson 2's trees; no
+  lesson explains neurons, training of a network, embeddings or the
+  transformer pipeline.
+
+  This item: seven widget block types (live_tokenizer with o200k_base in
+  the browser, lazily loaded; next_word_guess on precomputed Qwen2.5-0.5B
+  probabilities; attention_view, labeled an illustration; neuron_playground;
+  training_demo; embedding_map on precomputed multilingual embeddings; image),
+  validated in the schema. Lesson 3 gets the first three as additive "נסו
+  בעצמכם" sections, with no check changed. A new optional draft lesson,
+  lesson-03-deeper, attached to session 3 after lesson 3 (neuron, a network
+  that learns, embeddings, transformer, from model to chatbot, wrap-up) with
+  a free CPU notebook (one neuron, a tiny network trained, real embeddings).
+  Generation scripts for the precomputed data are committed with the model,
+  revision and date in the data. No migration. Keys private.
+
+  Done when: both lessons preview end to end in Hebrew at 390 and 1280 px,
+  every widget works by keyboard (Playwright); the notebook runs clean on CPU;
+  no answer key in the repository (tested); the tokenizer chunk size is
+  reported; CI is green.

@@ -80,7 +80,10 @@ export default function StudentLessonsPage({ params }: { params: { token: string
                   href={`/r/${token}/lessons/${encodeURIComponent(l.slug)}`}
                   className="block rounded-lg border border-border bg-card p-4 text-ink no-underline shadow-soft hover:border-forest"
                 >
-                  <span className="block font-hebrew text-[19px] leading-snug">{l.title}</span>
+                  <span className="block font-hebrew text-[19px] leading-snug">
+                    {l.title}
+                    {l.enrichment ? <span className="pill ms-2 align-middle font-sans text-[12px]">העשרה · רשות</span> : null}
+                  </span>
                   <span className="mt-1 block text-[14px] text-ink-2">
                     <InlineText text={l.guiding_question} />
                   </span>

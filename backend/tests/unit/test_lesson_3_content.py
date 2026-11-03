@@ -76,8 +76,12 @@ def test_the_seed_checks_and_texts_survive_unchanged(lesson):
     text = json.dumps(lesson, ensure_ascii=False)
     plain = text.replace("**", "")  # the authored copy adds bold
     assert seed["worked_example_he"] in plain
-    for field in ("work_product_he", "optional_extension_he"):
-        assert course_plan.ltr(seed[field]) in plain, field
+    assert course_plan.ltr(seed["work_product_he"]) in plain
+    # The seed's optional extension is a note to the instructor (an API demo
+    # with a teaching account): not shown to students (Reed N3). The wrap-up
+    # points at the optional "go deeper" lesson instead.
+    assert course_plan.ltr(seed["optional_extension_he"]) not in plain
+    assert "להעמיק" in json.dumps(lesson["steps"][-1], ensure_ascii=False)
     # The homework is a proposal: kept in the instructor's plan, never in the lesson.
     assert seed["homework_status"] == "proposal_not_yet_assigned"
     assert load_plan("42052")["lessons"]["lesson-03"]["homework"]["text"] == seed["homework_he"]

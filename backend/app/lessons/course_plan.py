@@ -214,6 +214,12 @@ AUTHORED: dict[str, dict] = {
     },
 }
 
+# Optional extra lessons ("go deeper") taught alongside a session's lesson,
+# authored in this repository (no seed): installed as drafts with the plan,
+# listed after the session's own lesson, and marked enrichment in their
+# content. Slugs of fixtures in content/course-<code>/.
+_ENRICHMENT: dict[int, list[str]] = {3: ["lesson-03-deeper"]}
+
 # A session whose topic an installed fixture already teaches (the live lesson
 # 2, "from-data-to-prediction", fixture key lesson-2).
 _EXISTING_FIXTURES = {2: ["lesson-2"]}
@@ -288,6 +294,7 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
                 "lesson_slug": slug,
                 "fixture_key": fixture_key(code, slug),
                 "existing_fixture_keys": _EXISTING_FIXTURES.get(number, []),
+                "enrichment_fixture_keys": [fixture_key(code, s) for s in _ENRICHMENT.get(number, [])],
                 "presentation_round": entry["presentation_round"],
                 "final_presentation_part": entry["final_presentation_part"],
                 "formal_presentations": entry["formal_presentations"],

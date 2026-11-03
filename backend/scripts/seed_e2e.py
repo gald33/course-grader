@@ -170,9 +170,11 @@ def seed() -> dict:
         plan = _ok(c.post(f"/api/courses/{course_id}/plan/import", json={"plan_code": PLAN, "allow_course_mismatch": True}))
         plan_keys: dict = {}
         for session in load_plan(PLAN)["sessions"]:
-            plan_keys.update(fake_keys(session["fixture_key"]))
+            for key in [session["fixture_key"], *session.get("enrichment_fixture_keys", [])]:
+                plan_keys.update(fake_keys(key))
         _ok(c.post(f"/api/courses/{course_id}/answer-keys", json={"lessons": plan_keys}))
         plan_lessons = {s["lesson_slug"]: s["lesson"]["id"] for s in plan["sessions"]}
+        plan_lessons.update({l["slug"]: l["id"] for s in plan["sessions"] for l in s.get("enrichment_lessons", [])})
         assignment_course_id = _ok(c.post("/api/courses", json=ASSIGNMENT_COURSE))["id"]
         with SessionLocal() as db:
             s = Student(national_id=ASSIGNMENT_STUDENT[0], name=ASSIGNMENT_STUDENT[1])

@@ -32,6 +32,10 @@ FAKE_EMAIL = "fake-instructor@example.invalid"
 PRIVATE_FIELDS = {"answer", "correct_choice_id", "feedback_he", "correct", "misconceptions", "explanation",
                   "sample_reasoning", "rubric", "email"}
 PLAN_KEYS = [f"42052-lesson-{n:02d}" for n in range(1, 14)]
+# What importing the plan installs, in order: each session's lesson, then its
+# optional extra lessons (session 3 has the "go deeper" lesson).
+INSTALLED_KEYS = [*PLAN_KEYS[:3], "42052-lesson-03-deeper", *PLAN_KEYS[3:]]
+INSTALLED_SLUGS = [k.removeprefix("42052-") for k in INSTALLED_KEYS]
 
 
 def _choice_keys(fixture_key: str) -> list[str]:
@@ -170,16 +174,16 @@ def test_import_plan_installs_13_drafts_and_publishes_nothing(penv):
     env = penv
     course = _plan_course(env)
     result = _import(env, course)
-    assert [i["action"] for i in result["installs"]] == ["create"] * 13
+    assert [i["action"] for i in result["installs"]] == ["create"] * len(INSTALLED_KEYS)
     lessons = _ok(env.client.get(f"/api/courses/{course.id}/lessons"))
-    assert [l["slug"] for l in lessons] == [f"lesson-{n:02d}" for n in range(1, 14)]
+    assert [l["slug"] for l in lessons] == INSTALLED_SLUGS
     assert all(l["status"] == "draft" and l["active_version"] is None for l in lessons)
     alice = Browser(env.client, course.tokens["Alice"], course.ids["Alice"])
     assert _ok(alice.call("GET"))["lessons"] == []
     assert _code(alice.lesson("lesson-03"), 404) == "lesson_not_found"
 
     again = _import(env, course)
-    assert [i["action"] for i in again["installs"]] == ["unchanged"] * 13
+    assert [i["action"] for i in again["installs"]] == ["unchanged"] * len(INSTALLED_KEYS)
     sessions = again["sessions"]
     assert len(sessions) == 13 and again["plan_code"] == "42052"
     s2 = sessions[1]
@@ -302,10 +306,10 @@ def test_the_whole_plan_file_loads_13_lessons_and_every_check(penv):
     env = penv
     course = _plan_course(env)
     _import(env, course)
-    data = fake_key_file(PLAN_KEYS)
-    total = sum(len(_choice_keys(k)) for k in PLAN_KEYS)  # three per generated lesson, more in an authored one
-    assert total == 33 + len(L03_CHECKS) + len(L04_CHECKS)
-    assert sum(len(v) for v in data["lessons"].values()) == total and len(data["lessons"]) == 13
+    data = fake_key_file(INSTALLED_KEYS)
+    total = sum(len(_choice_keys(k)) for k in INSTALLED_KEYS)  # three per generated lesson, more in an authored one
+    assert total == 33 + len(L03_CHECKS) + len(_choice_keys("42052-lesson-03-deeper")) + len(L04_CHECKS)
+    assert sum(len(v) for v in data["lessons"].values()) == total and len(data["lessons"]) == 14
     result = _ok(_upload(env, course, data))
     assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (total, total, [], "set")
     status = _ok(env.client.get(f"/api/courses/{course.id}/answer-keys"))
@@ -484,7 +488,7 @@ def test_student_endpoints_never_return_keys_before_an_answer(penv):
     env = penv
     course = _plan_course(env)
     _import(env, course)
-    _ok(_upload(env, course, fake_key_file(PLAN_KEYS)))
+    _ok(_upload(env, course, fake_key_file(INSTALLED_KEYS)))
     lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-03")
     _ok(env.client.post(f"/api/courses/{course.id}/lessons/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
     alice = Browser(env.client, course.tokens["Alice"], course.ids["Alice"])
@@ -671,7 +675,7 @@ def test_load_script_stores_keys_in_the_chosen_course(penv, tmp_path, capsys, mo
 
 
 def test_every_plan_fixture_is_registered():
-    assert set(PLAN_KEYS) <= set(FIXTURES)
+    assert set(INSTALLED_KEYS) <= set(FIXTURES)
 
 
 def test_migration_0026_round_trips(tmp_path):

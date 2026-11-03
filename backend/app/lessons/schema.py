@@ -246,6 +246,95 @@ class AckBlock(_Model):
     description: Inline | None = None
 
 
+# Interactive teaching widgets (lesson 3, 42052). Each renders client-side
+# from data in the content or in a static JSON asset; none calls a service.
+# A widget that shows an illustration says so on screen (the component, not
+# the author, adds the label), and measured data names its model and script
+# (in the asset, checked here).
+
+
+class LiveTokenizerBlock(_Model):
+    type: Literal["live_tokenizer"]
+    encoding: Literal["o200k_base"]  # the open tiktoken encoding, run in the browser
+    caption: Inline | None = None
+    examples: Annotated[list[Annotated[str, Field(min_length=1, max_length=200)]], Field(max_length=8)]
+    initial: Annotated[str, Field(max_length=500)] | None = None
+
+
+class NextWordGuessBlock(_Model):
+    type: Literal["next_word_guess"]
+    asset: str  # precomputed probabilities (next-word.json)
+    prompts: Annotated[list[Key], Field(min_length=1)]  # prompt ids in the asset, in order
+    caption: Inline | None = None
+    temperature: bool | None = None  # a slider that re-normalizes the shipped top tokens
+
+
+class AttentionSentence(_Model):
+    id: Key
+    label: Inline | None = None
+    tokens: Annotated[list[Annotated[str, Field(min_length=1, max_length=40)]], Field(min_length=2, max_length=16)]
+    weights: list[list[float]]  # row i: how much token i draws on each token (hand-picked)
+    start: int | None = None  # the token selected first
+
+
+class AttentionViewBlock(_Model):
+    type: Literal["attention_view"]
+    caption: Inline | None = None
+    sentences: Annotated[list[AttentionSentence], Field(min_length=1, max_length=4)]
+
+
+class NeuronInput(_Model):
+    key: Key
+    label: Inline
+    min: float
+    max: float
+    step: float
+    value: float
+    weight: float  # the starting weight
+
+
+class NeuronPlaygroundBlock(_Model):
+    type: Literal["neuron_playground"]
+    caption: Inline | None = None
+    inputs: Annotated[list[NeuronInput], Field(min_length=1, max_length=4)]
+    weight_range: Annotated[list[float], Field(min_length=2, max_length=2)]
+    bias: float
+    bias_range: Annotated[list[float], Field(min_length=2, max_length=2)]
+    activation: Literal["step", "sigmoid"]
+    output_labels: Annotated[list[Inline], Field(min_length=2, max_length=2)]  # [below the threshold, above]
+
+
+class TrainingPoint(_Model):
+    x: float
+    y: float
+    label: Label
+
+
+class TrainingDemoBlock(_Model):
+    type: Literal["training_demo"]
+    caption: Inline | None = None
+    x_label: Inline
+    y_label: Inline
+    class_labels: Annotated[list[Inline], Field(min_length=2, max_length=2)]
+    points: Annotated[list[TrainingPoint], Field(min_length=4, max_length=60)]
+    start: Annotated[list[float], Field(min_length=3, max_length=3)]  # w_x, w_y, bias
+    learning_rate: Annotated[float, Field(gt=0, le=10)]
+
+
+class EmbeddingMapBlock(_Model):
+    type: Literal["embedding_map"]
+    asset: str  # precomputed 2D projection and neighbours (embedding-map.json)
+    caption: Inline | None = None
+    start: str | None = None  # the word id selected first
+
+
+class ImageBlock(_Model):
+    type: Literal["image"]
+    asset: str
+    alt: Annotated[str, Field(min_length=1, max_length=600)]
+    caption: Inline | None = None
+
+
 Block = Annotated[
     Union[
         TextBlock,
@@ -267,6 +356,13 @@ Block = Annotated[
         CommitmentBlock,
         SummaryBlock,
         AckBlock,
+        LiveTokenizerBlock,
+        NextWordGuessBlock,
+        AttentionViewBlock,
+        NeuronPlaygroundBlock,
+        TrainingDemoBlock,
+        EmbeddingMapBlock,
+        ImageBlock,
     ],
     Field(discriminator="type"),
 ]
@@ -371,6 +467,7 @@ class LessonContent(_Model):
     course_code: Annotated[str, Field(min_length=1, max_length=64)]
     date: str | None = None
     intro: Inline | None = None
+    enrichment: bool | None = None  # optional extra lesson ("go deeper"); never required
     assets: dict[str, Asset]
     steps: Annotated[list[LessonStep], Field(min_length=1)]
     questions: dict[str, Question]
@@ -721,6 +818,106 @@ def needs_answer_key(question: dict) -> bool:
     return question.get("type") == "single_choice"
 
 
+def _asset_json(where: str, content: LessonContent, key: str, assets_root: Path | None, errors: list[str]) -> dict | None:
+    """The parsed JSON of a block's asset (None if it is missing: reported
+    with the assets; or when files aren't checked)."""
+    asset = content.assets.get(key)
+    if asset is None:
+        errors.append(f"{where}: unknown asset '{key}'")
+        return None
+    if assets_root is None:
+        return None
+    path = _asset_file(assets_root, asset)
+    if path is None or not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        errors.append(f"{where}: {asset.path} is not JSON")
+        return None
+    if not isinstance(data, dict):
+        errors.append(f"{where}: {asset.path} is not a JSON object")
+        return None
+    # Measured data names where it came from.
+    for field in ("model", "revision", "generated_at", "script"):
+        if not isinstance(data.get(field), str) or not data[field]:
+            errors.append(f"{where}: {asset.path} has no '{field}' (measured data names its model and script)")
+    return data
+
+
+def _check_widget(where: str, content: LessonContent, block: Any, assets_root: Path | None, errors: list[str]) -> None:
+    if isinstance(block, NextWordGuessBlock):
+        data = _asset_json(where, content, block.asset, assets_root, errors)
+        if data is not None:
+            prompts = {p.get("id"): p for p in data.get("prompts", []) if isinstance(p, dict)}
+            for pid in block.prompts:
+                prompt = prompts.get(pid)
+                if prompt is None:
+                    errors.append(f"{where}: prompt '{pid}' is not in the asset")
+                elif not prompt.get("candidates") or not prompt.get("top_tokens"):
+                    errors.append(f"{where}: prompt '{pid}' has no candidates or top tokens")
+        for dup in dict.fromkeys(x for x in block.prompts if block.prompts.count(x) > 1):
+            errors.append(f"{where}: prompt '{dup}' is listed twice")
+    elif isinstance(block, EmbeddingMapBlock):
+        data = _asset_json(where, content, block.asset, assets_root, errors)
+        if data is not None:
+            words = [w for w in data.get("words", []) if isinstance(w, dict)]
+            ids = {w.get("id") for w in words}
+            if len(words) < 4:
+                errors.append(f"{where}: the map needs at least 4 words")
+            for w in words:
+                if not all(isinstance(w.get(k), (int, float)) and 0 <= w[k] <= 1 for k in ("x", "y")):
+                    errors.append(f"{where}: word '{w.get('id')}' needs x and y in 0..1")
+                for n in w.get("neighbors", []):
+                    if n.get("id") not in ids:
+                        errors.append(f"{where}: word '{w.get('id')}' has an unknown neighbour '{n.get('id')}'")
+            if block.start is not None and block.start not in ids:
+                errors.append(f"{where}: start '{block.start}' is not a word in the map")
+    elif isinstance(block, AttentionViewBlock):
+        ids = [x.id for x in block.sentences]
+        for dup in dict.fromkeys(i for i in ids if ids.count(i) > 1):
+            errors.append(f"{where}: duplicate sentence id '{dup}'")
+        for sentence in block.sentences:
+            n = len(sentence.tokens)
+            here = f"{where}.sentences.{sentence.id}"
+            if len(sentence.weights) != n or any(len(row) != n for row in sentence.weights):
+                errors.append(f"{here}: weights must be {n}x{n}, one row and column per token")
+                continue
+            for i, row in enumerate(sentence.weights):
+                if any(w < 0 for w in row) or abs(sum(row) - 1) > 0.011:
+                    errors.append(f"{here}: row {i} must be non-negative and sum to 1")
+                if any(w > 0 for w in row[i + 1:]):
+                    errors.append(f"{here}: row {i} gives weight to a later token (a language model looks back only)")
+            if sentence.start is not None and not 0 <= sentence.start < n:
+                errors.append(f"{here}: start {sentence.start} is not a token")
+    elif isinstance(block, NeuronPlaygroundBlock):
+        lo, hi = block.weight_range
+        if lo >= hi:
+            errors.append(f"{where}: weight_range must go from low to high")
+        if not block.bias_range[0] <= block.bias <= block.bias_range[1]:
+            errors.append(f"{where}: bias is outside bias_range")
+        keys = [i.key for i in block.inputs]
+        for dup in dict.fromkeys(k for k in keys if keys.count(k) > 1):
+            errors.append(f"{where}: duplicate input '{dup}'")
+        for inp in block.inputs:
+            if not (inp.min < inp.max and inp.step > 0 and inp.min <= inp.value <= inp.max):
+                errors.append(f"{where}: input '{inp.key}' needs min < max, step > 0 and a value between them")
+            if not lo <= inp.weight <= hi:
+                errors.append(f"{where}: input '{inp.key}' starts with a weight outside weight_range")
+    elif isinstance(block, TrainingDemoBlock):
+        if len({p.label for p in block.points}) < 2:
+            errors.append(f"{where}: the points need both labels")
+    elif isinstance(block, ImageBlock):
+        asset = content.assets.get(block.asset)
+        if asset is None:
+            errors.append(f"{where}: unknown asset '{block.asset}'")
+        elif not asset.mime.startswith("image/"):
+            errors.append(f"{where}: asset '{block.asset}' is not an image")
+
+
+_WIDGETS = (NextWordGuessBlock, EmbeddingMapBlock, AttentionViewBlock, NeuronPlaygroundBlock, TrainingDemoBlock, ImageBlock)
+
+
 def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[str]:
     errors: list[str] = []
     steps = content.steps
@@ -801,6 +998,8 @@ def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[s
                 for n in block.highlight_lines or []:
                     if not 1 <= n <= lines:
                         errors.append(f"{where}: highlight line {n} is outside the code (1–{lines})")
+            elif isinstance(block, _WIDGETS):
+                _check_widget(where, content, block, assets_root, errors)
             elif isinstance(block, ExperimentLogBlock):
                 if block.min_complete < 1:
                     errors.append(f"{where}: min_complete must be at least 1")

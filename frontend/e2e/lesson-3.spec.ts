@@ -150,6 +150,7 @@ for (const device of [
     });
     expect(fit.table, 'the check table fits its box').toBeLessThanOrEqual(fit.box + 1);
     await expect(player.getByText('דוגמה פתורה')).toBeVisible();
+    await expect(player).toContainText('בגרסה בלי הכמות בדקו בעין');
     await expect(player.locator('pre').filter({ hasText: '"pickup_time": null' })).toBeVisible();
     await expectNoSidewaysScroll(page, 'step D');
     await answerText(page, 'l03-grounding-log', 'בקשה 1 השלימה שעה 10:00; בקשה 2 השאירה null. בלי כמות: סומנה כחסרה.');
@@ -161,6 +162,9 @@ for (const device of [
     // E: wrap-up. The exit check is free text; the homework proposal is not shown.
     await expectStepContract(page, 'מסכמים', 'מה תוכלו להסביר לבד, במילים שלכם?', player);
     await expect(player.getByText('התוצר של השיעור')).toBeVisible();
+    // The optional extension points students at the "go deeper" lesson (not an instructor note).
+    await expect(player).toContainText('המשיכו לשיעור הרשות «להעמיק');
+    await expect(player).not.toContainText('חשבון הוראה מורשה');
     await expectNoSidewaysScroll(page, 'step E');
     await answerText(page, 'lesson-03-exit', 'ניסיתי שתי בקשות; ראיתי שהבקשה עם הכללים לא המציאה שעה.');
     await expect(checklist(page)).toContainText('✓ השלב הושלם.');

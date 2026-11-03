@@ -111,6 +111,7 @@ export type Home = {
 type LessonLink = {
   slug: string;
   title: string;
+  enrichment?: boolean; // optional extra lesson ("go deeper")
   status: 'not_started' | 'in_progress' | 'completed';
   required_done: number;
   required_total: number;
@@ -799,7 +800,10 @@ function LessonsCard({ token, lessons }: { token: string; lessons: LessonLink[] 
           const body = (
             <>
               <span className="min-w-0">
-                <span className="block">{l.title}</span>
+                <span className="block">
+                  {l.title}
+                  {l.enrichment ? <span className="pill ms-2 align-middle text-[11px]">העשרה · רשות</span> : null}
+                </span>
                 <span className="block text-[12px] text-ink-3">
                   {LESSON_STATUS[l.status]} · {l.required_done} מתוך {l.required_total} שלבי חובה
                 </span>

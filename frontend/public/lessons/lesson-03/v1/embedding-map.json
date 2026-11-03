@@ -1,0 +1,1063 @@
+{
+ "format": 1,
+ "model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+ "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+ "dimensions": 384,
+ "projection": "PCA to 2D",
+ "explained_variance_2d": 0.331,
+ "generated_at": "2026-11-03",
+ "script": "scripts/lesson-03/generate_embedding_map.py",
+ "library": "transformers 5.22.1, torch 2.15.0+cpu, numpy 2.5.4",
+ "words": [
+  {
+   "id": "w00",
+   "text": "לחם",
+   "group": "bakery",
+   "lang": "he",
+   "x": 0.2191,
+   "y": 0.8629,
+   "neighbors": [
+    {
+     "id": "w04",
+     "cosine": 0.988
+    },
+    {
+     "id": "w07",
+     "cosine": 0.784
+    },
+    {
+     "id": "w02",
+     "cosine": 0.703
+    },
+    {
+     "id": "w06",
+     "cosine": 0.621
+    },
+    {
+     "id": "w03",
+     "cosine": 0.564
+    }
+   ]
+  },
+  {
+   "id": "w01",
+   "text": "עוגה",
+   "group": "bakery",
+   "lang": "he",
+   "x": 0.3767,
+   "y": 0.9639,
+   "neighbors": [
+    {
+     "id": "w05",
+     "cosine": 0.986
+    },
+    {
+     "id": "w02",
+     "cosine": 0.581
+    },
+    {
+     "id": "w07",
+     "cosine": 0.551
+    },
+    {
+     "id": "w00",
+     "cosine": 0.513
+    },
+    {
+     "id": "w04",
+     "cosine": 0.506
+    }
+   ]
+  },
+  {
+   "id": "w02",
+   "text": "עוגיות",
+   "group": "bakery",
+   "lang": "he",
+   "x": 0.2475,
+   "y": 0.8368,
+   "neighbors": [
+    {
+     "id": "w06",
+     "cosine": 0.953
+    },
+    {
+     "id": "w00",
+     "cosine": 0.703
+    },
+    {
+     "id": "w04",
+     "cosine": 0.692
+    },
+    {
+     "id": "w07",
+     "cosine": 0.672
+    },
+    {
+     "id": "w05",
+     "cosine": 0.597
+    }
+   ]
+  },
+  {
+   "id": "w03",
+   "text": "מאפייה",
+   "group": "bakery",
+   "lang": "he",
+   "x": 0.7302,
+   "y": 0.6753,
+   "neighbors": [
+    {
+     "id": "w30",
+     "cosine": 0.86
+    },
+    {
+     "id": "w25",
+     "cosine": 0.754
+    },
+    {
+     "id": "w27",
+     "cosine": 0.735
+    },
+    {
+     "id": "w28",
+     "cosine": 0.734
+    },
+    {
+     "id": "w21",
+     "cosine": 0.626
+    }
+   ]
+  },
+  {
+   "id": "w04",
+   "text": "bread",
+   "group": "bakery",
+   "lang": "en",
+   "x": 0.0228,
+   "y": 0.9139,
+   "neighbors": [
+    {
+     "id": "w00",
+     "cosine": 0.988
+    },
+    {
+     "id": "w07",
+     "cosine": 0.799
+    },
+    {
+     "id": "w02",
+     "cosine": 0.692
+    },
+    {
+     "id": "w06",
+     "cosine": 0.618
+    },
+    {
+     "id": "w05",
+     "cosine": 0.528
+    }
+   ]
+  },
+  {
+   "id": "w05",
+   "text": "cake",
+   "group": "bakery",
+   "lang": "en",
+   "x": 0.3031,
+   "y": 1.0,
+   "neighbors": [
+    {
+     "id": "w01",
+     "cosine": 0.986
+    },
+    {
+     "id": "w02",
+     "cosine": 0.597
+    },
+    {
+     "id": "w07",
+     "cosine": 0.564
+    },
+    {
+     "id": "w04",
+     "cosine": 0.528
+    },
+    {
+     "id": "w00",
+     "cosine": 0.528
+    }
+   ]
+  },
+  {
+   "id": "w06",
+   "text": "cookies",
+   "group": "bakery",
+   "lang": "en",
+   "x": 0.1079,
+   "y": 0.8537,
+   "neighbors": [
+    {
+     "id": "w02",
+     "cosine": 0.953
+    },
+    {
+     "id": "w00",
+     "cosine": 0.621
+    },
+    {
+     "id": "w04",
+     "cosine": 0.618
+    },
+    {
+     "id": "w07",
+     "cosine": 0.614
+    },
+    {
+     "id": "w05",
+     "cosine": 0.49
+    }
+   ]
+  },
+  {
+   "id": "w07",
+   "text": "bakery",
+   "group": "bakery",
+   "lang": "en",
+   "x": 0.0,
+   "y": 0.9165,
+   "neighbors": [
+    {
+     "id": "w04",
+     "cosine": 0.799
+    },
+    {
+     "id": "w00",
+     "cosine": 0.784
+    },
+    {
+     "id": "w02",
+     "cosine": 0.672
+    },
+    {
+     "id": "w06",
+     "cosine": 0.614
+    },
+    {
+     "id": "w05",
+     "cosine": 0.564
+    }
+   ]
+  },
+  {
+   "id": "w08",
+   "text": "קפה",
+   "group": "drinks",
+   "lang": "he",
+   "x": 0.4724,
+   "y": 0.1892,
+   "neighbors": [
+    {
+     "id": "w11",
+     "cosine": 0.993
+    },
+    {
+     "id": "w09",
+     "cosine": 0.674
+    },
+    {
+     "id": "w12",
+     "cosine": 0.663
+    },
+    {
+     "id": "w03",
+     "cosine": 0.487
+    },
+    {
+     "id": "w30",
+     "cosine": 0.467
+    }
+   ]
+  },
+  {
+   "id": "w09",
+   "text": "תה",
+   "group": "drinks",
+   "lang": "he",
+   "x": 0.6002,
+   "y": 0.0251,
+   "neighbors": [
+    {
+     "id": "w12",
+     "cosine": 0.985
+    },
+    {
+     "id": "w11",
+     "cosine": 0.681
+    },
+    {
+     "id": "w08",
+     "cosine": 0.674
+    },
+    {
+     "id": "w03",
+     "cosine": 0.433
+    },
+    {
+     "id": "w30",
+     "cosine": 0.392
+    }
+   ]
+  },
+  {
+   "id": "w10",
+   "text": "מים",
+   "group": "drinks",
+   "lang": "he",
+   "x": 0.9206,
+   "y": 0.4377,
+   "neighbors": [
+    {
+     "id": "w13",
+     "cosine": 0.995
+    },
+    {
+     "id": "w03",
+     "cosine": 0.498
+    },
+    {
+     "id": "w30",
+     "cosine": 0.45
+    },
+    {
+     "id": "w25",
+     "cosine": 0.406
+    },
+    {
+     "id": "w12",
+     "cosine": 0.35
+    }
+   ]
+  },
+  {
+   "id": "w11",
+   "text": "coffee",
+   "group": "drinks",
+   "lang": "en",
+   "x": 0.4025,
+   "y": 0.1085,
+   "neighbors": [
+    {
+     "id": "w08",
+     "cosine": 0.993
+    },
+    {
+     "id": "w09",
+     "cosine": 0.681
+    },
+    {
+     "id": "w12",
+     "cosine": 0.674
+    },
+    {
+     "id": "w03",
+     "cosine": 0.448
+    },
+    {
+     "id": "w02",
+     "cosine": 0.427
+    }
+   ]
+  },
+  {
+   "id": "w12",
+   "text": "tea",
+   "group": "drinks",
+   "lang": "en",
+   "x": 0.5848,
+   "y": 0.0,
+   "neighbors": [
+    {
+     "id": "w09",
+     "cosine": 0.985
+    },
+    {
+     "id": "w11",
+     "cosine": 0.674
+    },
+    {
+     "id": "w08",
+     "cosine": 0.663
+    },
+    {
+     "id": "w03",
+     "cosine": 0.464
+    },
+    {
+     "id": "w30",
+     "cosine": 0.412
+    }
+   ]
+  },
+  {
+   "id": "w13",
+   "text": "water",
+   "group": "drinks",
+   "lang": "en",
+   "x": 0.9569,
+   "y": 0.4186,
+   "neighbors": [
+    {
+     "id": "w10",
+     "cosine": 0.995
+    },
+    {
+     "id": "w03",
+     "cosine": 0.473
+    },
+    {
+     "id": "w30",
+     "cosine": 0.432
+    },
+    {
+     "id": "w25",
+     "cosine": 0.393
+    },
+    {
+     "id": "w12",
+     "cosine": 0.331
+    }
+   ]
+  },
+  {
+   "id": "w14",
+   "text": "יום ראשון",
+   "group": "days",
+   "lang": "he",
+   "x": 0.9462,
+   "y": 0.9351,
+   "neighbors": [
+    {
+     "id": "w19",
+     "cosine": 0.98
+    },
+    {
+     "id": "w18",
+     "cosine": 0.738
+    },
+    {
+     "id": "w15",
+     "cosine": 0.738
+    },
+    {
+     "id": "w20",
+     "cosine": 0.642
+    },
+    {
+     "id": "w16",
+     "cosine": 0.613
+    }
+   ]
+  },
+  {
+   "id": "w15",
+   "text": "יום שני",
+   "group": "days",
+   "lang": "he",
+   "x": 0.9403,
+   "y": 0.9744,
+   "neighbors": [
+    {
+     "id": "w18",
+     "cosine": 0.973
+    },
+    {
+     "id": "w14",
+     "cosine": 0.738
+    },
+    {
+     "id": "w19",
+     "cosine": 0.707
+    },
+    {
+     "id": "w20",
+     "cosine": 0.644
+    },
+    {
+     "id": "w16",
+     "cosine": 0.622
+    }
+   ]
+  },
+  {
+   "id": "w16",
+   "text": "מחר",
+   "group": "days",
+   "lang": "he",
+   "x": 0.9606,
+   "y": 0.8829,
+   "neighbors": [
+    {
+     "id": "w20",
+     "cosine": 0.984
+    },
+    {
+     "id": "w17",
+     "cosine": 0.76
+    },
+    {
+     "id": "w18",
+     "cosine": 0.659
+    },
+    {
+     "id": "w15",
+     "cosine": 0.622
+    },
+    {
+     "id": "w19",
+     "cosine": 0.613
+    }
+   ]
+  },
+  {
+   "id": "w17",
+   "text": "אתמול",
+   "group": "days",
+   "lang": "he",
+   "x": 0.8903,
+   "y": 0.7836,
+   "neighbors": [
+    {
+     "id": "w16",
+     "cosine": 0.76
+    },
+    {
+     "id": "w20",
+     "cosine": 0.758
+    },
+    {
+     "id": "w25",
+     "cosine": 0.689
+    },
+    {
+     "id": "w18",
+     "cosine": 0.577
+    },
+    {
+     "id": "w19",
+     "cosine": 0.569
+    }
+   ]
+  },
+  {
+   "id": "w18",
+   "text": "Monday",
+   "group": "days",
+   "lang": "en",
+   "x": 0.9616,
+   "y": 0.9742,
+   "neighbors": [
+    {
+     "id": "w15",
+     "cosine": 0.973
+    },
+    {
+     "id": "w19",
+     "cosine": 0.74
+    },
+    {
+     "id": "w14",
+     "cosine": 0.738
+    },
+    {
+     "id": "w20",
+     "cosine": 0.701
+    },
+    {
+     "id": "w16",
+     "cosine": 0.659
+    }
+   ]
+  },
+  {
+   "id": "w19",
+   "text": "Sunday",
+   "group": "days",
+   "lang": "en",
+   "x": 0.9704,
+   "y": 0.9484,
+   "neighbors": [
+    {
+     "id": "w14",
+     "cosine": 0.98
+    },
+    {
+     "id": "w18",
+     "cosine": 0.74
+    },
+    {
+     "id": "w15",
+     "cosine": 0.707
+    },
+    {
+     "id": "w20",
+     "cosine": 0.66
+    },
+    {
+     "id": "w16",
+     "cosine": 0.613
+    }
+   ]
+  },
+  {
+   "id": "w20",
+   "text": "tomorrow",
+   "group": "days",
+   "lang": "en",
+   "x": 1.0,
+   "y": 0.9077,
+   "neighbors": [
+    {
+     "id": "w16",
+     "cosine": 0.984
+    },
+    {
+     "id": "w17",
+     "cosine": 0.758
+    },
+    {
+     "id": "w18",
+     "cosine": 0.701
+    },
+    {
+     "id": "w19",
+     "cosine": 0.66
+    },
+    {
+     "id": "w15",
+     "cosine": 0.644
+    }
+   ]
+  },
+  {
+   "id": "w21",
+   "text": "שמח",
+   "group": "feelings",
+   "lang": "he",
+   "x": 0.7955,
+   "y": 0.7258,
+   "neighbors": [
+    {
+     "id": "w24",
+     "cosine": 0.934
+    },
+    {
+     "id": "w30",
+     "cosine": 0.694
+    },
+    {
+     "id": "w25",
+     "cosine": 0.662
+    },
+    {
+     "id": "w03",
+     "cosine": 0.626
+    },
+    {
+     "id": "w28",
+     "cosine": 0.583
+    }
+   ]
+  },
+  {
+   "id": "w22",
+   "text": "עצוב",
+   "group": "feelings",
+   "lang": "he",
+   "x": 0.8751,
+   "y": 0.7189,
+   "neighbors": [
+    {
+     "id": "w23",
+     "cosine": 0.7
+    },
+    {
+     "id": "w25",
+     "cosine": 0.648
+    },
+    {
+     "id": "w26",
+     "cosine": 0.609
+    },
+    {
+     "id": "w03",
+     "cosine": 0.535
+    },
+    {
+     "id": "w30",
+     "cosine": 0.526
+    }
+   ]
+  },
+  {
+   "id": "w23",
+   "text": "כועס",
+   "group": "feelings",
+   "lang": "he",
+   "x": 0.8871,
+   "y": 0.6435,
+   "neighbors": [
+    {
+     "id": "w26",
+     "cosine": 0.962
+    },
+    {
+     "id": "w22",
+     "cosine": 0.7
+    },
+    {
+     "id": "w03",
+     "cosine": 0.611
+    },
+    {
+     "id": "w30",
+     "cosine": 0.558
+    },
+    {
+     "id": "w25",
+     "cosine": 0.548
+    }
+   ]
+  },
+  {
+   "id": "w24",
+   "text": "happy",
+   "group": "feelings",
+   "lang": "en",
+   "x": 0.8087,
+   "y": 0.7303,
+   "neighbors": [
+    {
+     "id": "w21",
+     "cosine": 0.934
+    },
+    {
+     "id": "w25",
+     "cosine": 0.614
+    },
+    {
+     "id": "w30",
+     "cosine": 0.593
+    },
+    {
+     "id": "w03",
+     "cosine": 0.553
+    },
+    {
+     "id": "w27",
+     "cosine": 0.516
+    }
+   ]
+  },
+  {
+   "id": "w25",
+   "text": "sad",
+   "group": "feelings",
+   "lang": "en",
+   "x": 0.8488,
+   "y": 0.7267,
+   "neighbors": [
+    {
+     "id": "w30",
+     "cosine": 0.774
+    },
+    {
+     "id": "w03",
+     "cosine": 0.754
+    },
+    {
+     "id": "w17",
+     "cosine": 0.689
+    },
+    {
+     "id": "w21",
+     "cosine": 0.662
+    },
+    {
+     "id": "w22",
+     "cosine": 0.648
+    }
+   ]
+  },
+  {
+   "id": "w26",
+   "text": "angry",
+   "group": "feelings",
+   "lang": "en",
+   "x": 0.9235,
+   "y": 0.6027,
+   "neighbors": [
+    {
+     "id": "w23",
+     "cosine": 0.962
+    },
+    {
+     "id": "w22",
+     "cosine": 0.609
+    },
+    {
+     "id": "w03",
+     "cosine": 0.556
+    },
+    {
+     "id": "w30",
+     "cosine": 0.498
+    },
+    {
+     "id": "w25",
+     "cosine": 0.482
+    }
+   ]
+  },
+  {
+   "id": "w27",
+   "text": "אמא",
+   "group": "people",
+   "lang": "he",
+   "x": 0.8024,
+   "y": 0.7002,
+   "neighbors": [
+    {
+     "id": "w31",
+     "cosine": 0.889
+    },
+    {
+     "id": "w28",
+     "cosine": 0.743
+    },
+    {
+     "id": "w03",
+     "cosine": 0.735
+    },
+    {
+     "id": "w30",
+     "cosine": 0.713
+    },
+    {
+     "id": "w25",
+     "cosine": 0.627
+    }
+   ]
+  },
+  {
+   "id": "w28",
+   "text": "אבא",
+   "group": "people",
+   "lang": "he",
+   "x": 0.8016,
+   "y": 0.744,
+   "neighbors": [
+    {
+     "id": "w32",
+     "cosine": 0.878
+    },
+    {
+     "id": "w27",
+     "cosine": 0.743
+    },
+    {
+     "id": "w30",
+     "cosine": 0.742
+    },
+    {
+     "id": "w03",
+     "cosine": 0.734
+    },
+    {
+     "id": "w25",
+     "cosine": 0.646
+    }
+   ]
+  },
+  {
+   "id": "w29",
+   "text": "מורה",
+   "group": "people",
+   "lang": "he",
+   "x": 0.8277,
+   "y": 0.7526,
+   "neighbors": [
+    {
+     "id": "w33",
+     "cosine": 0.981
+    },
+    {
+     "id": "w28",
+     "cosine": 0.578
+    },
+    {
+     "id": "w32",
+     "cosine": 0.554
+    },
+    {
+     "id": "w27",
+     "cosine": 0.546
+    },
+    {
+     "id": "w30",
+     "cosine": 0.539
+    }
+   ]
+  },
+  {
+   "id": "w30",
+   "text": "לקוח",
+   "group": "people",
+   "lang": "he",
+   "x": 0.7846,
+   "y": 0.659,
+   "neighbors": [
+    {
+     "id": "w03",
+     "cosine": 0.86
+    },
+    {
+     "id": "w25",
+     "cosine": 0.774
+    },
+    {
+     "id": "w28",
+     "cosine": 0.742
+    },
+    {
+     "id": "w27",
+     "cosine": 0.713
+    },
+    {
+     "id": "w21",
+     "cosine": 0.694
+    }
+   ]
+  },
+  {
+   "id": "w31",
+   "text": "mother",
+   "group": "people",
+   "lang": "en",
+   "x": 0.8543,
+   "y": 0.7238,
+   "neighbors": [
+    {
+     "id": "w27",
+     "cosine": 0.889
+    },
+    {
+     "id": "w32",
+     "cosine": 0.614
+    },
+    {
+     "id": "w28",
+     "cosine": 0.58
+    },
+    {
+     "id": "w03",
+     "cosine": 0.521
+    },
+    {
+     "id": "w30",
+     "cosine": 0.489
+    }
+   ]
+  },
+  {
+   "id": "w32",
+   "text": "father",
+   "group": "people",
+   "lang": "en",
+   "x": 0.8505,
+   "y": 0.7948,
+   "neighbors": [
+    {
+     "id": "w28",
+     "cosine": 0.878
+    },
+    {
+     "id": "w31",
+     "cosine": 0.614
+    },
+    {
+     "id": "w27",
+     "cosine": 0.586
+    },
+    {
+     "id": "w29",
+     "cosine": 0.554
+    },
+    {
+     "id": "w30",
+     "cosine": 0.516
+    }
+   ]
+  },
+  {
+   "id": "w33",
+   "text": "teacher",
+   "group": "people",
+   "lang": "en",
+   "x": 0.8672,
+   "y": 0.7943,
+   "neighbors": [
+    {
+     "id": "w29",
+     "cosine": 0.981
+    },
+    {
+     "id": "w32",
+     "cosine": 0.498
+    },
+    {
+     "id": "w28",
+     "cosine": 0.481
+    },
+    {
+     "id": "w27",
+     "cosine": 0.472
+    },
+    {
+     "id": "w31",
+     "cosine": 0.453
+    }
+   ]
+  },
+  {
+   "id": "w34",
+   "text": "customer",
+   "group": "people",
+   "lang": "en",
+   "x": 0.616,
+   "y": 0.5553,
+   "neighbors": [
+    {
+     "id": "w30",
+     "cosine": 0.581
+    },
+    {
+     "id": "w07",
+     "cosine": 0.479
+    },
+    {
+     "id": "w03",
+     "cosine": 0.471
+    },
+    {
+     "id": "w08",
+     "cosine": 0.431
+    },
+    {
+     "id": "w11",
+     "cosine": 0.41
+    }
+   ]
+  }
+ ]
+}

@@ -24,6 +24,7 @@ export type StudentLessonSummary = {
   slug: string;
   title: string;
   guiding_question: string;
+  enrichment: boolean; // an optional extra lesson ("go deeper")
   status: 'not_started' | 'in_progress' | 'completed';
   required_done: number;
   required_total: number;

@@ -28,6 +28,7 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
+| `lesson-3-part-b-deeper` | claude/lesson-3-part-b-deeper | 2026-11-03T10:30:00Z |
 | `lesson-4-coding-agent` | claude/lesson-4-coding-agent | 2026-11-03T14:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
@@ -54,6 +55,7 @@ graph TD
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
   lesson_3_how_language_models_work["✓ Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::done
+  lesson_3_part_b_deeper["Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::claimed
   lesson_4_coding_agent["Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::claimed
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
@@ -71,6 +73,7 @@ graph TD
   unreleasing_a_peer_round_keeps_its_gradebook_scores["Un-releasing a peer round leaves its applied scores in the gradebook"]:::ready
   unteamed_students_need_instructor_approved_auto_assign["After teams lock, propose teams for unteamed students and apply them only on the instructor's approval"]:::ready
   course_42052_whole_syllabus --> lesson_3_how_language_models_work
+  lesson_3_how_language_models_work --> lesson_3_part_b_deeper
   course_42052_whole_syllabus --> lesson_4_coding_agent
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
@@ -375,6 +378,7 @@ graph TD
 - **status:** done
 - **priority:** now
 - **blocked on:** `course-42052-whole-syllabus`
+- **blocks:** `lesson-3-part-b-deeper`
 - **refs:**
   - `content/course-42052/lessons/lesson-03.json`
   - `content/course-42052/readiness.json`
@@ -418,6 +422,55 @@ graph TD
 > the real Colab share link (set by the instructor), and a homework brief.
 >
 > SHIPPED: #33, merged as 47632b6.
+
+</details>
+
+### `lesson-3-part-b-deeper`
+
+- **title:** Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/lesson-3-part-b-deeper (since 2026-11-03T10:30:00Z)
+- **blocked on:** `lesson-3-how-language-models-work`
+- **refs:**
+  - `backend/app/lessons/schema.py`
+  - `frontend/components/lessons/widgets.tsx`
+  - `backend/app/lessons/content/course-42052/lesson-03.json`
+  - `backend/app/lessons/content/course-42052/lesson-03-deeper.json`
+  - `scripts/lesson-03/`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03 (via Link): "teach about neural networks,
+> transformers and LLMs, embedding. not everything needs to fit one
+> lesson". Picked browser pieces: live tokenizer, guess the next word,
+> click-to-see attention. Link ruled #33 ships as lesson 3's core and this
+> is a follow-up stacked on it; the Lesson Planner's brief
+> (lesson-3-part-b-deeper) is the spec. Tokenizer chunk cap: about 2 MB
+> gzipped (Link).
+>
+> VERIFIED at 461bcbe. Lesson 3 (#33) has tokens, next-token prediction,
+> attention and grounding as text, a Colab notebook and chatbot prompts.
+> The lesson engine has no interactive block besides lesson 2's trees; no
+> lesson explains neurons, training of a network, embeddings or the
+> transformer pipeline.
+>
+> This item: seven widget block types (live_tokenizer with o200k_base in
+> the browser, lazily loaded; next_word_guess on precomputed Qwen2.5-0.5B
+> probabilities; attention_view, labeled an illustration; neuron_playground;
+> training_demo; embedding_map on precomputed multilingual embeddings; image),
+> validated in the schema. Lesson 3 gets the first three as additive "נסו
+> בעצמכם" sections, with no check changed. A new optional draft lesson,
+> lesson-03-deeper, attached to session 3 after lesson 3 (neuron, a network
+> that learns, embeddings, transformer, from model to chatbot, wrap-up) with
+> a free CPU notebook (one neuron, a tiny network trained, real embeddings).
+> Generation scripts for the precomputed data are committed with the model,
+> revision and date in the data. No migration. Keys private.
+>
+> Done when: both lessons preview end to end in Hebrew at 390 and 1280 px,
+> every widget works by keyboard (Playwright); the notebook runs clean on CPU;
+> no answer key in the repository (tested); the tokenizer chunk size is
+> reported; CI is green.
 
 </details>
 

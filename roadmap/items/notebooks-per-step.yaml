@@ -31,5 +31,10 @@ evidence: |
   notebook and gets a Colab block. Each Colab button opens the step's own
   notebook from the public repository (main), unless the instructor set a
   lesson-level link (which overrides, and the instructor page says so); a
-  test checks every such path exists. The colab block's collapse is a
-  separate item (colab-block-collapse). Live lesson 2's content is unchanged.
+  test checks every such path exists; that button is the primary action of
+  colab-block-collapse's layout. Add-on (Reed's #43 N1): an optional `lead`
+  on colab blocks, shown above the button, says what to do in this notebook
+  for this step; every colab block in lessons 1, 2 and 3 has one, and
+  step-specific lines moved out of the collapsed help into it. Lesson 2's
+  content changes only by its two leads (a new draft when installed; the
+  published version is untouched).

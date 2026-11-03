@@ -4,7 +4,8 @@ A colab block's "open in Colab" button opens the lesson's instructor-set link
 when there is one, else the step's own notebook straight from the public
 repository: COLAB_GITHUB_BASE + the asset's path under frontend/public on
 main (the frontend builds the link; this mirrors its rule). The operator's
-rule (2026-11-03): each notebook covers only its step.
+rule (2026-11-03): each notebook covers only its step; the block shows a
+one-line lead and the button, with generic how-to collapsed.
 """
 
 from __future__ import annotations
@@ -68,7 +69,11 @@ def test_every_generated_colab_url_points_at_a_notebook_in_the_repository(key):
             assert json.loads(file.read_text(encoding="utf-8"))["cells"], url  # a real notebook
 
 
-def test_lessons_1_and_3_give_each_colab_step_its_own_notebook():
+def _one_line(lead: str) -> bool:
+    return bool(lead) and len(lead) <= 200 and lead.endswith(".") and lead.count(". ") == 0 and "\n" not in lead
+
+
+def test_lessons_1_and_3_give_each_colab_step_its_own_notebook_and_a_lead():
     seen = set()
     for key in sorted(PER_STEP):
         blocks = list(_colab_blocks(key))
@@ -77,16 +82,30 @@ def test_lessons_1_and_3_give_each_colab_step_its_own_notebook():
             path = content["assets"][block["notebook_asset"]]["path"]
             assert path not in seen, (key, step["key"])  # no two steps share a notebook
             seen.add(path)
-            # One line on the page says the notebook is this step's only.
-            assert "מחברת לשלב הזה בלבד" in json.dumps(step, ensure_ascii=False), (key, step["key"])
+            # One visible line: what to do in THIS notebook for THIS step.
+            assert _one_line(block.get("lead", "")), (key, step["key"], block.get("lead"))
+            # The collapsed help keeps only generic how-to: nothing names a section of the notebook.
+            assert not any("סעיף" in i for i in block["instructions"]), (key, step["key"])
     assert len(seen) == 8  # lesson 1: 1; Part 1: 3; Part 2: 4
 
 
-def test_the_live_lesson_2_content_is_untouched():
-    """Lesson 2's published content keeps its two blocks on its one notebook."""
+def test_lesson_2_gets_leads_and_keeps_everything_else():
+    """Lesson 2 (from-data-to-prediction): each Colab block gains a lead (a new
+    draft when installed); the step-only instruction moved into the lead."""
     blocks = [b for _, _, b in _colab_blocks("lesson-2")]
     assert [b["notebook_asset"] for b in blocks] == ["notebook", "notebook"]
-    assert set().union(*map(set, blocks)) == {"type", "notebook_asset", "section", "instructions", "return_note"}
+    assert all(_one_line(b["lead"]) for b in blocks)
+    assert set().union(*map(set, blocks)) == {"type", "notebook_asset", "section", "lead", "instructions", "return_note"}
+    data = blocks[0]
+    assert len(data["instructions"]) == 4 and "סעיף 1ב" in data["lead"]
+    assert not any("בשלב הזה מריצים רק" in i for i in data["instructions"])
+
+
+def test_the_lead_and_the_button_are_outside_the_collapsed_help():
+    source = BLOCKS_TSX.read_text(encoding="utf-8")
+    body = source[source.index("function ColabBlock(") : source.index("function LinkBlock(")]
+    lead, button, help_ = body.index("block.lead ?"), body.index("פתיחה בקולאב ↗"), body.index("<details")
+    assert lead < button < help_ and body.count("<details") == 1 and "<details open" not in body
 
 
 def test_the_step_notebooks_are_built_from_the_script():

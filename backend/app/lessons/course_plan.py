@@ -57,12 +57,13 @@ def _download(asset: str, label: str) -> dict:
 
 
 def _colab(asset: str, lead: str) -> list[dict]:
-    """The step's notebook: one line on what it is for, then its Colab block."""
+    """The step's notebook as a Colab block; the lead (shown above its button)
+    says what to do in this notebook for this step."""
     return [
-        _text(lead),
         {
             "type": "colab",
             "notebook_asset": asset,
+            "lead": ltr(lead),
             "instructions": [
                 ltr("הורידו את המחברת (הכפתור למטה), פתחו את colab.research.google.com, בחרו Upload והעלו את הקובץ."),
                 ltr("מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל (CPU) מספיק."),
@@ -190,7 +191,7 @@ _PREPARED: dict[str, dict] = {
         "colab": {
             "dessert": (
                 "notebook",
-                "מחברת לשלב הזה בלבד: מחשבון דוכן הקינוחים, מוכן להרצה בקולאב.",
+                "הריצו את התאים לפי הסדר; בתא «מחשבון דוכן קינוחים» שנו את הכמות ל-100, 66 ו-67 ואז לכמות שלילית, ובדקו את הרווח.",
             )
         },
     },

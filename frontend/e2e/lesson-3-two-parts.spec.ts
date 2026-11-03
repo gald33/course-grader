@@ -102,20 +102,23 @@ async function focusAndPress(locator: Locator, key: string) {
 
 const COLAB_GITHUB = 'https://colab.research.google.com/github/gald33/course-grader/blob/main/frontend/public';
 
-/** The step's Colab block: a visible "open in Colab" button straight to THIS
- * step's notebook (which exists in the repository), and its download. */
+/** The step's Colab block: its lead (what to do in THIS notebook) and the
+ * "open in Colab" button straight to THIS step's notebook are visible; the
+ * generic help, with the download, is collapsed. The notebook exists. */
 async function colabStep(page: Page, player: Locator, notebook: string) {
   const block = player.locator('section[data-colab-block]');
   await expect(block).toHaveCount(1);
+  await expect(block.getByTestId('colab-lead')).toBeVisible();
+  await expect(block.getByTestId('colab-lead')).toContainText('הריצו');
   const button = block.getByRole('link', { name: /פתיחה בקולאב/ });
   await expect(button).toBeVisible();
   await expect(button).toHaveAttribute('href', `${COLAB_GITHUB}${notebook}`);
   await expect(button).toHaveAttribute('target', '_blank');
-  await expect(block.getByRole('link', { name: /הורדת המחברת/ })).toHaveAttribute('href', notebook);
+  await expect(block.getByTestId('colab-help')).not.toHaveAttribute('open', '');
+  await expect(block.locator(`a[download][href="${notebook}"]`)).toBeHidden();
   const res = await page.request.get(notebook);
   expect(res.status(), notebook).toBe(200);
   expect((await res.json()).cells.length, notebook).toBeGreaterThan(3);
-  await expect(player).toContainText('מחברת לשלב הזה בלבד');
 }
 
 async function open(page: Page, slug: string, device: { width: number; height: number }) {

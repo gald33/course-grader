@@ -12,6 +12,7 @@ Claim before starting: `roadmap claim <key>`
 
 **In priority order, most important first.** An item with no marker carries no stated priority — take it as unjudged, not as low. The order within a band is alphabetical and means nothing.
 
+- `now` **`colab-block-collapse`** — A Colab lesson block shows only its step line and one open action; the how-to and alternatives fold into "עזרה וחלופות"
 - `now` **`unteamed-students-need-instructor-approved-auto-assign`** — After teams lock, propose teams for unteamed students and apply them only on the instructor's approval
   - ↔ related: **`team-formation-closes-at-a-deadline`** — Builds on the deadline lock from #13: that item lists unteamed students but leaves placing them to the instructor, one dropdown at a time.
 - `later` **`retire-bonus-points-phase-2-drop-column`** — enrollments.bonus_points is zeroed but still in the schema
@@ -52,6 +53,7 @@ graph TD
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
   assignments_need_custom_rubrics["✓ Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::done
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
+  colab_block_collapse["A Colab lesson block shows only its step line and one open action; the how-to and alternatives fold into 'עזרה וחלופות'"]:::ready
   course_42052_whole_syllabus["✓ The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
   exit_check_no_chatbot["Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason"]:::claimed
@@ -181,6 +183,41 @@ graph TD
 > SUPERSEDED 2026-10-21: the operator asked for the rebuild now. Phase 1 is
 > assignments-need-custom-rubrics (#26); phase 2 is
 > suggest-rubrics-per-assignment-from-clusters (deferred).
+
+</details>
+
+### `colab-block-collapse`
+
+- **title:** A Colab lesson block shows only its step line and one open action; the how-to and alternatives fold into "עזרה וחלופות"
+- **status:** ready
+- **priority:** now
+- **refs:**
+  - `frontend/components/lessons/blocks.tsx`
+  - `frontend/e2e/colab-block.spec.ts`
+
+<details><summary>evidence</summary>
+
+> REQUESTED by the operator, looking at the live site: "in the lesson block
+> for colab, collapse any generic instructions or alternatives, basically
+> just show the open in colab button uncollapsed".
+>
+> At 1fac480 `ColabBlock` (frontend/components/lessons/blocks.tsx) renders
+> everything open: the "פתיחה בקולאב" button (when the lesson has a
+> colab_url), a "if it doesn't open" note, the full numbered instruction
+> list (download, upload, sign in, run ▶, CPU), the download button and a
+> colab.research.google.com link.
+>
+> Done when, through the shared renderer (no content or notebook change):
+>   1. Visible: the block heading (step line) and ONE primary action — the
+>      instructor's colab_url button where set, otherwise the .ipynb
+>      download. Nothing else.
+>   2. Everything else, including the return note and the download when
+>      it is secondary, is in
+>      one native <details> "עזרה וחלופות", collapsed by default and
+>      keyboard-operable. Nothing is dropped.
+>   3. An e2e covers lesson-03 preview (download primary) and lesson 2 with
+>      an injected Drive colab_url (link visible; all 5 instructions, the
+>      download and colab.research.google.com inside the expander).
 
 </details>
 
@@ -928,8 +965,13 @@ graph TD
 > notebook and gets a Colab block. Each Colab button opens the step's own
 > notebook from the public repository (main), unless the instructor set a
 > lesson-level link (which overrides, and the instructor page says so); a
-> test checks every such path exists. The colab block's collapse is a
-> separate item (colab-block-collapse). Live lesson 2's content is unchanged.
+> test checks every such path exists; that button is the primary action of
+> colab-block-collapse's layout. Add-on (Reed's #43 N1): an optional `lead`
+> on colab blocks, shown above the button, says what to do in this notebook
+> for this step; every colab block in lessons 1, 2 and 3 has one, and
+> step-specific lines moved out of the collapsed help into it. Lesson 2's
+> content changes only by its two leads (a new draft when installed; the
+> published version is untouched).
 
 </details>
 

@@ -41,48 +41,67 @@ test('instructor course page loads the seeded course', async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
-test('instructor course page groups its sections and keeps the open one in the URL', async ({ page }) => {
+test('instructor course page opens on what needs attention, with one job per tab', async ({ page }) => {
   const problems = await watchForErrors(page);
   const nav = page.getByRole('navigation', { name: 'Course sections' });
   const h1 = page.getByRole('heading', { level: 1 });
+  const tab = (name: string) => page.getByRole('tab', { name, exact: true });
   await page.goto(`/course/${seed.course.id}`);
 
-  // The seeded course has a roster, so the bare URL opens the grading queue,
-  // with the assignment ZIP import on the same page.
-  await expect(h1).toHaveText('Grading queue');
-  await expect(nav.getByRole('link', { name: /^Grading queue/ })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('button', { name: 'Upload ZIP' })).toBeVisible();
-  await expect(nav.getByText('Imports')).toHaveCount(0);
-
-  // Students holds the roster, the sign-in accounts and the personal links.
-  await nav.getByRole('link', { name: /^Students/ }).click();
-  await expect(page).toHaveURL(/[?&]section=students\b/);
-  await expect(h1).toHaveText('Students');
-  await expect(page.getByRole('button', { name: 'Upload roster' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Student accounts' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Personal links' })).toBeVisible();
-
-  // Teams is a page of its own, no longer a tab inside peer review.
-  await nav.getByRole('link', { name: /^Teams/ }).click();
+  // The bare URL is the Overview: what needs the instructor, then a few figures.
+  await expect(h1).toHaveText('Overview');
+  await expect(nav.getByRole('link', { name: /^Overview/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('heading', { name: 'Needs your attention' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'At a glance' })).toBeVisible();
+  // The seed leaves students without a team; the item links to Teams.
+  await page.getByRole('link', { name: 'Open teams →' }).click();
   await expect(page).toHaveURL(/[?&]section=teams\b/);
   await expect(page.getByText(/without a team/)).toBeVisible();
+  await expect(nav.getByText('Imports')).toHaveCount(0);
 
-  // Hints name the page they mean, and link to it.
+  // The grading queue keeps the assignment ZIP import beside the submissions.
+  await nav.getByRole('link', { name: /^Grading queue/ }).click();
+  await expect(page.getByRole('button', { name: 'Upload ZIP' })).toBeVisible();
+
+  // Students: the roster first, accounts and links one tab away, each in the URL.
+  await nav.getByRole('link', { name: /^Students/ }).click();
+  await expect(page).toHaveURL(/[?&]section=students$/);
+  await expect(tab('Roster')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: 'Upload roster' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Personal links' })).toHaveCount(0);
+  await tab('Sign-in accounts').click();
+  await expect(page).toHaveURL(/[?&]tab=accounts\b/);
+  await expect(page.getByRole('heading', { name: 'Student accounts' })).toBeVisible();
+  await tab('Personal links').click();
+  await expect(page).toHaveURL(/[?&]tab=links\b/);
+  await expect(page.getByRole('heading', { name: 'Personal links' })).toBeVisible();
+
+  // Gradebook: grades first; the presentation import is its own tab.
   await nav.getByRole('link', { name: /^Gradebook/ }).click();
-  await expect(page).toHaveURL(/[?&]section=gradebook\b/);
+  await expect(page).not.toHaveURL(/tab=/);
+  await expect(tab('Grades')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: 'Upload presentations' })).toHaveCount(0);
+  await tab('Presentation scores').click();
   await expect(page.getByRole('button', { name: 'Upload presentations' })).toBeVisible();
+
+  // Long explanations are folded; opened, their links still lead to the page they name.
+  await tab('Grades').click();
+  await page.getByText('How this works ▸').click();
   await page.getByRole('button', { name: 'Curve & calibration' }).click();
-  await expect(page).toHaveURL(/[?&]section=curve\b/);
+  await expect(page).toHaveURL(/[?&]section=curve$/);
   await expect(h1).toHaveText('Curve & calibration');
 
-  // Back/forward walk the sections; refresh stays put.
+  // Back/forward walk sections and tabs; refresh stays put.
   await page.goBack();
   await expect(h1).toHaveText('Gradebook');
-  await page.goForward();
-  await expect(h1).toHaveText('Curve & calibration');
+  await expect(tab('Grades')).toHaveAttribute('aria-selected', 'true');
+  await page.goBack();
+  await expect(tab('Presentation scores')).toHaveAttribute('aria-selected', 'true');
   await page.reload();
-  await expect(h1).toHaveText('Curve & calibration');
-  expect(problems).toEqual([]);
+  await expect(tab('Presentation scores')).toHaveAttribute('aria-selected', 'true');
+  // Rewriting the URL for a section or tab makes Next cancel prefetches of the
+  // sidebar's links (e.g. "View as student"); a cancelled prefetch is not an error.
+  expect(problems.filter((p) => !(p.includes('_rsc=') && p.includes('ERR_ABORTED')))).toEqual([]);
 });
 
 test('student review page loads for a seeded review link', async ({ page }) => {

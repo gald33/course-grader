@@ -3,6 +3,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AnswerKeysCard, CoursePlanCard, type AnswerKeyStatus } from '@/components/lessons/course-plan';
+import { HowItWorks } from '@/components/ui/how-it-works';
+import { SubTabs, useUrlTab } from '@/components/ui/sub-tabs';
 import { InlineText, plainInline } from '@/components/lessons/inline';
 import type { Answer, Commitment, DepthKind, Experiment, Progress, StepStatus } from '@/components/lessons/types';
 import { BilingualName } from '@/components/ui/bilingual-name';
@@ -327,6 +329,7 @@ export function LessonsStep({
   const [fixtures, setFixtures] = useState<FixtureRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [tab, setTab] = useUrlTab(['plan', 'lessons', 'insights'] as const);
 
   const load = useCallback(async () => {
     const [list, fx] = await Promise.all([apiGet<LessonSummary[]>(base), apiGet<FixtureRow[]>(`${base}/fixtures`)]);
@@ -376,56 +379,97 @@ export function LessonsStep({
   if (!lessons) return <div className="pt-6 text-ink-3">Loading…</div>;
 
   const selectedLesson = lessons.find((l) => l.id === selected) ?? null;
+  const live = lessons.filter((l) => l.status === 'published').length;
+  const drafts = lessons.filter((l) => l.draft_version).length;
+  const tabs = [
+    { key: 'plan', label: 'Course plan' },
+    { key: 'lessons', label: 'Lessons', badge: lessons.length || undefined },
+    { key: 'insights', label: 'Class insights' }
+  ] as const;
 
   return (
-    <div className="grid gap-4 pt-6">
-      <div className="hint">
-        <span className="hint-icon">i</span>
-        <div>
-          Install the lesson as a <strong className="text-ink">draft</strong>, preview it exactly as students will get it
-          (nothing is saved), then <strong className="text-ink">publish</strong> a version — students find it on their
-          course page. Three things are tracked and never merged: <strong className="text-ink">viewed</strong> (opened a
-          step), <strong className="text-ink">completed</strong> (did the step’s required actions — any answer counts,
-          right or wrong) and <strong className="text-ink">understood</strong>, which only first-try answers and
-          written explanations speak to. Viewed ≠ completed ≠ understood. None of it is a grade, and none of it is
-          attendance.
-        </div>
-      </div>
+    <div className="grid gap-4 pt-5">
+      <SubTabs label="Lessons" tabs={tabs} active={tab} onChange={setTab} />
 
-      <CoursePlanCard courseId={courseId} course={course} reloadLessons={load} setToast={setToast} />
-      <AnswerKeysCard courseId={courseId} reloadLessons={load} setToast={setToast} />
-
-      {fixtures.filter((f) => !f.plan_code).map((f) => (
-        <FixtureCard
-          key={f.key}
-          base={base}
-          course={course}
-          fixture={f}
-          lesson={lessons.find((l) => l.id === f.installed_lesson_id) ?? null}
-          run={run}
-        />
-      ))}
-      {!fixtures.length && !lessons.length ? (
-        <Card>
-          <div className="text-[14px] text-ink-3">No lesson files are bundled with this server, and no lessons are installed.</div>
-        </Card>
+      {tab === 'plan' ? (
+        <>
+          <HowItWorks summary="Each lesson comes in as a draft. Preview it as students will see it, then publish it.">
+            Previewing saves nothing. Publishing freezes that version, and students find it on their course page;
+            students who already started stay on the version they started. Publishing stays your decision, lesson by
+            lesson.
+          </HowItWorks>
+          <CoursePlanCard courseId={courseId} course={course} reloadLessons={load} setToast={setToast} />
+          <AnswerKeysCard courseId={courseId} reloadLessons={load} setToast={setToast} />
+        </>
       ) : null}
 
-      {lessons.map((l) => (
-        <LessonCard
-          key={l.id}
-          base={base}
-          courseId={courseId}
-          course={course}
-          lesson={l}
-          selected={l.id === selectedLesson?.id}
-          onSelect={() => setSelected(l.id)}
-          run={run}
-        />
-      ))}
+      {tab === 'lessons' ? (
+        <>
+          <p className="text-[14px] text-ink-2">
+            {live} of {lessons.length} live to students{drafts ? ` · ${drafts} with an unpublished draft` : ''}.
+          </p>
+          {fixtures.filter((f) => !f.plan_code).map((f) => (
+            <FixtureCard
+              key={f.key}
+              base={base}
+              course={course}
+              fixture={f}
+              lesson={lessons.find((l) => l.id === f.installed_lesson_id) ?? null}
+              run={run}
+            />
+          ))}
+          {!fixtures.length && !lessons.length ? (
+            <Card>
+              <div className="text-[14px] text-ink-3">No lesson files are bundled with this server, and no lessons are installed.</div>
+            </Card>
+          ) : null}
+          <div className="grid gap-2">
+            {lessons.map((l) => (
+              <LessonCard
+                key={l.id}
+                base={base}
+                courseId={courseId}
+                course={course}
+                lesson={l}
+                onInsights={() => {
+                  setSelected(l.id);
+                  setTab('insights');
+                }}
+                run={run}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
 
-      {selectedLesson ? (
-        <InsightsPanel key={selectedLesson.id} courseId={courseId} lesson={selectedLesson} setToast={setToast} />
+      {tab === 'insights' ? (
+        <>
+          <label className="flex flex-wrap items-center gap-2 text-[14px]">
+            Lesson
+            <select
+              className="h-9 max-w-[420px] rounded-md border border-border bg-card px-2 text-[14px]"
+              value={selectedLesson?.id ?? ''}
+              onChange={(e) => setSelected(Number(e.target.value))}
+            >
+              {lessons.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.title} ({l.status})
+                </option>
+              ))}
+            </select>
+          </label>
+          <HowItWorks summary="Viewed, completed and understood are counted apart. None of it is a grade or attendance.">
+            <strong className="text-ink">Viewed</strong> means a student opened a step;{' '}
+            <strong className="text-ink">completed</strong> means they did the step’s required actions, and any answer
+            counts, right or wrong. <strong className="text-ink">Understood</strong> is what only first-try answers and
+            written explanations speak to.
+          </HowItWorks>
+          {selectedLesson ? (
+            <InsightsPanel key={selectedLesson.id} courseId={courseId} lesson={selectedLesson} setToast={setToast} />
+          ) : (
+            <p className="text-[14px] text-ink-3">No lessons yet.</p>
+          )}
+        </>
       ) : null}
     </div>
   );
@@ -452,21 +496,8 @@ function FixtureCard({
   const identity = `${course.code} · ${course.name} · ${course.year} / ${course.semester}`;
   const title = f.title ?? f.key;
 
-  if (installed && f.valid && !lesson?.fixture_update_available) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 rounded-md border border-line-soft bg-card px-4 py-2.5 text-[13px] text-ink-2">
-        <span className="pill pill-ok">✓ up to date</span>
-        <span>
-          Lesson file <span className="font-mono">{f.key}</span> (
-          <span dir="rtl">
-            <InlineText text={title} />
-          </span>
-          ) is installed in {course.code}; its latest version matches the app’s copy (
-          <span className="font-mono">{shortHash(f.content_hash)}</span>).
-        </span>
-      </div>
-    );
-  }
+  // Installed and current: nothing to do, so nothing to read.
+  if (installed && f.valid && !lesson?.fixture_update_available) return null;
 
   const install = () => {
     const what = installed
@@ -569,18 +600,17 @@ function LessonCard({
   courseId,
   course,
   lesson,
-  selected,
-  onSelect,
+  onInsights,
   run
 }: {
   base: string;
   courseId: number;
   course: CourseInfo;
   lesson: LessonSummary;
-  selected: boolean;
-  onSelect: () => void;
+  onInsights: () => void;
   run: Run;
 }) {
+  const [open, setOpen] = useState(false);
   const live = lesson.status === 'published' ? lesson.active_version : null;
   const latest = lesson.versions[lesson.versions.length - 1] ?? null;
   const previewHref = (n: number) => `/course/${courseId}/lessons/${lesson.id}/preview?version=${n}`;
@@ -607,30 +637,21 @@ function LessonCard({
   };
 
   return (
-    <Card className={`grid gap-4 ${selected ? 'border-forest ring-1 ring-forest-soft' : ''}`}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="grid gap-3 rounded-lg border border-border bg-card px-5 py-3.5 shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="label-eyebrow mb-1">
-            Lesson · <span className="font-mono normal-case">{lesson.slug}</span>
-          </div>
-          <h2 className="font-display text-[24px] leading-tight">
+          <h2 className="font-display text-[18px] leading-tight">
             <span dir="rtl">{lesson.title}</span>
           </h2>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-ink-3">
+          <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[13px] text-ink-3">
+            <span className="font-mono text-[12px]">{lesson.slug}</span>
             <span className={LESSON_STATUS_PILL[lesson.status]}>{lesson.status}</span>
             {live ? (
-              <span>
-                Students see version {live.number} · published {fmtDate(live.published_at)}
-              </span>
-            ) : lesson.status === 'archived' ? (
-              <span>Archived — hidden from students</span>
-            ) : (
-              <span>
-                Hidden from students
-                {lesson.active_version ? ` (version ${lesson.active_version.number} was live; saved progress is kept)` : ''}
-              </span>
-            )}
-            {lesson.draft_version ? <span>· draft version {lesson.draft_version.number} not published yet</span> : null}
+              <span title={`published ${fmtDate(live.published_at)}`}>v{live.number} live</span>
+            ) : lesson.active_version ? (
+              <span title="saved progress is kept">unpublished; v{lesson.active_version.number} was live</span>
+            ) : null}
+            {lesson.draft_version ? <span>{live ? '· ' : ''}v{lesson.draft_version.number} not published yet</span> : null}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -660,80 +681,85 @@ function LessonCard({
               Unpublish
             </Button>
           ) : null}
+          <Button size="sm" variant="ghost" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            {open ? 'Less ▴' : 'Versions ▾'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onInsights}>
+            Insights →
+          </Button>
         </div>
       </div>
 
-      <TableCard>
-        <thead>
-          <tr>
-            <Th className="pl-5">Version</Th>
-            <Th>Status</Th>
-            <Th>Content</Th>
-            <Th>Created</Th>
-            <Th>Published</Th>
-            <Th className="pr-5 text-right">Actions</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {[...lesson.versions].reverse().map((v) => {
-            const isLive = live?.id === v.id;
-            return (
-              <tr key={v.id} className="border-b border-line-soft last:border-b-0">
-                <Td className="pl-5 font-semibold">v{v.number}</Td>
-                <Td>
-                  <span className={v.status === 'published' ? 'pill pill-forest' : 'pill'}>
-                    {v.status === 'published' ? 'published · frozen' : 'draft'}
-                  </span>
-                  {isLive ? <span className="pill pill-ok ml-1.5">✓ live to students</span> : null}
-                </Td>
-                <Td className="font-mono text-[12px] text-ink-3">{shortHash(v.content_hash)}</Td>
-                <Td className="text-[13px] text-ink-2">{fmtDate(v.created_at)}</Td>
-                <Td className="text-[13px] text-ink-2">{fmtDate(v.published_at)}</Td>
-                <Td className="pr-5 text-right">
-                  <div className="flex justify-end gap-2">
-                    <a
-                      href={previewHref(v.number)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center rounded-md px-2.5 py-1 text-[13px] text-forest hover:bg-paper-2"
-                    >
-                      Preview ↗
-                    </a>
-                    {!isLive ? (
-                      <Button size="sm" variant={v.status === 'draft' ? 'default' : 'outline'} onClick={() => publish(v)}>
-                        {v.status === 'published' ? `Make version ${v.number} live` : `Publish version ${v.number}`}
-                      </Button>
-                    ) : null}
-                  </div>
-                </Td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </TableCard>
-
       <MissingKeys lesson={lesson} />
 
-      <ColabUrlField base={base} lesson={lesson} run={run} />
+      {open ? (
+        <div className="grid gap-4 border-t border-line-soft pt-3">
+          <TableCard>
+            <thead>
+              <tr>
+                <Th className="pl-5">Version</Th>
+                <Th>Status</Th>
+                <Th>Content</Th>
+                <Th>Created</Th>
+                <Th>Published</Th>
+                <Th className="pr-5 text-right">Actions</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...lesson.versions].reverse().map((v) => {
+                const isLive = live?.id === v.id;
+                return (
+                  <tr key={v.id} className="border-b border-line-soft last:border-b-0">
+                    <Td className="pl-5 font-semibold">v{v.number}</Td>
+                    <Td>
+                      <span className={v.status === 'published' ? 'pill pill-forest' : 'pill'}>
+                        {v.status === 'published' ? 'published · frozen' : 'draft'}
+                      </span>
+                      {isLive ? <span className="pill pill-ok ml-1.5">✓ live to students</span> : null}
+                    </Td>
+                    <Td className="font-mono text-[12px] text-ink-3">{shortHash(v.content_hash)}</Td>
+                    <Td className="text-[13px] text-ink-2">{fmtDate(v.created_at)}</Td>
+                    <Td className="text-[13px] text-ink-2">{fmtDate(v.published_at)}</Td>
+                    <Td className="pr-5 text-right">
+                      <div className="flex justify-end gap-2">
+                        <a
+                          href={previewHref(v.number)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center rounded-md px-2.5 py-1 text-[13px] text-forest hover:bg-paper-2"
+                        >
+                          Preview ↗
+                        </a>
+                        {!isLive ? (
+                          <Button size="sm" variant={v.status === 'draft' ? 'default' : 'outline'} onClick={() => publish(v)}>
+                            {v.status === 'published' ? `Make version ${v.number} live` : `Publish version ${v.number}`}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </TableCard>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-4">
-        <a
-          className="inline-flex items-center rounded-md border border-border bg-card px-2.5 py-1 text-[13px] text-ink hover:bg-paper-2"
-          href={`${apiBase()}${base}/${lesson.id}/export.csv`}
-        >
-          ⬇ Export progress (csv)
-        </a>
-        <span className="text-[12px] text-ink-3">
-          One row per enrolled student: status, required steps done, experiments, commitment, first-try correct count,
-          last saved activity. Test and withdrawn students are marked.
-        </span>
-        {!selected ? (
-          <Button size="sm" variant="ghost" className="ml-auto" onClick={onSelect}>
-            Show class insights ↓
-          </Button>
-        ) : null}
-      </div>
-    </Card>
+          <ColabUrlField base={base} lesson={lesson} run={run} />
+
+          <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-4">
+            <a
+              className="inline-flex items-center rounded-md border border-border bg-card px-2.5 py-1 text-[13px] text-ink hover:bg-paper-2"
+              href={`${apiBase()}${base}/${lesson.id}/export.csv`}
+            >
+              ⬇ Export progress (csv)
+            </a>
+            <span className="text-[12px] text-ink-3">
+              One row per enrolled student: status, required steps done, experiments, commitment, first-try correct count,
+              last saved activity. Test and withdrawn students are marked.
+            </span>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

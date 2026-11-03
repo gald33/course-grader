@@ -1,0 +1,44 @@
+id: instructor-pages-are-walls-of-text
+title: Instructor pages are walls of text, with no sign of what needs attention
+status: claimed
+priority: now
+claim:
+  by: claude/practical-ride-d2lxpj
+  at: '2026-11-03'
+blocked_on: []
+refs:
+- 'frontend/app/course/[id]/page.tsx'
+- 'frontend/components/course-overview.tsx'
+- 'frontend/components/lessons/instructor-lessons.tsx'
+- 'frontend/components/lessons/course-plan.tsx'
+- 'frontend/components/peer-review/peer-review-step.tsx'
+- 'frontend/app/course/[id]/submission/[submissionId]/page.tsx'
+- 'frontend/e2e/smoke.spec.ts'
+- 'frontend/e2e/lesson.spec.ts'
+evidence: |
+  The operator, 2026-11-03: "there's too much to read, too much on one
+  page. it's hard to a human to understand what's important and how to
+  find what you need".
+
+  MEASURED 2026-11-03 at 47632b6 on the e2e seed, 1440×900, page height /
+  words on the page: Lessons 16,534px / 3,737 words / 158 buttons and
+  links (the course plan's readiness table ~5,500px, then 14 lesson cards
+  of ~470px each with full version tables, then class insights at the
+  bottom); Curve 2,115px; Gradebook 1,547px (release toggles, the
+  presentation import, two histograms, two rows of five stat cards, then
+  the table); Students 1,437px (roster, add/edit, accounts and links on
+  one page). Every page opened with a paragraph-long hint, and the course
+  opened on the grading queue whatever was actually waiting.
+
+  Done when: the course opens on an Overview that lists only what needs
+  the instructor now (failed runs, missing files, a closed round not
+  released, a live lesson missing answer keys, students without a team or
+  account), each a link to the page that handles it, with "not checked"
+  where a source can't be read; long pages are tabs kept in `?tab=`
+  (Students: roster / accounts / links; Lessons: plan / lessons /
+  insights; Gradebook: grades / distribution / release / presentation
+  scores; Curve: curve / attendance; Peer review's own tabs in the URL
+  too); every explanatory hint is one line with the rest folded behind
+  "How this works"; lesson cards are one row with versions folded; the
+  readiness table's still-needed lists are folded; and the smoke test
+  covers the Overview, the tabs in the URL and back/forward across them.

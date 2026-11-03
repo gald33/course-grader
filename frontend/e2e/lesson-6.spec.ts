@@ -206,9 +206,11 @@ for (const device of [
     await expectStepContract(page, 'מסכמים', 'מה הצוות יכול להראות: מה רץ, איפה הוא שמור, ומי עוד יכול להריץ אותו?', player);
     await expect(player.getByText('דוגמה פתורה')).toBeVisible();
     await expect(player.getByText('התוצר של השיעור')).toBeVisible();
-    await expect(questionCard(page, 'lesson-06-exit')).toContainText('הסבירו במילים שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע.');
+    await expect(player.getByText('לסיום: במילים שלכם')).toBeVisible();
+    await expect(player.getByText('תשובה קצרה, משפט או שניים. אין כאן ציון – זה עוזר לכם (ולמרצה) לראות מה התבהר.')).toBeVisible();
+    await expect(questionCard(page, 'lesson-06-exit')).toContainText('באיזו פקודה מריצים את השלד שלכם, ומה קרה כשחבר צוות אחר הריץ אותו לפי ה-README?');
     await expectNoSidewaysScroll(page, 'step E');
-    await answerText(page, 'lesson-06-exit', 'בנינו שלד עם stub מסומן, דחפנו ל-GitHub וחבר הריץ מעותק חדש; לא ידוע איך יתנהג מודל אמיתי.');
+    await answerText(page, 'lesson-06-exit', 'מריצים npm start. נועה הריצה מעותק חדש, חסרה לה פקודת npm install, הוספנו אותה ל-README.');
     await expect(checklist(page)).toContainText('✓ השלב הושלם.');
     await expect(player).not.toContainText('קישור למאגר'); // the homework proposal is not shown
     await shot(page, `${device.name}-lesson-06-E-wrap-up`);

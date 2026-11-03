@@ -103,6 +103,15 @@ def test_the_seed_checks_and_texts_survive_unchanged(lesson):
     for step in seed["steps"]:
         assert course_plan.ltr(step["understand_he"]).split(";")[0].split(".")[0] in plain, step["key"]
     assert seed["optional_extension_he"] is None
+    # The concrete exit check (operator, 2026-11-03), pinned: same id, the
+    # seed's new wording, its section title and helper line.
+    assert seed["exit_check_he"] == "באיזו פקודה מריצים את השלד שלכם, ומה קרה כשחבר צוות אחר הריץ אותו לפי ה-README?"
+    assert lesson["questions"]["lesson-06-exit"]["prompt"] == course_plan.ltr(seed["exit_check_he"])
+    exit_section = next(b for b in _step(lesson, "wrap-up")["blocks"]
+                        if any(x.get("question") == "lesson-06-exit" for x in b.get("blocks", [])))
+    assert exit_section["title"] == "לסיום: במילים שלכם"
+    assert exit_section["blocks"][0]["body"] == [
+        "תשובה קצרה, משפט או שניים. אין כאן ציון – זה עוזר לכם (ולמרצה) לראות מה התבהר."]
 
 
 def test_the_homework_stays_a_proposal_for_the_instructor_only(lesson):
@@ -110,7 +119,9 @@ def test_the_homework_stays_a_proposal_for_the_instructor_only(lesson):
     assert homework == {"status": "proposal_not_yet_assigned", "text": "שלד עובד + README + קישור למאגר"}
     text = _dump(lesson)
     assert "מטלה" not in text and homework["text"] not in text
-    for word in ("deadline", "מועד הגשה", "משקל", "ציון", "להגיש", "הגשה"):
+    helper = "אין כאן ציון"
+    assert text.count("ציון") == text.count(helper)  # the only mention says there is no grade
+    for word in ("deadline", "מועד הגשה", "משקל", "להגיש", "הגשה"):
         assert word not in text, word
 
 

@@ -269,7 +269,9 @@ DATABASE_URL=... python scripts/load_answer_keys.py --course-id <id> --file ~/pr
 ```
 
 The file format is documented in `backend/app/services/answer_keys.py`. Every key is checked against the lesson's
-latest version first, and one bad entry stores nothing; an older version a key doesn't fit is reported. A version whose
+latest version first, and one bad entry stores nothing; an older version a key doesn't fit is reported. If it is a
+published version (students may be on it), nothing is stored until the instructor confirms (the upload dialog asks
+again; the script needs `--confirm-published-breaks`). A version whose
 questions have no key, or a key that no longer fits its options, can't be published, and the instructor sees a warning;
 a key that doesn't fit is never applied. Students get feedback only after they answer. Editing a key later (say its
 feedback text) changes the question's hash, so the instructor's insights count earlier answers to a keyless version

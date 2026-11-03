@@ -71,10 +71,31 @@ def key_status(course_id: int, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/answer-keys")
-def import_keys(course_id: int, body: Any = Body(...), dry_run: bool = False, db: Session = Depends(get_db)) -> dict:
+def import_keys(
+    course_id: int,
+    body: Any = Body(...),
+    dry_run: bool = False,
+    confirm_published_breaks: bool = False,
+    db: Session = Depends(get_db),
+) -> dict:
+    """dry_run validates and reports; confirm_published_breaks stores keys
+    that leave a published version unable to check a question (409 without)."""
     course = _course(db, course_id)
     try:
-        return answer_keys.import_keys(db, course, body, source="upload", dry_run=dry_run)
+        return answer_keys.import_keys(
+            db, course, body, source="upload", dry_run=dry_run, confirm_published_breaks=confirm_published_breaks
+        )
+    except answer_keys.BreaksPublishedVersion as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "breaks_published_version",
+                "message": "These keys don't fit a published version students may be on; nothing was stored. "
+                "Confirm to store them anyway.",
+                "errors": exc.errors,
+                "published_versions_not_fitting": exc.breaks,
+            },
+        ) from None
     except answer_keys.KeyImportError as exc:
         raise HTTPException(
             status_code=422,

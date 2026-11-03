@@ -89,6 +89,7 @@ type ImportResult = {
   lessons: string[];
   not_in_file: string[]; // "<slug>/<key>" or a plan lesson's "<slug>": left as they are
   older_versions_not_fitting: string[]; // "<slug>/<key> (version N)": that version can't check it
+  published_versions_not_fitting: string[]; // the published ones among them: storing needs confirming
   instructor_contact: 'set' | 'unchanged' | 'not in file';
   dry_run: boolean;
 };
@@ -449,7 +450,19 @@ export function AnswerKeysCard({
           'Students see feedback only after they answer.'
       );
       if (!ok) return;
-      const stored = await postKeys(base, data, setErrors);
+      // Keys that a published version (students may be on it) can't use:
+      // stored only after a second, explicit confirmation.
+      const breaks = check.published_versions_not_fitting;
+      if (
+        breaks.length &&
+        !window.confirm(
+          `⚠ Students on a published version could no longer be checked on ${breaks.length} question(s):\n\n` +
+            `${breaks.join('\n')}\n\n` +
+            'Their answers there would show no feedback until that version is replaced. Store the keys anyway?'
+        )
+      )
+        return;
+      const stored = await postKeys(breaks.length ? `${base}?confirm_published_breaks=true` : base, data, setErrors);
       if (stored) setToast(`${stored.keys} answer key(s) stored (${stored.added} new, ${stored.replaced} replaced)`);
     } finally {
       setBusy(false);

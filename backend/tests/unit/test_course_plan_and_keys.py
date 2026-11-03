@@ -225,7 +225,7 @@ def test_key_upload_is_validated_all_or_nothing(penv):
     }
     assert FAKE not in res.text
     # Paths only: no submitted value comes back.
-    assert "'99'" not in res.text and "not an email" not in res.text.replace("not an email address", "")
+    assert "'99'" not in res.text and "99999" not in res.text
     assert _stored(env) == 0
     with env.Session() as db:
         assert db.get(Course, course.id).instructor_email is None
@@ -328,26 +328,70 @@ def test_a_stored_key_that_no_longer_fits_a_revised_version_blocks_publishing(pe
     _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": v2["draft_version"]["id"]}))
 
 
-def test_a_key_must_fit_the_latest_version_and_older_ones_are_reported(penv, tmp_path, monkeypatch):
+def test_keys_that_would_break_a_published_version_are_refused_unless_confirmed(penv, tmp_path, monkeypatch):
+    """Reed's N2: a key that fits the latest version (here, a new option 9 in
+    draft v2) but not the published v1 would leave v1's students unchecked.
+    The dry run reports it; storing is refused with nothing saved; only an
+    explicit confirmation stores it. Paths only, never values."""
     env = penv
     course = _plan_course(env)
     _import(env, course)
     base = f"/api/courses/{course.id}/lessons"
+    lesson = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-04")
+    _ok(_upload(env, course, fake_key_file(["42052-lesson-04"])))
+    _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
     revised = load_fixture("42052-lesson-04")
     revised["questions"]["l04-q1"]["options"].append({"id": "9", "text": "אפשרות חדשה"})
     fixture = tmp_path / "lesson-04.json"
     fixture.write_text(json.dumps(revised, ensure_ascii=False), encoding="utf-8")
-    lesson = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-04")
-    _ok(_upload(env, course, fake_key_file(["42052-lesson-04"])))
-    _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
     monkeypatch.setitem(FIXTURES, "42052-lesson-04", fixture)
-    _ok(env.client.post(f"{base}/install", json={"fixture_key": "42052-lesson-04"}))  # v2 has option 9
+    _ok(env.client.post(f"{base}/install", json={"fixture_key": "42052-lesson-04"}))  # draft v2 has option 9
 
+    def stored_key():
+        with env.Session() as db:
+            row = db.scalar(select(LessonAnswerKey).where(LessonAnswerKey.lesson_slug == "lesson-04",
+                                                          LessonAnswerKey.question_key == "l04-q1"))
+            return row.answer_json
+
+    before = stored_key()
     new_option = {"lessons": {"lesson-04": {"l04-q1": {"correct_choice_id": "9", "feedback_he": FAKE}}}}
-    result = _ok(_upload(env, course, new_option))
-    assert result["older_versions_not_fitting"] == ["lesson-04/l04-q1 (version 1)"]
+    dry = _ok(_upload(env, course, new_option, dry_run=True))
+    assert dry["older_versions_not_fitting"] == ["lesson-04/l04-q1 (version 1)"]
+    assert dry["published_versions_not_fitting"] == ["lesson-04/l04-q1 (version 1)"]
+
+    refused = _upload(env, course, new_option)
+    assert refused.status_code == 409
+    detail = refused.json()["detail"]
+    assert detail["code"] == "breaks_published_version"
+    assert detail["published_versions_not_fitting"] == ["lesson-04/l04-q1 (version 1)"]
+    assert FAKE not in refused.text and '"9"' not in refused.text
+    assert stored_key() == before  # nothing saved
+    live = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-04")["answer_keys"]["live"]
+    assert live["missing"] == [] and live["mismatched"] == []  # the live version still checks every question
+
+    stored = _ok(_upload(env, course, new_option, confirm_published_breaks=True))
+    assert stored["replaced"] == 1 and stored["published_versions_not_fitting"] == ["lesson-04/l04-q1 (version 1)"]
+    live = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-04")["answer_keys"]["live"]
+    assert live["mismatched"] == ["l04-q1"]  # what the instructor confirmed, shown on the card
+
     gone = {"lessons": {"lesson-04": {"l04-q1": {"correct_choice_id": "7", "feedback_he": FAKE}}}}
-    assert _upload(env, course, gone).status_code == 422  # must fit the latest version
+    assert _upload(env, course, gone, confirm_published_breaks=True).status_code == 422  # must fit the latest version
+
+
+def test_an_unpublished_older_version_is_only_reported(penv, tmp_path, monkeypatch):
+    env = penv
+    course = _plan_course(env)
+    _import(env, course)  # v1 of lesson-05 stays a draft
+    revised = load_fixture("42052-lesson-05")
+    revised["questions"]["l05-q1"]["options"].append({"id": "9", "text": "אפשרות חדשה"})
+    revised["intro"] = "גרסה שנייה"
+    fixture = tmp_path / "lesson-05.json"
+    fixture.write_text(json.dumps(revised, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setitem(FIXTURES, "42052-lesson-05", fixture)
+    _ok(env.client.post(f"/api/courses/{course.id}/lessons/install", json={"fixture_key": "42052-lesson-05"}))
+    result = _ok(_upload(env, course, {"lessons": {"lesson-05": {"l05-q1": {"correct_choice_id": "9", "feedback_he": FAKE}}}}))
+    # The draft was updated in place (no published version to protect): nothing to report.
+    assert result["added"] == 1 and result["published_versions_not_fitting"] == []
 
 
 def test_instructor_routes_need_the_token_when_one_is_configured(penv):
@@ -563,7 +607,7 @@ def test_export_script_writes_a_private_file_and_refuses_a_tracked_path(tmp_path
     assert export.main(["--from-file", str(keyless), "--out", str(tmp_path / "none.json")]) == 1
 
 
-def test_load_script_stores_keys_in_the_chosen_course(penv, tmp_path, capsys):
+def test_load_script_stores_keys_in_the_chosen_course(penv, tmp_path, capsys, monkeypatch):
     env = penv
     course = _plan_course(env)
     _import(env, course)
@@ -580,6 +624,25 @@ def test_load_script_stores_keys_in_the_chosen_course(penv, tmp_path, capsys):
         lesson = db.scalar(select(Lesson).where(Lesson.slug == "lesson-05"))
         assert lesson.status == "draft"  # loading keys publishes nothing
     assert load.main(["--course-id", "999", "--file", str(keys)], env.Session) == 2
+    # A key a published version can't use: listed by path, refused without the flag.
+    lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-05")
+    _ok(env.client.post(f"/api/courses/{course.id}/lessons/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
+    revised = load_fixture("42052-lesson-05")
+    revised["questions"]["l05-q1"]["options"].append({"id": "9", "text": "אפשרות חדשה"})
+    fixture = tmp_path / "lesson-05.json"
+    fixture.write_text(json.dumps(revised, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setitem(FIXTURES, "42052-lesson-05", fixture)
+    _ok(env.client.post(f"/api/courses/{course.id}/lessons/install", json={"fixture_key": "42052-lesson-05"}))
+    breaking = tmp_path / "breaking.json"
+    breaking.write_text(json.dumps({"lessons": {"lesson-05": {"l05-q1": {"correct_choice_id": "9", "feedback_he": FAKE}}}}), encoding="utf-8")
+    capsys.readouterr()
+    assert load.main(["--course-id", str(course.id), "--file", str(breaking), "--dry-run"], env.Session) == 0
+    out = capsys.readouterr().out
+    assert "lesson-05/l05-q1 (version 1)" in out and "published" in out and FAKE not in out
+    assert load.main(["--course-id", str(course.id), "--file", str(breaking)], env.Session) == 3
+    err = capsys.readouterr().err
+    assert "lesson-05/l05-q1 (version 1)" in err and "--confirm-published-breaks" in err and FAKE not in err
+    assert load.main(["--course-id", str(course.id), "--file", str(breaking), "--confirm-published-breaks"], env.Session) == 0
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps({"lessons": {"lesson-05": {"l05-q1": {"correct_choice_id": "99"}}}}), encoding="utf-8")
     assert load.main(["--course-id", str(course.id), "--file", str(bad)], env.Session) == 1

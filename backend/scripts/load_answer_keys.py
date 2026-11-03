@@ -7,8 +7,10 @@ course, in any database (the hosted one included):
 DATABASE_URL decides the database (printed, password masked). The file's
 format and checks are those of the instructor upload (app/services/
 answer_keys.py): every key is validated against the course's lessons first,
-and one bad entry stores nothing. Re-running is safe: unchanged keys are
-left alone. Prints counts, never a key; nothing is written next to the file.
+and one bad entry stores nothing. Keys that fit a lesson's latest version
+but not a published one (students on it couldn't be checked) are listed and
+refused unless --confirm-published-breaks. Re-running is safe: unchanged
+keys are left alone. Prints counts, never a key; nothing is written next to the file.
 """
 
 from __future__ import annotations
@@ -34,6 +36,11 @@ def main(argv: list[str] | None = None, session_factory: Callable[[], Session] |
     parser.add_argument("--course-id", type=int, required=True, help="target course id (never guessed)")
     parser.add_argument("--file", type=Path, required=True, help="the private answer-key JSON file")
     parser.add_argument("--dry-run", action="store_true", help="validate and report; write nothing")
+    parser.add_argument(
+        "--confirm-published-breaks",
+        action="store_true",
+        help="store keys even when a published version they don't fit could no longer check those questions",
+    )
     args = parser.parse_args(argv)
     try:
         data = json.loads(args.file.read_text(encoding="utf-8"))
@@ -51,7 +58,20 @@ def main(argv: list[str] | None = None, session_factory: Callable[[], Session] |
             return 2
         print(f"Course {course.id}: code {course.code}, {course.name}, {course.year} semester {course.semester}")
         try:
-            result = answer_keys.import_keys(db, course, data, source="script", dry_run=args.dry_run)
+            result = answer_keys.import_keys(
+                db,
+                course,
+                data,
+                source="script",
+                dry_run=args.dry_run,
+                confirm_published_breaks=args.confirm_published_breaks,
+            )
+        except answer_keys.BreaksPublishedVersion as exc:
+            print("These keys don't fit a published version students may be on; nothing was stored:", file=sys.stderr)
+            for item in exc.breaks:
+                print(f"  - {item}", file=sys.stderr)
+            print("Re-run with --confirm-published-breaks to store them anyway.", file=sys.stderr)
+            return 3
         except answer_keys.KeyImportError as exc:
             print("The file has errors; nothing was stored:", file=sys.stderr)
             for error in exc.errors:
@@ -63,6 +83,13 @@ def main(argv: list[str] | None = None, session_factory: Callable[[], Session] |
         f"{result['added']} new, {result['replaced']} replaced, {result['unchanged']} unchanged. "
         f"Instructor contact: {result['instructor_contact']}."
     )
+    if result["older_versions_not_fitting"]:
+        print(
+            "Older versions these keys don't fit (those questions can't be checked there): "
+            + ", ".join(result["older_versions_not_fitting"])
+        )
+    if result["published_versions_not_fitting"]:
+        print("  of which published (students may be on them): " + ", ".join(result["published_versions_not_fitting"]))
     if result["not_in_file"]:
         print(f"Not in the file (left as they are): {', '.join(result['not_in_file'])}")
     if args.dry_run:

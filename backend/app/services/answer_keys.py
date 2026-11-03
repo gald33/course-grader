@@ -65,6 +65,22 @@ class KeyImportError(Exception):
         self.errors = errors
 
 
+class BreaksPublishedVersion(KeyImportError):
+    """The keys fit each lesson's latest version, but storing them would
+    leave a published version (one students may be on) unable to check a
+    question. Nothing is stored unless the instructor confirms
+    (confirm_published_breaks). `breaks` lists "<slug>/<key> (version N)"."""
+
+    def __init__(self, breaks: list[str]):
+        super().__init__(
+            [
+                f"{b}: this key doesn't fit the published version's options, so students on it couldn't be checked"
+                for b in breaks
+            ]
+        )
+        self.breaks = breaks
+
+
 @dataclass
 class _Entry:
     slug: str
@@ -194,20 +210,24 @@ def _to_key(entry: _Entry, question: dict) -> tuple[dict | None, list[str]]:
     return key, []
 
 
-def _definitions(db: Session, course: Course, slug: str, cache: dict[str, list[tuple[str, dict]]]) -> list[tuple[str, dict]]:
+_Definition = tuple[str, dict, bool]  # label, content, published
+
+
+def _definitions(db: Session, course: Course, slug: str, cache: dict[str, list[_Definition]]) -> list[_Definition]:
     """Every definition of the lesson's content a key would serve, latest
     first, labelled: each installed version ("version N"), or, before the
     lesson is installed, the bundled fixture with that slug for this
-    course's code ("the lesson file")."""
+    course's code ("the lesson file"). published: a published version,
+    which students may be on."""
     if slug in cache:
         return cache[slug]
     lesson = db.scalar(select(Lesson).where(Lesson.course_id == course.id, Lesson.slug == slug))
-    found: list[tuple[str, dict]] = []
+    found: list[_Definition] = []
     if lesson is not None:
         versions = db.scalars(
             select(LessonVersion).where(LessonVersion.lesson_id == lesson.id).order_by(LessonVersion.number.desc())
         )
-        found = [(f"version {v.number}", json.loads(v.content_json)) for v in versions]
+        found = [(f"version {v.number}", json.loads(v.content_json), v.status == "published") for v in versions]
     if not found:
         for key in FIXTURES:
             try:
@@ -215,15 +235,20 @@ def _definitions(db: Session, course: Course, slug: str, cache: dict[str, list[t
             except ContentError:
                 continue
             if raw.get("slug") == slug and raw.get("course_code") == course.code:
-                found.append(("the lesson file", raw))
+                found.append(("the lesson file", raw, False))
     cache[slug] = found
     return found
 
 
-def import_keys(db: Session, course: Course, data: Any, source: str, dry_run: bool = False) -> dict:
+def import_keys(
+    db: Session, course: Course, data: Any, source: str, dry_run: bool = False, confirm_published_breaks: bool = False
+) -> dict:
     """Validate the private file against the course's lessons and store every
     key in it (insert or replace), plus the instructor email if given. All or
-    nothing: any problem raises KeyImportError and stores nothing. The summary
+    nothing: any problem raises KeyImportError and stores nothing. Keys that
+    fit the latest version but not a published one raise
+    BreaksPublishedVersion unless confirm_published_breaks (a dry run reports
+    them in published_versions_not_fitting instead). The summary
     counts keys; it never repeats one."""
     if source not in SOURCES:
         raise ValueError(source)
@@ -231,39 +256,45 @@ def import_keys(db: Session, course: Course, data: Any, source: str, dry_run: bo
     code = data.get("course")
     if code is not None and str(code) != course.code:
         errors.append(f"course: the file is for another course, not {course.code}")
-    cache: dict[str, list[tuple[str, dict]]] = {}
+    cache: dict[str, list[_Definition]] = {}
     keys: dict[tuple[str, str], dict] = {}
     older_mismatch: list[str] = []
+    published_mismatch: list[str] = []
     for entry in parsed.entries:
         definitions = _definitions(db, course, entry.slug, cache)
         if not definitions:
             errors.append(f"{entry.where}: no lesson '{entry.slug}' in course {course.code}")
             continue
         questions = [
-            (label, d["questions"][entry.question_key])
-            for label, d in definitions
+            (label, d["questions"][entry.question_key], published)
+            for label, d, published in definitions
             if entry.question_key in d.get("questions", {})
         ]
         if not questions:
             errors.append(f"{entry.where}: lesson '{entry.slug}' has no question '{entry.question_key}'")
             continue
         # The key must fit the latest definition of the question. An older
-        # version it doesn't fit (its options changed) is reported: that
-        # version can't check the question until its own key is fixed, and
-        # it never marks an answer against an option it doesn't have.
-        (_label, latest), older = questions[0], questions[1:]
+        # version it doesn't fit (its options changed) can't check the
+        # question with it (it never marks an answer against an option it
+        # doesn't have): reported, and for a published version (students may
+        # be on it) refused unless the instructor confirms.
+        (_label, latest, _published), older = questions[0], questions[1:]
         key, problems = _to_key(entry, latest)
         if key is not None:
             problems += [f"{entry.where}: {p}" for p in answer_key_problems(latest, key)]
         if problems:
             errors += list(dict.fromkeys(problems))
             continue
-        for label, question in older:
+        for label, question, published in older:
             if "answer" not in question and answer_key_problems(question, key):
                 older_mismatch.append(f"{entry.slug}/{entry.question_key} ({label})")
+                if published:
+                    published_mismatch.append(f"{entry.slug}/{entry.question_key} ({label})")
         keys[(entry.slug, entry.question_key)] = key
     if errors:
         raise KeyImportError(errors)
+    if published_mismatch and not (confirm_published_breaks or dry_run):
+        raise BreaksPublishedVersion(published_mismatch)
     not_in_file = _not_in_file(db, course, {e.slug for e in parsed.entries}, set(keys), cache)
 
     existing = {
@@ -312,13 +343,15 @@ def import_keys(db: Session, course: Course, data: Any, source: str, dry_run: bo
         "not_in_file": not_in_file,
         # Older versions whose options a key doesn't fit: "<slug>/<key> (version N)".
         "older_versions_not_fitting": older_mismatch,
+        # The published ones among them: storing needs confirm_published_breaks.
+        "published_versions_not_fitting": published_mismatch,
         "instructor_contact": contact,
         "dry_run": dry_run,
     }
 
 
 def _not_in_file(
-    db: Session, course: Course, slugs: set[str], given: set[tuple[str, str]], cache: dict[str, list[tuple[str, dict]]]
+    db: Session, course: Course, slugs: set[str], given: set[tuple[str, str]], cache: dict[str, list[_Definition]]
 ) -> list[str]:
     """What the file leaves out: "<slug>/<key>" for each question of a lesson
     in the file that needs a key and isn't given, and "<slug>" for each
@@ -326,7 +359,7 @@ def _not_in_file(
     out = []
     for slug in sorted(slugs):
         needed: dict[str, None] = {}
-        for _label, definition in cache.get(slug, []):
+        for _label, definition, _published in cache.get(slug, []):
             for qkey, q in definition.get("questions", {}).items():
                 if needs_answer_key(q):
                     needed.setdefault(qkey)

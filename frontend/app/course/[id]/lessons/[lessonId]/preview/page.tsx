@@ -100,7 +100,7 @@ export default function LessonPreviewPage({ params }: { params: { id: string; le
       </div>
       {missingKeys.length ? (
         <div role="alert" className="mx-auto mt-2 max-w-[1120px] rounded-md bg-warn-soft px-3 py-2 text-ink">
-          <span className="font-semibold">⚠ No answer key loaded for {missingKeys.length} question(s):</span>{' '}
+          <span className="font-semibold">⚠ No answer key loaded (or the loaded one doesn’t fit) for {missingKeys.length} question(s):</span>{' '}
           <span className="font-mono text-[12px]">{missingKeys.join(', ')}</span>. Their answers can’t be checked here or by
           students, and this version can’t be published until the private answer keys are imported (Lessons tab).
         </div>

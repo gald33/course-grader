@@ -20,6 +20,7 @@ from test_lessons import Browser, _code, _course, _ok, _rid, env  # noqa: F401  
 
 from app.lessons import FIXTURES, PLANS, assets_root, load_fixture, load_plan, validate_content
 from app.models.entities import Course, Lesson, LessonAnswerKey, LessonVersion
+from app.core.config import get_settings
 from app.services import lessons as lessons_svc
 from app.services import student_session
 
@@ -218,17 +219,20 @@ def test_key_upload_is_validated_all_or_nothing(penv):
     assert res.status_code == 422 and detail["code"] == "invalid_answer_keys"
     assert set(detail["errors"]) == {
         "instructor email: not an email address",
-        "lessons.lesson-03.l03-q2: correct '99' is not an option",
+        "lessons.lesson-03.l03-q2: correct is not one of the question's options",
         "lessons.lesson-04.l04-q9: lesson 'lesson-04' has no question 'l04-q9'",
         "lessons.no-such-lesson.q: no lesson 'no-such-lesson' in course 42052",
     }
     assert FAKE not in res.text
+    # Paths only: no submitted value comes back.
+    assert "'99'" not in res.text and "not an email" not in res.text.replace("not an email address", "")
     assert _stored(env) == 0
     with env.Session() as db:
         assert db.get(Course, course.id).instructor_email is None
 
     other = dict(good, course="99999")
-    assert "course: the file is for course 99999" in _upload(env, course, other).json()["detail"]["errors"][0]
+    res = _upload(env, course, other)
+    assert res.json()["detail"]["errors"] == ["course: the file is for another course, not 42052"] and "99999" not in res.text
     for broken in ([], {"lessons": {"lesson-03": {"l03-q1": {"correct_choice_id": 2}}}}, {"surprise": 1},
                    {"course_code": "42052", "lessons": {}}, {"instructor": {"email": FAKE_EMAIL}},
                    {"checks": [{"lesson_slug": "lesson-03", "check_key": "l03-q1", "correct_choice_id": "1"}]},
@@ -266,7 +270,7 @@ def test_key_upload_shapes_dry_run_and_status_never_return_a_key(penv):
     body = _ok(status)
     assert body["stored_keys"] == 4 and body["instructor_contact_set"] is True
     l03 = next(l for l in body["lessons"] if l["slug"] == "lesson-03")
-    assert l03["latest"] == {"version_number": 1, "needed": 3, "missing": []}
+    assert l03["latest"] == {"version_number": 1, "needed": 3, "missing": [], "mismatched": []}
     for res in (status, env.client.get(f"/api/courses/{course.id}/plan"), env.client.get(f"/api/courses/{course.id}/lessons")):
         assert FAKE not in res.text and FAKE_EMAIL not in res.text
     with env.Session() as db:
@@ -284,6 +288,95 @@ def test_the_whole_plan_file_loads_13_lessons_and_39_checks(penv):
     assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (39, 39, [], "set")
     status = _ok(env.client.get(f"/api/courses/{course.id}/answer-keys"))
     assert all(l["latest"]["missing"] == [] for l in status["lessons"])
+
+
+def test_a_stored_key_that_no_longer_fits_a_revised_version_blocks_publishing(penv, tmp_path, monkeypatch):
+    """Reed's repro: keys loaded and v1 published, then l03-q1 loses the
+    option its key marks right and v2 is installed. Publishing v2 is refused
+    (never "every answer wrong"), the status names the mismatch, and the key
+    is never applied to v2."""
+    env = penv
+    course = _plan_course(env)
+    _import(env, course)
+    base = f"/api/courses/{course.id}/lessons"
+    lesson = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-03")
+    _ok(_upload(env, course, fake_key_file(["42052-lesson-03"])))  # FAKE: l03-q1's right option is "3"
+    _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
+
+    revised = load_fixture("42052-lesson-03")
+    revised["questions"]["l03-q1"]["options"] = [o for o in revised["questions"]["l03-q1"]["options"] if o["id"] != "3"]
+    fixture = tmp_path / "lesson-03.json"
+    fixture.write_text(json.dumps(revised, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setitem(FIXTURES, "42052-lesson-03", fixture)
+    v2 = _ok(env.client.post(f"{base}/install", json={"fixture_key": "42052-lesson-03"}))
+    assert v2["answer_keys"]["latest"]["mismatched"] == ["l03-q1"]
+    assert v2["answer_keys"]["latest"]["missing"] == ["l03-q1"]  # no usable key
+    assert v2["answer_keys"]["live"] == {"version_number": 1, "needed": 3, "missing": [], "mismatched": []}
+
+    res = env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": v2["draft_version"]["id"]})
+    assert _code(res, 422) == "answer_key_mismatch" and res.json()["detail"]["questions"] == ["l03-q1"]
+    assert FAKE not in res.text
+    # The preview never checks against the stale key either.
+    evaluated = _ok(env.client.post(f"{base}/{lesson['id']}/preview/evaluate",
+                                    json={"version_id": v2["draft_version"]["id"], "question_key": "l03-q1", "answer": {"choice": "1"}}))
+    assert evaluated["feedback"] == {"correct": None}
+
+    # A corrected key fits v2; v1 (which had option 3) still fits it too here.
+    fixed = {"lessons": {"lesson-03": {"l03-q1": {"correct_choice_id": "2", "feedback_he": FAKE}}}}
+    result = _ok(_upload(env, course, fixed))
+    assert result["replaced"] == 1 and result["older_versions_not_fitting"] == []
+    _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": v2["draft_version"]["id"]}))
+
+
+def test_a_key_must_fit_the_latest_version_and_older_ones_are_reported(penv, tmp_path, monkeypatch):
+    env = penv
+    course = _plan_course(env)
+    _import(env, course)
+    base = f"/api/courses/{course.id}/lessons"
+    revised = load_fixture("42052-lesson-04")
+    revised["questions"]["l04-q1"]["options"].append({"id": "9", "text": "אפשרות חדשה"})
+    fixture = tmp_path / "lesson-04.json"
+    fixture.write_text(json.dumps(revised, ensure_ascii=False), encoding="utf-8")
+    lesson = next(l for l in _ok(env.client.get(base)) if l["slug"] == "lesson-04")
+    _ok(_upload(env, course, fake_key_file(["42052-lesson-04"])))
+    _ok(env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
+    monkeypatch.setitem(FIXTURES, "42052-lesson-04", fixture)
+    _ok(env.client.post(f"{base}/install", json={"fixture_key": "42052-lesson-04"}))  # v2 has option 9
+
+    new_option = {"lessons": {"lesson-04": {"l04-q1": {"correct_choice_id": "9", "feedback_he": FAKE}}}}
+    result = _ok(_upload(env, course, new_option))
+    assert result["older_versions_not_fitting"] == ["lesson-04/l04-q1 (version 1)"]
+    gone = {"lessons": {"lesson-04": {"l04-q1": {"correct_choice_id": "7", "feedback_he": FAKE}}}}
+    assert _upload(env, course, gone).status_code == 422  # must fit the latest version
+
+
+def test_instructor_routes_need_the_token_when_one_is_configured(penv):
+    env = penv
+    course = _plan_course(env)
+    settings = get_settings()
+    original = settings.instructor_token
+    settings.instructor_token = "test-instructor-token"
+    try:
+        routes = [
+            ("GET", f"/api/courses/{course.id}/plan", None),
+            ("POST", f"/api/courses/{course.id}/plan/import", {"plan_code": "42052"}),
+            ("PATCH", f"/api/courses/{course.id}/plan/sessions/1", {"reviewed": True}),
+            ("GET", f"/api/courses/{course.id}/answer-keys", None),
+            ("POST", f"/api/courses/{course.id}/answer-keys", fake_key_file(["42052-lesson-03"])),
+        ]
+        student = {"Cookie": f"{student_session.COOKIE_NAME}={student_session.issue(course.ids['Alice'])}", "X-CG-Student": "1"}
+        for method, path, body in routes:
+            for headers in ({}, student, {"X-Instructor-Token": "wrong"}):
+                res = env.client.request(method, path, json=body, headers=headers)
+                assert res.status_code == 401, (method, path, headers)
+                assert FAKE not in res.text
+        assert _stored(env) == 0
+        token = {"X-Instructor-Token": "test-instructor-token"}
+        statuses = [env.client.request(m, p, json=b, headers=token).status_code for m, p, b in routes]
+        assert statuses[:2] == [200, 200] and statuses[3:] == [200, 200]
+        assert statuses[2] == 200  # the session exists once the plan is imported
+    finally:
+        settings.instructor_token = original
 
 
 def test_publishing_needs_keys_and_the_preview_warns_the_instructor(penv):

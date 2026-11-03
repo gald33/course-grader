@@ -622,7 +622,18 @@ def publish_version(db: Session, lesson: Lesson, version_id: int) -> Lesson:
         validate_content(json.loads(version.content_json), assets_root())
     except ContentError as exc:
         raise LessonError("invalid_content", "The lesson content has errors", 422, errors=exc.errors) from None
-    missing = answer_keys.missing_keys(keyed_content(db, lesson, version))
+    content, mismatched = answer_keys.merge_keys(
+        content_of(version), answer_keys.keys_for(db, lesson.course_id, lesson.slug)
+    )
+    if mismatched:
+        raise LessonError(
+            "answer_key_mismatch",
+            f"The loaded answer key of {len(mismatched)} question(s) doesn't fit this version (its options changed "
+            "after the keys were loaded), so answers couldn't be checked. Import corrected answer keys first.",
+            422,
+            questions=mismatched,
+        )
+    missing = answer_keys.missing_keys(content)
     if missing:
         raise LessonError(
             "missing_answer_keys",

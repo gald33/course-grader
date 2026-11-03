@@ -17,7 +17,9 @@ import { apiGet, apiPatch, apiPost, errorMessage } from '@/lib/api';
 
 type CourseInfo = { id: number; code: string; name: string; year: number; semester: string };
 
-type KeyCount = { version_number: number; needed: number; missing: string[] } | null;
+// missing: no usable key (mismatched ones included); mismatched: a stored key
+// that no longer fits this version's options and must be re-imported.
+type KeyCount = { version_number: number; needed: number; missing: string[]; mismatched: string[] } | null;
 export type AnswerKeyStatus = { latest: KeyCount; live: KeyCount };
 
 type PlanLesson = {
@@ -86,6 +88,7 @@ type ImportResult = {
   unchanged: number;
   lessons: string[];
   not_in_file: string[]; // "<slug>/<key>" or a plan lesson's "<slug>": left as they are
+  older_versions_not_fitting: string[]; // "<slug>/<key> (version N)": that version can't check it
   instructor_contact: 'set' | 'unchanged' | 'not in file';
   dry_run: boolean;
 };
@@ -105,6 +108,12 @@ function keysLabel(status: AnswerKeyStatus | undefined): { text: string; pill: s
   if (!latest) return { text: '—', pill: 'pill', title: 'Not installed' };
   if (!latest.needed) return { text: 'none needed', pill: 'pill', title: 'No question needs a key' };
   if (!latest.missing.length) return { text: `${latest.needed}/${latest.needed} loaded`, pill: 'pill pill-ok', title: '' };
+  if (latest.mismatched?.length)
+    return {
+      text: `${latest.mismatched.length} don’t fit v${latest.version_number}`,
+      pill: 'pill pill-bad',
+      title: `The loaded key doesn’t fit this version’s options: ${latest.mismatched.join(', ')}. Import corrected keys.`
+    };
   return {
     text: `${latest.missing.length} of ${latest.needed} missing`,
     pill: 'pill pill-warn',
@@ -432,6 +441,10 @@ export function AnswerKeysCard({
           `Instructor contact: ${check.instructor_contact}.\n\n` +
           (check.not_in_file.length
             ? `Not in the file (left as they are): ${check.not_in_file.join(', ')}\n\n`
+            : '') +
+          (check.older_versions_not_fitting.length
+            ? `⚠ These keys don’t fit an older version’s options, so that version can’t check them: ` +
+              `${check.older_versions_not_fitting.join(', ')}\n\n`
             : '') +
           'Students see feedback only after they answer.'
       );

@@ -768,6 +768,15 @@ function MissingKeys({ lesson }: { lesson: LessonSummary }) {
             (<span className="font-mono text-[12px]">{draftMissing.join(', ')}</span>).
           </div>
         ) : null}
+        {draft?.mismatched?.length || (published && live.mismatched?.length) ? (
+          <div>
+            <span className="font-semibold text-ink">A loaded key no longer fits the question’s options:</span>{' '}
+            <span className="font-mono text-[12px]">
+              {[...new Set([...(draft?.mismatched ?? []), ...(published ? live.mismatched ?? [] : [])])].join(', ')}
+            </span>
+            . It isn’t used (never marking answers wrong against an option that’s gone); import a corrected key.
+          </div>
+        ) : null}
         <div className="text-[13px] text-ink-2">Import the private answer keys above; the file is never stored in the app’s code.</div>
       </div>
     </div>

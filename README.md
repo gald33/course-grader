@@ -268,9 +268,12 @@ DATABASE_URL=... python scripts/load_answer_keys.py --course-id <id> --file ~/pr
 DATABASE_URL=... python scripts/load_answer_keys.py --course-id <id> --file ~/private/keys.json
 ```
 
-The file format is documented in `backend/app/services/answer_keys.py`. Every key is checked against the lessons
-first, and one bad entry stores nothing. A version whose questions have no key can't be published, and the instructor
-sees a warning; students get feedback only after they answer.
+The file format is documented in `backend/app/services/answer_keys.py`. Every key is checked against the lesson's
+latest version first, and one bad entry stores nothing; an older version a key doesn't fit is reported. A version whose
+questions have no key, or a key that no longer fits its options, can't be published, and the instructor sees a warning;
+a key that doesn't fit is never applied. Students get feedback only after they answer. Editing a key later (say its
+feedback text) changes the question's hash, so the instructor's insights count earlier answers to a keyless version
+as answers to another version of the question.
 
 Lesson 2's keys used to be in `backend/app/lessons/content/lesson-2.json` (they are still in git history). Export
 them once to a gitignored private file, then load it as above:
@@ -278,6 +281,10 @@ them once to a gitignored private file, then load it as above:
 ```bash
 cd backend && python scripts/export_lesson_answer_keys.py   # writes ../data/private/from-data-to-prediction.answer-keys.json
 ```
+
+In a shallow clone without commit `b03bb04`, export from the hosted database instead:
+`DATABASE_URL=... python scripts/export_lesson_answer_keys.py --from-db --course-id <id>` (it reads the installed
+version that still embeds the keys).
 
 The live lesson 2 version keeps the keys it was installed with; a new version installed from the keyless fixture can
 be published once the keys are loaded.

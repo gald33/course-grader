@@ -72,7 +72,7 @@ def test_keys_are_optional_and_checked_when_given():
     pick = sample_content()["questions"]["q_pick"]
     assert answer_key_problems(pick, pick["answer"]) == []
     assert answer_key_problems(pick, {"correct": ["zz"], "feedback": {}, "misconceptions": {}}) == [
-        "correct 'zz' is not an option"
+        "correct is not one of the question's options"  # a private key's value is never repeated
     ]
     assert answer_key_problems(pick, {"correct": ["a"], "feedback": {}, "misconceptions": {}, "explanation": "**x"}) == [
         "feedback or explanation: unbalanced ** (bold)"

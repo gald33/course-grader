@@ -667,24 +667,26 @@ def _check_actual_tree(where: str, content: LessonContent, block: ActualTreeBloc
     _check_tree(f"{where} ({asset.path})", root, nodes, set(labels) if isinstance(labels, dict) else None, errors)
 
 
-def choice_key_problems(option_ids: list[str], key: ChoiceAnswerKey) -> list[str]:
+def choice_key_problems(option_ids: list[str], key: ChoiceAnswerKey, quiet: bool = False) -> list[str]:
     """What is wrong with a choice answer key for these options (English, for
-    authors; each message starts with the key's field)."""
+    authors; each message starts with the key's field). quiet: never repeat a
+    value from the key (for private keys, whose values must not reach logs
+    or error responses)."""
     errors: list[str] = []
     if not key.correct:
         errors.append("correct is empty")
     for c in key.correct:
         if c not in option_ids:
-            errors.append(f"correct '{c}' is not an option")
+            errors.append("correct is not one of the question's options" if quiet else f"correct '{c}' is not an option")
     if set(key.correct) >= set(option_ids):
         errors.append("every option is marked correct")
     for option_id in key.feedback:
         if option_id not in option_ids:
-            errors.append(f"feedback for unknown option '{option_id}'")
+            errors.append("feedback names an option the question doesn't have" if quiet else f"feedback for unknown option '{option_id}'")
     wrong = set(option_ids) - set(key.correct)
     for option_id in key.misconceptions:
         if option_id not in wrong:
-            errors.append(f"misconceptions '{option_id}' is not a wrong option")
+            errors.append("misconceptions names an option that isn't a wrong one" if quiet else f"misconceptions '{option_id}' is not a wrong option")
     for text in [*key.feedback.values(), key.explanation or ""]:
         problem = _markup_problem(text)
         if problem:
@@ -695,14 +697,15 @@ def choice_key_problems(option_ids: list[str], key: ChoiceAnswerKey) -> list[str
 
 def answer_key_problems(question: dict, key: Any) -> list[str]:
     """Why `key` (a stored answer key, JSON) can't serve as this question's
-    answer key, or []. The question is the stored content dict."""
+    answer key, or []. The question is the stored content dict. Messages
+    never repeat a value from the key."""
     model = ChoiceAnswerKey if question.get("type") == "single_choice" else FreeTextAnswerKey
     try:
         parsed = model.model_validate(key)
     except ValidationError as exc:
-        return [f"{_loc(e['loc'])}: {e['msg']}" for e in exc.errors()]
+        return list(dict.fromkeys(f"{_loc(e['loc'])}: {e['msg']}" for e in exc.errors()))
     if isinstance(parsed, ChoiceAnswerKey):
-        return choice_key_problems([o["id"] for o in question.get("options", [])], parsed)
+        return list(dict.fromkeys(choice_key_problems([o["id"] for o in question.get("options", [])], parsed, quiet=True)))
     problems = []
     for text in [*parsed.sample_reasoning, *parsed.rubric]:
         problem = _markup_problem(text)

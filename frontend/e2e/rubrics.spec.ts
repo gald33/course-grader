@@ -25,7 +25,8 @@ async function watchForErrors(page: Page): Promise<string[]> {
 
 async function openRubrics(page: Page) {
   await page.goto(`/course/${seed.rubrics.course_id}`);
-  await page.getByRole('button', { name: /Rubrics/ }).click();
+  await page.getByRole('navigation', { name: 'Course sections' }).getByRole('link', { name: /^Rubrics/ }).click();
+  await expect(page).toHaveURL(/[?&]section=rubrics\b/);
   await expect(page.getByRole('heading', { level: 1, name: 'Rubrics' })).toBeVisible();
 }
 

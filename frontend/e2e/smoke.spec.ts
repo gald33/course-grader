@@ -41,6 +41,50 @@ test('instructor course page loads the seeded course', async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
+test('instructor course page groups its sections and keeps the open one in the URL', async ({ page }) => {
+  const problems = await watchForErrors(page);
+  const nav = page.getByRole('navigation', { name: 'Course sections' });
+  const h1 = page.getByRole('heading', { level: 1 });
+  await page.goto(`/course/${seed.course.id}`);
+
+  // The seeded course has a roster, so the bare URL opens the grading queue,
+  // with the assignment ZIP import on the same page.
+  await expect(h1).toHaveText('Grading queue');
+  await expect(nav.getByRole('link', { name: /^Grading queue/ })).toHaveAttribute('aria-current', 'page');
+  await expect(page.getByRole('button', { name: 'Upload ZIP' })).toBeVisible();
+  await expect(nav.getByText('Imports')).toHaveCount(0);
+
+  // Students holds the roster, the sign-in accounts and the personal links.
+  await nav.getByRole('link', { name: /^Students/ }).click();
+  await expect(page).toHaveURL(/[?&]section=students\b/);
+  await expect(h1).toHaveText('Students');
+  await expect(page.getByRole('button', { name: 'Upload roster' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Student accounts' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Personal links' })).toBeVisible();
+
+  // Teams is a page of its own, no longer a tab inside peer review.
+  await nav.getByRole('link', { name: /^Teams/ }).click();
+  await expect(page).toHaveURL(/[?&]section=teams\b/);
+  await expect(page.getByText(/without a team/)).toBeVisible();
+
+  // Hints name the page they mean, and link to it.
+  await nav.getByRole('link', { name: /^Gradebook/ }).click();
+  await expect(page).toHaveURL(/[?&]section=gradebook\b/);
+  await expect(page.getByRole('button', { name: 'Upload presentations' })).toBeVisible();
+  await page.getByRole('button', { name: 'Curve & calibration' }).click();
+  await expect(page).toHaveURL(/[?&]section=curve\b/);
+  await expect(h1).toHaveText('Curve & calibration');
+
+  // Back/forward walk the sections; refresh stays put.
+  await page.goBack();
+  await expect(h1).toHaveText('Gradebook');
+  await page.goForward();
+  await expect(h1).toHaveText('Curve & calibration');
+  await page.reload();
+  await expect(h1).toHaveText('Curve & calibration');
+  expect(problems).toEqual([]);
+});
+
 test('student review page loads for a seeded review link', async ({ page }) => {
   const problems = await watchForErrors(page);
   await page.goto(`/r/${seed.student.token}`);

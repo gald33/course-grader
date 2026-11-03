@@ -115,11 +115,22 @@ Notes:
 
 ## Main workflow
 
+The course page's sidebar groups its pages by job, and each page has its own URL (`/course/<id>?section=<key>`):
+
+- **Students** — `students` (roster upload, add/edit/withdraw a student, sign-in accounts, personal links) and
+  `teams`.
+- **Teaching** — `lessons` and `peer` (peer review).
+- **Grading** — `queue` (assignment ZIP import and the submissions), `rubrics` (custom per-assignment rubrics),
+  `curve`, `overrides`, `gradebook` (release, presentation scores import, exports).
+- `settings` at the bottom, with **View as student**.
+
+The bare course URL opens the grading queue, or Students while the course has no roster yet.
+
 Course setup and grading:
 
 1. Create course on home page.
-2. Upload roster XLSX (Yedion exports work). Emails from the roster become student logins.
-3. Upload assignment ZIP (set assignment type + workcode).
+2. **Students**: upload roster XLSX (Yedion exports work). Emails from the roster become student logins.
+3. **Grading queue → Import ZIP**: upload an assignment ZIP (set assignment type + workcode).
 4. Paste Colab URL in course submissions table.
 5. Queue notebook run (`snapshot` or `fetch latest + run`). On the hosted app the queued job waits for
    `make worker-hosted`.
@@ -128,16 +139,16 @@ Course setup and grading:
    - rubric sliders
    - run history + pin
    - notes and student feedback
-7. Import presentations XLSX.
+7. Import presentations XLSX (**Gradebook → Presentation scores**).
 8. Review gradebook and export CSV.
 9. Queue the student Hebrew PDF reports (**Queue Hebrew PDFs** in the gradebook); when the job finishes, download
    the zip from the link that appears. Hosted, the job waits for `make worker-hosted`.
 
 Peer review this semester (course page → **Peer review**; details in [Peer review](#peer-review)):
 
-1. **Teams & links → Student accounts**: create the student accounts (first password = ID number) and, if you want
+1. **Students → Student accounts**: create the student accounts (first password = ID number) and, if you want
    to see the site as a student, a test student.
-2. **Teams & links → Teams**: leave "Students can create, join and leave teams themselves" on and set the max team
+2. **Teams**: leave "Students can create, join and leave teams themselves" on and set the max team
    size; students open a team and share its join code. Move stragglers by hand, then lock teams once final.
 3. Optionally **+ Add practice round** so students try the review form on an ungraded round.
 4. Create the default schedule, open date selection, random-assign the rest, open reviewing and each session.
@@ -170,7 +181,8 @@ four teams per session. All of it is editable.
 
 Instructor workflow (course page → **Peer review**):
 
-1. **Teams & links** — student accounts (and a test student), teams, and personal review links (`/r/<token>`).
+1. **Students** and **Teams** (their own pages in the course sidebar, since lessons and grades use them too) —
+   student accounts (and a test student) and personal links (`/r/<token>`) on Students; teams on Teams.
    Students can form their own teams: a student without a team opens one (it gets a 6-character join code to share)
    or joins one by code, and can leave; an empty team with no review history is removed. The instructor sets the
    maximum team size, can lock team changes, sees each team's join code and how many students have no team, and can
@@ -201,7 +213,8 @@ the team sees a banner until the link works. The round's schedule view shows eac
 **Test students and "View as student".** The accounts card can create a test student (an email of your own, e.g. a
 `+alias`; random first password, changed at first login). It signs in and reviews like any student but is left out of
 round scores and normalisation, the anonymised export, the grade sheet, attendance stats and the student count.
-**View as student** (Peer review step) and **Preview** (per student in Teams & links) open any student's page read-only.
+**View as student** (course sidebar, and the Peer review tab bar) and **Preview** (per student under Students →
+Personal links) open any student's page read-only.
 
 Students open their link on a phone: today's presentations first, a 1–5 form per team with the two text prompts, their own
 normalised shares updating live, drafts kept on the device until submitted, editing until the review window closes, slot
@@ -246,7 +259,7 @@ marks such cells "peer", the student page notes "כולל ביקורת עמית�
 **Letting students in from a local install.** Without hosting, the app is localhost-only by default. To reach students' phones, set `INSTRUCTOR_TOKEN` in `.env`
 (instructor API routes then require it; the instructor UI asks for it once and keeps a cookie), restart, and expose the
 frontend port, e.g. `cloudflared tunnel --url http://localhost:3000`. The frontend proxies `/api` to the backend, so only
-port 3000 needs to be reachable. Set the tunnel URL as **Link base URL** in Teams & links before copying links.
+port 3000 needs to be reachable. Set the tunnel URL as **Link base URL** under Students → Personal links before copying links.
 
 ## Hosted app
 
@@ -289,7 +302,7 @@ Tests run against Postgres too: `TEST_DATABASE_URL=postgresql://... pytest -q`.
 Students sign in at `/login` with their email; after signing in they land on their review page. Emails come
 from the roster import (Yedion exports work: only ID, name, and the external email are read).
 
-The instructor creates the accounts in **Peer review → Teams & links → Student accounts**. No email is sent:
+The instructor creates the accounts in **Students → Student accounts**. No email is sent:
 the first password is the student's national ID number, and the student must choose their own password at
 first login. A forgotten password is reset to the ID number from the same panel. Until a student changes it,
 anyone who knows their email and ID number can sign in as them; the panel shows who hasn't yet.
@@ -400,7 +413,7 @@ The instructor UI asks for the token once (`POST /api/auth/instructor-session`) 
 Students authenticate in two ways:
 
 - **Review link**: the `/r/<token>` URL itself is the credential (a random per-enrollment token; regenerate it from
-  Teams & links if one leaks). Student API responses never include other reviewers' identities.
+  Students → Personal links if one leaks). Student API responses never include other reviewers' identities.
 - **Login** (hosted): email + password through Supabase Auth at `/login`, which sets a signed `cg_student` cookie
   (`SESSION_SECRET`, or a key derived from `SUPABASE_SECRET_KEY`) and sends the student to their review link. Until a
   student changes the first password (their ID number), anyone who knows their email and ID can sign in as them.

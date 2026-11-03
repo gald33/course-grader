@@ -28,7 +28,6 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
-| `lesson-3-how-language-models-work` | claude/lesson-3-how-language-models-work | 2026-11-03T12:00:00Z |
 | `lesson-4-coding-agent` | claude/lesson-4-coding-agent | 2026-11-03T14:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
@@ -54,7 +53,7 @@ graph TD
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
-  lesson_3_how_language_models_work["Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::claimed
+  lesson_3_how_language_models_work["✓ Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::done
   lesson_4_coding_agent["Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::claimed
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
@@ -373,9 +372,8 @@ graph TD
 ### `lesson-3-how-language-models-work`
 
 - **title:** Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-3-how-language-models-work (since 2026-11-03T12:00:00Z)
 - **blocked on:** `course-42052-whole-syllabus`
 - **refs:**
   - `content/course-42052/lessons/lesson-03.json`
@@ -418,6 +416,8 @@ graph TD
 > credentials; no answer key in the repository (tested); CI is green.
 > Not in this item: the instructor's own review and live check in class,
 > the real Colab share link (set by the instructor), and a homework brief.
+>
+> SHIPPED: #33, merged as 47632b6.
 
 </details>
 

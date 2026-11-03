@@ -23,6 +23,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `autograder-needs-a-proper-redesign` — The notebook autograder needs a proper redesign, once there is enough graded data
 - `course-42052-whole-syllabus` — The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository
 - `courses-and-submissions-cannot-be-deleted` — Courses, assignments and submissions can't be deleted or archived
+- `exit-check-no-chatbot` — Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason
 - `frontend-has-no-tests` — The frontend has no tests; CI only type-checks it
 - `hebrew-report-pdfs-cannot-be-downloaded` — Hebrew student report PDFs are queued but can never be retrieved from the hosted site
 - `instructor-course-page-is-organized-as-fake-steps` — The instructor course page is eight numbered "steps" that aren't steps, with student tools in three places
@@ -33,6 +34,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `lesson-3-review-fixes` — Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)
 - `lesson-4-coding-agent` — Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
 - `lesson-5-product-definition` — Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice
+- `lesson-title-sync-on-install` — Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles
 - `lessons-one-page-per-lesson` — The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page
 - `no-button-to-recheck-site-links` — Add a "re-check all links" button for a round
 - `onboarding-guide-has-todo-sections` — ONBOARDING.md still has _TODO_ under Team Tips and Get Started

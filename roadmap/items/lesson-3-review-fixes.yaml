@@ -1,10 +1,8 @@
 id: lesson-3-review-fixes
 title: Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)
-status: ready
+status: done
 priority: now
-claim:
-  by: claude/lesson-3-review-fixes
-  at: '2026-11-03T14:00:00Z'
+claim: null
 blocked_on: []
 refs:
 - 'backend/app/lessons/content/course-42052/lesson-03.json'
@@ -37,3 +35,5 @@ evidence: |
   notebooks edited in markdown only with sha256 updated, tests guard each
   corrected claim, lesson-3 specs green at 390 and 1280 px, and the changed
   feedback_he sent privately to the planner.
+
+  SHIPPED: #39, merged as da30542.

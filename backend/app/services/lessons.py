@@ -513,6 +513,9 @@ class InstallPlan:
     lesson: Lesson | None
     version: LessonVersion | None  # the version to update (update_draft) or that already matches (unchanged)
     version_number: int
+    # The title the lesson row should carry after the install: the published
+    # (active) version's title while one exists, else the fixture's.
+    lesson_title: str = ""
 
     def describe(self) -> str:
         if self.action == "create":
@@ -522,6 +525,11 @@ class InstallPlan:
         if self.action == "new_version":
             return f"add draft version {self.version_number} to lesson '{self.slug}' (published versions stay as they are)"
         return f"nothing: lesson '{self.slug}' version {self.version_number} already has this content"
+
+    @property
+    def renames(self) -> bool:
+        """The install will change the lesson row's title."""
+        return self.lesson is not None and self.lesson.title != self.lesson_title
 
 
 def plan_install(db: Session, course: Course, fixture_key: str, allow_course_mismatch: bool = False) -> InstallPlan:
@@ -556,7 +564,16 @@ def plan_install(db: Session, course: Course, fixture_key: str, allow_course_mis
         lesson=lesson,
         version=latest if action in ("update_draft", "unchanged") else None,
         version_number=number,
+        lesson_title=_lesson_title(db, lesson, raw["title"]),
     )
+
+
+def _lesson_title(db: Session, lesson: Lesson | None, fixture_title: str) -> str:
+    """Students see the lesson row's title over the active version's content,
+    so it follows the active (published) version; a lesson that has never
+    been published follows the fixture. publish_version() moves it on."""
+    active = db.get(LessonVersion, lesson.active_version_id) if lesson and lesson.active_version_id else None
+    return content_of(active)["title"] if active is not None else fixture_title
 
 
 def install_fixture(
@@ -600,8 +617,13 @@ def install_fixture(
                 created_at=now,
             )
         )
-    if plan.action != "unchanged" or lesson.fixture_key != fixture_key:
+    # Keep the row's title in step on every install, including "unchanged"
+    # (rows installed before this sync existed): the fixture's title for a
+    # never-published lesson, else the active version's. A new draft behind
+    # a published version doesn't rename the lesson until it is published.
+    if plan.action != "unchanged" or lesson.fixture_key != fixture_key or lesson.title != plan.lesson_title:
         lesson.fixture_key = fixture_key
+        lesson.title = plan.lesson_title
         lesson.updated_at = now
     try:
         db.commit()
@@ -648,6 +670,7 @@ def publish_version(db: Session, lesson: Lesson, version_id: int) -> Lesson:
         version.published_at = now
     lesson.active_version_id = version.id
     lesson.status = "published"
+    lesson.title = content_of(version)["title"]  # students see this title over this content
     lesson.updated_at = now
     db.commit()
     db.refresh(lesson)

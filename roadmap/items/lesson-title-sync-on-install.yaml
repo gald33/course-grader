@@ -1,0 +1,29 @@
+id: lesson-title-sync-on-install
+title: Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles
+status: ready
+priority: now
+claim:
+  by: claude/exit-check-no-chatbot
+  at: '2026-11-03T19:15:00Z'
+blocked_on: []
+refs:
+- 'backend/app/services/lessons.py'
+- 'backend/scripts/seed_lesson.py'
+evidence: |
+  Marshal, 2026-11-03: live course 3 shows "איך מודלי שפה עובדים?" and
+  "להעמיק: מרשתות נוירונים למודלי שפה" after update_draft/new_version.
+  VERIFIED at 1fac480: install_fixture sets Lesson.title only when it creates
+  the lesson; update_draft, new_version and unchanged leave the row's title
+  as first installed.
+
+  This item: the lesson row's title follows what students see. A
+  never-published lesson takes the fixture's title on every install
+  (including "unchanged": rows installed before this sync existed); once a
+  version is published, the title is the active version's, and
+  publish_version() sets it from the version it publishes. A new draft behind
+  a published version does not rename the lesson (Reed, #42 B1). Idempotent;
+  published versions untouched. The fixture carries no order, part or
+  summary field: position is the instructor's (update_lesson) and part/role
+  lives in CoursePlanSession, which the plan import already syncs. No
+  migration. Live course 3 gets the new titles when its v2 drafts are
+  published (they still need their answer keys).

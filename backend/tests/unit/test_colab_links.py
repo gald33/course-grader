@@ -113,3 +113,25 @@ def test_the_step_notebooks_are_built_from_the_script():
         [sys.executable, "scripts/build_step_notebooks.py", "--check"], cwd=BACKEND, capture_output=True, text=True
     )
     assert run.returncode == 0, run.stderr
+
+
+def test_each_step_notebook_says_its_step_and_points_only_at_its_own_sections():
+    """Reed's #46 B1/N1: a step's notebook holds only that step's sections, says
+    which step it is for, and never sends the student to a section that now
+    lives in another step's notebook."""
+    for key in sorted(PER_STEP):
+        for content, step, block in _colab_blocks(key):
+            path = ASSETS_ROOT / content["assets"][block["notebook_asset"]]["path"].lstrip("/")
+            cells = json.loads(path.read_text(encoding="utf-8"))["cells"]
+            assert f"המחברת הזו היא לשלב {step['letter']} (" in "".join(cells[0]["source"]), (key, step["key"])
+            text = "".join("".join(c["source"]) for c in cells)
+            present = set(re.findall(r"(?:<h[23]>|## )(\d+[א-ת]?)[ .|]", text))
+            mentioned = set(re.findall(r"סעיף (\d+[א-ת]?)", text))
+            assert present and mentioned <= present, (key, step["key"], sorted(mentioned - present))
+
+
+def test_lesson_1_step_b_notebook_is_the_calculator_only():
+    cells = json.loads((ASSETS_ROOT / "lessons/lesson-01/v2/lesson-1-b-dessert-calculator-he.ipynb").read_text("utf-8"))["cells"]
+    headings = [re.match(r"## (\d+)\.", "".join(c["source"])) for c in cells if c["cell_type"] == "markdown"]
+    assert [h.group(1) for h in headings if h] == ["3", "4", "5", "6", "8"]  # not 1-2 (step A), 7 (step C), 9 (wrap-up)
+    assert "def calculate_stall(" in "".join(cells[2]["source"])  # its first code cell defines what the rest uses

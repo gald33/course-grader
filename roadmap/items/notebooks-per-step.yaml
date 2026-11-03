@@ -27,8 +27,9 @@ evidence: |
   embeddings; Part 2: tokens, next-token, attention, grounding), sliced from
   v2 by a committed script, each with its own setup, executed clean on CPU
   at v3/. Every step needed its own notebook; no combined notebook, so no
-  banner markers. Lesson 1's notebook is wholly step B's, so it stays one
-  notebook and gets a Colab block. Each Colab button opens the step's own
+  banner markers. Lesson 1's handoff notebook spans the whole lesson (Reed's
+  #46 B1), so step B gets its own notebook at v2/ with only the calculator
+  sections (3-6 and the optional check, 8), and a Colab block. Each Colab button opens the step's own
   notebook from the public repository (main), unless the instructor set a
   lesson-level link (which overrides, and the instructor page says so); a
   test checks every such path exists; that button is the primary action of

@@ -5,12 +5,19 @@
   "guiding_question": "לבחור דרך לפתרון בעיה ולבדוק תוצר קטן בקולאב, בלי ידע מוקדם בתכנות.",
   "course_code": "42052",
   "assets": {
-    "notebook": {
-      "path": "/lessons/lesson-01/v1/lesson-1-dessert-stall.ipynb",
-      "filename": "lesson-1-dessert-stall.ipynb",
+    "notebook_b": {
+      "path": "/lessons/lesson-01/v2/lesson-1-b-dessert-calculator-he.ipynb",
+      "filename": "lesson-1-b-dessert-calculator-he.ipynb",
       "mime": "application/x-ipynb+json",
-      "label": "מחברת דוכן הקינוחים (ipynb)",
-      "sha256": "b89d1b016535b1eeed9850b56ab594f66697132b8472ea6d73159a12875c1be2"
+      "label": "מחברת שלב B: מחשבון דוכן הקינוחים (ipynb)",
+      "sha256": "705811be418fc1049ef846bd59ddd76aef1390eeba58fa82a18b757b3480214a"
+    },
+    "notebook_b_executed": {
+      "path": "/lessons/lesson-01/v2/lesson-1-b-dessert-calculator-he-executed.ipynb",
+      "filename": "lesson-1-b-dessert-calculator-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב B – עותק מורץ (ipynb)",
+      "sha256": "12a55cccbf3a995d5fdc6b7fe6f187eb2336b4d95fe2573720ac864a1db7cc07"
     }
   },
   "steps": [
@@ -90,13 +97,25 @@
             },
             {
               "type": "colab",
-              "notebook_asset": "notebook",
+              "notebook_asset": "notebook_b",
               "lead": "הריצו את התאים לפי הסדר; בתא «מחשבון דוכן קינוחים» שנו את הכמות ל-100, 66 ו-67 ואז לכמות שלילית, ובדקו את הרווח.",
               "instructions": [
                 "הורידו את המחברת (הכפתור למטה), פתחו את [[colab.research.google.com]], בחרו [[Upload]] והעלו את הקובץ.",
                 "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק."
               ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_b_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             }
           ]
         },

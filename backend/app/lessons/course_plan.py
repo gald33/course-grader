@@ -52,14 +52,21 @@ def _text(*paragraphs: str) -> dict:
     return {"type": "text", "body": [ltr(p) for p in paragraphs]}
 
 
+def _assets_root() -> Path:
+    from app.lessons import ASSETS_ROOT  # imported here: app.lessons imports this module
+
+    return ASSETS_ROOT
+
+
 def _download(asset: str, label: str) -> dict:
     return {"type": "download", "asset": asset, "label": label}
 
 
-def _colab(asset: str, lead: str) -> list[dict]:
+def _colab(asset: str, lead: str, executed: str | None = None) -> list[dict]:
     """The step's notebook as a Colab block; the lead (shown above its button)
-    says what to do in this notebook for this step."""
-    return [
+    says what to do in this notebook for this step. An executed copy, if any,
+    is offered for reading below it."""
+    blocks: list[dict] = [
         {
             "type": "colab",
             "notebook_asset": asset,
@@ -71,6 +78,22 @@ def _colab(asset: str, lead: str) -> list[dict]:
             "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר",
         },
     ]
+    if executed:
+        blocks.append(
+            {
+                "type": "expander",
+                "title": "אין גישה לקולאב?",
+                "blocks": [
+                    {
+                        "type": "download",
+                        "asset": executed,
+                        "label": "העותק המורץ של המחברת (ipynb)",
+                        "description": "פלט אמיתי מהרצה שלנו, לקריאה.",
+                    }
+                ],
+            }
+        )
+    return blocks
 
 
 def seed_to_content(
@@ -177,21 +200,31 @@ def seed_to_content(
 # (identical sha256); lesson 1's notebook is copied to frontend/public.
 _PREPARED: dict[str, dict] = {
     "lesson-01": {
+        # The handoff's notebook spans the whole lesson (problem, chatbot
+        # approaches, the calculator, sharing, wrap-up). Step B gets a notebook
+        # of its own, built from it by scripts/build_step_notebooks.py: only
+        # the calculator sections (3-6 and the optional automatic check, 8).
         "assets": {
-            "notebook": {
-                "source": "materials/lesson-01/lesson-1-dessert-stall.ipynb",
-                "path": "/lessons/lesson-01/v1/lesson-1-dessert-stall.ipynb",
-                "filename": "lesson-1-dessert-stall.ipynb",
+            "notebook_b": {
+                "built": True,
+                "path": "/lessons/lesson-01/v2/lesson-1-b-dessert-calculator-he.ipynb",
+                "filename": "lesson-1-b-dessert-calculator-he.ipynb",
                 "mime": "application/x-ipynb+json",
-                "label": "מחברת דוכן הקינוחים (ipynb)",
-            }
+                "label": "מחברת שלב B: מחשבון דוכן הקינוחים (ipynb)",
+            },
+            "notebook_b_executed": {
+                "built": True,
+                "path": "/lessons/lesson-01/v2/lesson-1-b-dessert-calculator-he-executed.ipynb",
+                "filename": "lesson-1-b-dessert-calculator-he-executed.ipynb",
+                "mime": "application/x-ipynb+json",
+                "label": "מחברת שלב B – עותק מורץ (ipynb)",
+            },
         },
-        # The whole notebook is step B's (the stall calculator), so it opens
-        # in Colab as is: one notebook, one step, no markers needed.
         "colab": {
             "dessert": (
-                "notebook",
+                "notebook_b",
                 "הריצו את התאים לפי הסדר; בתא «מחשבון דוכן קינוחים» שנו את הכמות ל-100, 66 ו-67 ואז לכמות שלילית, ובדקו את הרווח.",
+                "notebook_b_executed",
             )
         },
     },
@@ -290,7 +323,9 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
         prepared = _PREPARED.get(slug, {})
         assets: dict[str, dict] = {}
         for key, spec in prepared.get("assets", {}).items():
-            source = handoff / spec["source"]
+            # "built": a file this repository builds itself (already in
+            # frontend/public); otherwise a handoff file, copied there.
+            source = _assets_root() / spec["path"].lstrip("/") if spec.get("built") else handoff / spec["source"]
             assets[key] = {
                 "path": spec["path"],
                 "filename": spec["filename"],
@@ -298,12 +333,13 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
                 "label": spec["label"],
                 "sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
             }
-            copies[spec["path"]] = source
+            if not spec.get("built"):
+                copies[spec["path"]] = source
         downloads = {
             step: [_download(a, assets[a]["label"]) for a in keys] for step, keys in prepared.get("downloads", {}).items()
         }
-        for step, (asset, lead) in prepared.get("colab", {}).items():
-            downloads.setdefault(step, []).extend(_colab(asset, lead))
+        for step, (asset, lead, *executed) in prepared.get("colab", {}).items():
+            downloads.setdefault(step, []).extend(_colab(asset, lead, *executed))
         if slug not in AUTHORED:
             contents[slug] = seed_to_content(seed, code, assets, downloads)
         ready = readiness.get(number, {})

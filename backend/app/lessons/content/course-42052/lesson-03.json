@@ -18,14 +18,14 @@
       "filename": "lesson-3-part-1-a-neuron-he.ipynb",
       "mime": "application/x-ipynb+json",
       "label": "מחברת שלב A (ipynb)",
-      "sha256": "77544e7f3d71d5c880db678dfde29d5dc1d6b3b4f62d27e6fdb2a4381a54acbe"
+      "sha256": "0825686020926cc819672850e3f55454e5f7d0214244a2a3fe9af31d15fcefbd"
     },
     "notebook_neuron_executed": {
       "path": "/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he-executed.ipynb",
       "filename": "lesson-3-part-1-a-neuron-he-executed.ipynb",
       "mime": "application/x-ipynb+json",
       "label": "מחברת שלב A – עותק מורץ (ipynb)",
-      "sha256": "f95172aa3c93b7151656e8b766b8dd1f4e508978c27800dd8d5987a5fbd9ed19"
+      "sha256": "7daa036c5052652cfdc82409559cdf2025de2f7cfb4e42d411c7f8c7f6e7aa59"
     },
     "notebook_network": {
       "path": "/lessons/lesson-03/v3/lesson-3-part-1-b-network-he.ipynb",

@@ -25,28 +25,28 @@
       "filename": "lesson-3-part-2-a-tokens-he.ipynb",
       "mime": "application/x-ipynb+json",
       "label": "מחברת שלב A (ipynb)",
-      "sha256": "cacf1fee54c4ce30fa054928eae396e93f5abe8ff836733bf6b950a61bb18ca8"
+      "sha256": "76a3e1dea0ee9cdd43a388baff22aebd9be0bf069aaffccae6cfc99c815a6f06"
     },
     "notebook_tokens_executed": {
       "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-a-tokens-he-executed.ipynb",
       "filename": "lesson-3-part-2-a-tokens-he-executed.ipynb",
       "mime": "application/x-ipynb+json",
       "label": "מחברת שלב A – עותק מורץ (ipynb)",
-      "sha256": "82ca8c0ebc09403dbd63f9462ab977e22e77625cb87fe38a9c202769d93145fb"
+      "sha256": "59bc4d54813df750548dbbc2a035bfe167ae7204635e590f5d32d768e666a1a6"
     },
     "notebook_next_token": {
       "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-b-next-token-he.ipynb",
       "filename": "lesson-3-part-2-b-next-token-he.ipynb",
       "mime": "application/x-ipynb+json",
       "label": "מחברת שלב B (ipynb)",
-      "sha256": "49d68b6e3fb5e36e91d44f1861775aa8086e6206d7c67bf5ccc70300fbf10b08"
+      "sha256": "0d6e657e5b4e5444193a46c08df915240f1d12364ab1dd3f68961b9e66d56575"
     },
     "notebook_next_token_executed": {
       "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-b-next-token-he-executed.ipynb",
       "filename": "lesson-3-part-2-b-next-token-he-executed.ipynb",
       "mime": "application/x-ipynb+json",
       "label": "מחברת שלב B – עותק מורץ (ipynb)",
-      "sha256": "3855ea8605f0bfd10f08d77c3d1a6a146d9368d93b846cf46d8a416a2d7b068f"
+      "sha256": "0cbc0ee599772531a38c186ea104e718cba4ffd1a309192c2268cc1e4803aaa3"
     },
     "notebook_attention": {
       "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-c-attention-he.ipynb",

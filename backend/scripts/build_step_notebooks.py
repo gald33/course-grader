@@ -1,4 +1,4 @@
-"""Build one small notebook per Colab step of lesson 3 (both parts).
+"""Build one small notebook per Colab step of lessons 1 and 3.
 
 The operator asked that each notebook cover only what its step of the lesson
 shows. This slices the clean v2 notebooks of lesson-03 (Part 1) and
@@ -7,6 +7,10 @@ one line saying which step of which lesson it is for, has its own minimal
 setup cell (so it runs top to bottom on a fresh CPU runtime), holds only that
 step's sections (with the section numbers the lesson page refers to), and
 ends by sending the student back to the course page.
+
+Lesson 1: the handoff notebook (v1) spans the whole lesson; step B's notebook
+(v2) keeps only its calculator sections (3-6, and the optional automatic
+check, 8), whose first code cell defines everything the rest uses.
 
 The code cells are the v2 cells unchanged (a model-loading cell is rewritten
 only where it read a tokenizer loaded by an earlier section), so the numbers
@@ -27,6 +31,16 @@ from pathlib import Path
 PUBLIC = Path(__file__).resolve().parents[2] / "frontend" / "public" / "lessons"
 P1_V2 = PUBLIC / "lesson-03" / "v2" / "lesson-3-part-1-he.ipynb"
 P2_V2 = PUBLIC / "lesson-03-deeper" / "v2" / "lesson-3-part-2-he.ipynb"
+L1_V1 = PUBLIC / "lesson-01" / "v1" / "lesson-1-dessert-stall.ipynb"
+L1_B = PUBLIC / "lesson-01" / "v2" / "lesson-1-b-dessert-calculator-he.ipynb"
+L1_B_CELLS = [3, 4, 5, 6, 7, 8, 9, 10, 12, 13]  # sections 3, 4, 5, 6 and 8 (with their code)
+
+# A notebook's text pointing at a section that now lives in another step's notebook.
+_CROSS_REFS = {
+    "בדיוק מה שראינו בסעיף 1.": "בדיוק מה שראינו בשלב A («המודל מקבל רצף יחידות»).",
+    "של המודל הפתוח שנשתמש בו בסעיף 2.": "של המודל הפתוח שנשתמש בו בשלב B.",
+    "כאן המשקלים נבחרו ביד; בסעיף 2 <b>האימון</b> יקבע אותם.": "כאן המשקלים נבחרו ביד; בשלב B <b>האימון</b> יקבע אותם.",
+}
 
 _RTL = '<div dir="rtl" style="text-align:right">'
 
@@ -166,6 +180,8 @@ def build() -> dict[Path, str]:
                     continue
                 cell = _code(f"{stem}-{cell['id']}", text)
             else:
+                for old, new in _CROSS_REFS.items():
+                    text = text.replace(old, new)
                 if "| מה ראינו</h2>" in text:  # the whole part's summary: the lesson page's wrap-up has it
                     text = text[: text.index("\n<h2>")] + "</div>"
                 cell = _md(f"{stem}-{cell['id']}", text)
@@ -179,7 +195,32 @@ def build() -> dict[Path, str]:
         )
         doc = {"cells": cells, "metadata": nb["metadata"], "nbformat": nb["nbformat"], "nbformat_minor": nb["nbformat_minor"]}
         out[PUBLIC / slug / "v3" / name] = json.dumps(doc, ensure_ascii=False, indent=1) + "\n"
+    out[L1_B] = _lesson_1_step_b()
     return out
+
+
+def _lesson_1_step_b() -> str:
+    nb = json.loads(L1_V1.read_text(encoding="utf-8"))
+    header = (
+        "# שיעור 1, שלב B: מחשבים לפני שמריצים\n\n"
+        "**המחברת הזו היא לשלב B («מחשבים לפני שמריצים») בשיעור באתר הקורס – ורק לו.** "
+        "את הבעיה ואת הגישות חוקרים באתר; כאן מריצים את המחשבון ובודקים אותו.\n\n"
+        "הנתונים: מחיר למארז 35 ₪, עלות למארז 20 ₪, הוצאה קבועה 1,000 ₪, כמות צפויה 100 מארזים. "
+        "הכמות היא הנחה שלנו, לא תחזית ביקוש.\n\n"
+        "מריצים תא אחרי תא בלחיצה על ▶ (או Shift+Enter), מלמעלה למטה. אין צורך במפתח API, בהתקנות או ב-GPU. "
+        "התא הראשון של סעיף 3 מגדיר את החישוב, וכל השאר משתמשים בו. **אין חובת הגשה של המחברת.**"
+    )
+    cells = [_md("l1b-intro", header)]
+    for i in L1_B_CELLS:
+        cell = nb["cells"][i]
+        text = "".join(cell["source"])
+        cid = cell.get("id") or f"l1b-{i:02d}"
+        cells.append(_code(cid, text) if cell["cell_type"] == "code" else _md(cid, text))
+    cells.append(_md("l1b-back", "**סיימתם את המחברת של שלב B.** חזרו ללשונית של אתר הקורס וענו שם על שאלת השלב."))
+    metadata = json.loads(json.dumps(nb["metadata"]))
+    metadata.setdefault("colab", {})["name"] = L1_B.name
+    doc = {"cells": cells, "metadata": metadata, "nbformat": 4, "nbformat_minor": max(5, nb.get("nbformat_minor", 5))}
+    return json.dumps(doc, ensure_ascii=False, indent=1) + "\n"
 
 
 def main() -> int:

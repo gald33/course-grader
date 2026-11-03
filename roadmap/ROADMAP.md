@@ -59,6 +59,7 @@ graph TD
   lesson_3_part_b_deeper["✓ Lesson 3 teaches tokens, prediction and grounding but not neural networks, embeddings or transformers, and none of it is hands-on in the browser"]:::done
   lesson_3_review_fixes["Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::claimed
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
+  lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
@@ -632,6 +633,55 @@ graph TD
 > and a homework brief.
 >
 > SHIPPED: #34, merged as 035c8b0.
+
+</details>
+
+### `lessons-one-page-per-lesson`
+
+- **title:** The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page
+- **status:** verifying
+- **priority:** now
+- **claimed by:** claude/lessons-one-page-per-lesson (since 2026-11-03T15:00:00Z)
+- **refs:**
+  - `frontend/components/lessons/instructor-lessons.tsx`
+  - `frontend/app/course/[id]/page.tsx`
+  - `frontend/app/course/[id]/lessons/[lessonId]/page.tsx`
+  - `frontend/app/course/[id]/lessons/[lessonId]/preview/page.tsx`
+  - `frontend/lib/course-sections.ts`
+  - `frontend/e2e/lessons-index.spec.ts`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03: "don't crowd all the lessons in the same page".
+>
+> VERIFIED at 47632b6. LessonsStep (instructor-lessons.tsx) rendered, in
+> one column: the CoursePlanCard with its 1080px readiness table, the
+> AnswerKeysCard, a FixtureCard per lesson file outside the plan, a full
+> LessonCard (versions, publish, Colab link, export) for every lesson —
+> 14 once the 42052 plan is imported — and the InsightsPanel of one
+> selected lesson. The student side was already an index
+> (/r/[token]/lessons) with a page per lesson (/r/[token]/lessons/[slug]),
+> so it needs no change.
+>
+> Built on #36 (instructor-pages-are-walls-of-text), which already splits
+> the section into Course plan (plan, readiness, answer keys) / Lessons /
+> Class insights tabs with one-row lesson cards; that part is not redone.
+>
+> This item: every lesson gets its own page, /course/[id]/lessons/[lessonId]
+> — the same course page and sidebar, with that lesson's versions, publish,
+> Colab link, export, preview and class insights, "← All lessons" back to
+> the Lessons tab and previous/next lessons. The Lessons tab's rows link to
+> it instead of expanding in place (no per-lesson detail on the list), run in
+> session order (enrichment right after its lesson), and show session,
+> answer keys n/m and the furthest readiness state reached. Preview opens in
+> the same tab and returns to its lesson. On a phone the course sidebar
+> folds into a "Sections" menu. No API or migration change; every action
+> and confirmation unchanged.
+>
+> Done when: with the 42052 plan imported, the Lessons tab shows the index
+> only; each lesson opens on its own URL with publish, Colab link, preview
+> and insights working; plan/readiness and keys are one click away;
+> Playwright covers index → lesson page → preview → back at 390 and 1280.
 
 </details>
 

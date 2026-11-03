@@ -138,10 +138,10 @@ for (const device of [
     await page.goto(`/course/${seed.course.id}/lessons/${seed.plan_lessons['lesson-04']}/preview`);
     await expect(page.getByText('Lesson preview — nothing is saved')).toBeVisible();
     await expect(page.getByRole('alert').filter({ hasText: 'No answer key loaded' })).toHaveCount(0);
-    // Back to the course page's lessons section (the ?section= URLs).
-    await expect(page.getByRole('link', { name: /Back to course/ })).toHaveAttribute(
+    // Back to the lesson's own page in the course's Lessons section.
+    await expect(page.getByRole('link', { name: /Back to lesson/ })).toHaveAttribute(
       'href',
-      `/course/${seed.course.id}?section=lessons`
+      `/course/${seed.course.id}/lessons/${seed.plan_lessons['lesson-04']}`
     );
     const player = page.locator('div[dir="rtl"][lang="he"]').first();
     await expect(player).toBeVisible();

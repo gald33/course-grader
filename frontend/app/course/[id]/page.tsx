@@ -210,8 +210,11 @@ function useSectionInUrl(): [SectionKey | null, (s: SectionKey, tab?: string) =>
 
 /* =============== Page =============== */
 
-export default function CoursePage({ params }: { params: { id: string } }) {
+export default function CoursePage({ params }: { params: { id: string; lessonId?: string } }) {
   const courseId = Number(params.id);
+  // Set on /course/[id]/lessons/[lessonId]: one lesson's own page, in the Lessons section.
+  const lessonsView = params.lessonId;
+  const router = useRouter();
   const [course, setCourse] = useState<Course | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -219,7 +222,13 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [activeCurve, setActiveCurve] = useState<ActiveCurve | null>(null);
   const [dimensionDistributions, setDimensionDistributions] = useState<Record<string, number[]>>({});
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
-  const [urlSection, setSection] = useSectionInUrl();
+  const [urlSection, setSectionHere] = useSectionInUrl();
+  // On a lesson page the other sections live at the course URL, not here.
+  const setSection = useCallback(
+    (s: SectionKey, tab?: string) =>
+      lessonsView == null ? setSectionHere(s, tab) : router.push(courseSectionHref(courseId, s, tab)),
+    [lessonsView, setSectionHere, router, courseId]
+  );
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -268,7 +277,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     return <div className="p-10 text-ink-3">Loading…</div>;
   }
 
-  const step: SectionKey = urlSection ?? 'overview';
+  const step: SectionKey = lessonsView != null ? 'lessons' : urlSection ?? 'overview';
   const stepInfo = SECTIONS.find((s) => s.key === step) ?? SECTIONS[0];
   const states = submissions.map(derivedState);
   const submissionCounts: SubmissionCounts = {
@@ -282,7 +291,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   };
 
   return (
-    <div className="grid min-h-screen" style={{ gridTemplateColumns: '248px 1fr' }}>
+    <div className="grid min-h-screen md:grid-cols-[248px_minmax(0,1fr)]">
       <Sidebar
         course={course}
         graded={graded}
@@ -295,13 +304,13 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
       <div className="min-w-0">
         {/* Section header */}
-        <div className="mx-auto max-w-[1500px] px-10 pt-7">
+        <div className="mx-auto max-w-[1500px] px-4 pt-5 md:px-10 md:pt-7">
           <div className="label-eyebrow mb-1">{stepInfo.group}</div>
-          <h1 className="font-display text-[30px] leading-tight tracking-tight">{stepInfo.label}</h1>
+          <h1 className="font-display text-[26px] leading-tight tracking-tight md:text-[30px]">{stepInfo.label}</h1>
           <p className="mt-0.5 text-[15px] text-ink-3">{stepInfo.sub}</p>
         </div>
 
-        <div className="mx-auto max-w-[1500px] px-10 pb-20">
+        <div className="mx-auto max-w-[1500px] px-4 pb-20 md:px-10">
           {step === 'overview' ? (
             <CourseOverview courseId={courseId} students={gradebook.length} submissions={submissionCounts} go={setSection} />
           ) : null}
@@ -324,7 +333,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             <RubricsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
           ) : null}
           {step === 'peer' ? <PeerReviewStep courseId={courseId} setToast={setToast} /> : null}
-          {step === 'lessons' ? <LessonsStep courseId={courseId} course={course} setToast={setToast} /> : null}
+          {step === 'lessons' ? <LessonsStep courseId={courseId} course={course} view={lessonsView} setToast={setToast} /> : null}
           {step === 'curve' ? (
             <CurveStep
               courseId={courseId}
@@ -412,61 +421,107 @@ function Sidebar({
     </a>
   );
   const settings = SECTIONS.find((s) => s.key === 'settings')!;
+  const current = SECTIONS.find((s) => s.key === step);
 
   return (
-    <aside className="sticky top-0 flex h-screen flex-col gap-0.5 overflow-y-auto border-r border-line-soft bg-sunken px-3 py-4">
-      <Link href="/" className="mb-2 flex items-center gap-2.5 border-b border-border px-2 pb-4 pt-1 no-underline">
-        <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-forest text-[11px] font-semibold tracking-tight text-paper">
-          cg
-        </span>
-        <span className="text-[13px] font-medium tracking-tight text-ink">course-grader</span>
-      </Link>
-
-      {/* Course progress block */}
-      <div className="border-b border-border px-2 pb-4 pt-2.5">
-        <div className="label-eyebrow mb-1">
-          {course.code} · {course.year} / {course.semester}
-        </div>
-        <div className="mb-3 text-[15px] font-medium leading-tight tracking-tight">{course.name}</div>
-        <div className="mb-2 flex items-center gap-2.5">
-          <ProgressRing value={graded} max={Math.max(total, 1)} size={42} stroke={4} />
-          <div>
-            <div className="font-display text-base leading-tight">
-              {graded} <span className="text-ink-3">of {total}</span>
-            </div>
-            <div className="text-[11px] text-ink-3">graded</div>
-          </div>
-        </div>
-        {total === 0 ? null : remaining > 0 ? (
-          <div className="flex items-center gap-1.5 text-[12px] text-terracotta">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-terracotta" />
-            {remaining} left to review
-          </div>
-        ) : (
-          <div className="flex items-center gap-1.5 text-[12px] text-ok">
-            ✓ All caught up
-          </div>
-        )}
-      </div>
-
-      <nav aria-label="Course sections" className="grid gap-1">
-        <div className="pt-2">{item(SECTIONS.find((s) => s.key === 'overview')!)}</div>
-        {SIDEBAR_GROUPS.map((group) => (
-          <div key={group} className="grid gap-0.5">
-            <div className="label-eyebrow px-2.5 pb-1 pt-3">{group}</div>
-            {SECTIONS.filter((s) => s.group === group).map(item)}
-          </div>
-        ))}
-      </nav>
-
-      <div className="mt-auto grid gap-0.5 border-t border-border pt-3">
-        {item(settings)}
-        <Link href={`/course/${course.id}/student-view`} className="nav-step no-underline">
-          <Eye className="nav-icon h-[15px] w-[15px] shrink-0" strokeWidth={1.8} aria-hidden />
-          <span className="nav-label">View as student</span>
+    <>
+      {/* Phones: the sections fold into a menu above the page. Its links aren't
+          .nav-step, so the desktop sidebar's stay the only ones. */}
+      <details className="border-b border-line-soft bg-sunken px-4 py-2.5 md:hidden">
+        <summary className="flex cursor-pointer list-none items-center gap-2 rounded text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-forest [&::-webkit-details-marker]:hidden">
+          <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-forest text-[11px] font-semibold tracking-tight text-paper">
+            cg
+          </span>
+          <span className="min-w-0 flex-1 truncate text-ink-2">
+            {course.code} · {current?.label}
+          </span>
+          <span className="text-[13px] text-forest">
+            Sections <span aria-hidden>▾</span>
+          </span>
+        </summary>
+        <nav aria-label="Course sections" className="grid gap-0.5 pb-1 pt-2">
+          {[...SECTIONS.filter((s) => s.key !== 'settings'), settings].map((s) => (
+            <a
+              key={s.key}
+              href={courseSectionHref(course.id, s.key)}
+              aria-current={step === s.key ? 'page' : undefined}
+              className={`flex items-center gap-2 rounded-md px-2.5 py-2 text-[14px] no-underline outline-none focus-visible:ring-2 focus-visible:ring-forest ${
+                step === s.key ? 'bg-card font-semibold text-ink' : 'text-ink-2'
+              }`}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                e.preventDefault();
+                e.currentTarget.closest('details')?.removeAttribute('open');
+                setStep(s.key);
+              }}
+            >
+              <s.icon className="h-[15px] w-[15px] shrink-0" strokeWidth={1.8} aria-hidden />
+              {s.label}
+            </a>
+          ))}
+          <Link
+            href={`/course/${course.id}/student-view`}
+            className="flex items-center gap-2 rounded-md px-2.5 py-2 text-[14px] text-ink-2 no-underline"
+          >
+            <Eye className="h-[15px] w-[15px] shrink-0" strokeWidth={1.8} aria-hidden />
+            View as student
+          </Link>
+        </nav>
+      </details>
+      <aside className="sticky top-0 hidden h-screen flex-col gap-0.5 overflow-y-auto border-r border-line-soft bg-sunken px-3 py-4 md:flex">
+        <Link href="/" className="mb-2 flex items-center gap-2.5 border-b border-border px-2 pb-4 pt-1 no-underline">
+          <span className="grid h-6 w-6 place-items-center rounded-[7px] bg-forest text-[11px] font-semibold tracking-tight text-paper">
+            cg
+          </span>
+          <span className="text-[13px] font-medium tracking-tight text-ink">course-grader</span>
         </Link>
-      </div>
-    </aside>
+
+        {/* Course progress block */}
+        <div className="border-b border-border px-2 pb-4 pt-2.5">
+          <div className="label-eyebrow mb-1">
+            {course.code} · {course.year} / {course.semester}
+          </div>
+          <div className="mb-3 text-[15px] font-medium leading-tight tracking-tight">{course.name}</div>
+          <div className="mb-2 flex items-center gap-2.5">
+            <ProgressRing value={graded} max={Math.max(total, 1)} size={42} stroke={4} />
+            <div>
+              <div className="font-display text-base leading-tight">
+                {graded} <span className="text-ink-3">of {total}</span>
+              </div>
+              <div className="text-[11px] text-ink-3">graded</div>
+            </div>
+          </div>
+          {total === 0 ? null : remaining > 0 ? (
+            <div className="flex items-center gap-1.5 text-[12px] text-terracotta">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-terracotta" />
+              {remaining} left to review
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-[12px] text-ok">
+              ✓ All caught up
+            </div>
+          )}
+        </div>
+
+        <nav aria-label="Course sections" className="grid gap-1">
+          <div className="pt-2">{item(SECTIONS.find((s) => s.key === 'overview')!)}</div>
+          {SIDEBAR_GROUPS.map((group) => (
+            <div key={group} className="grid gap-0.5">
+              <div className="label-eyebrow px-2.5 pb-1 pt-3">{group}</div>
+              {SECTIONS.filter((s) => s.group === group).map(item)}
+            </div>
+          ))}
+        </nav>
+
+        <div className="mt-auto grid gap-0.5 border-t border-border pt-3">
+          {item(settings)}
+          <Link href={`/course/${course.id}/student-view`} className="nav-step no-underline">
+            <Eye className="nav-icon h-[15px] w-[15px] shrink-0" strokeWidth={1.8} aria-hidden />
+            <span className="nav-label">View as student</span>
+          </Link>
+        </div>
+      </aside>
+    </>
   );
 }
 

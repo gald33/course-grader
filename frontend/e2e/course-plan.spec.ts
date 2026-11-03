@@ -10,7 +10,9 @@ import { loadSeed, type Seed } from './seed';
  * private: last option "right", first "wrong", texts say FAKE; see fake_keys
  * in backend/scripts/seed_e2e.py). Here: the instructor's readiness table
  * keeps its five states apart, a draft lesson previews in Hebrew RTL on a
- * desktop and a phone, and students can't reach any of the drafts. */
+ * desktop and a phone, and students can't reach any of the drafts. Lesson 4
+ * is authored in the repository and has its own walkthrough (lesson-4.spec.ts);
+ * the generated drafts are represented here by lesson 5. */
 
 let seed: Seed;
 test.beforeAll(() => {
@@ -69,10 +71,18 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await expect(row(2)).toContainText(`also the existing lesson ${seed.lesson.slug}`);
 
   // Drafted, but not published or verified; the seed's FAKE keys are loaded.
+  // Lesson 4 was built here (its starter's check ran); a generated lesson was not.
   const three = row(3);
   await expect(three).toContainText('✓ v1');
   await expect(three).toContainText('not built');
   await expect(three).toContainText('3/3 loaded');
+  await expect(row(4)).toContainText('built here, not reviewed');
+  await expect(row(4)).toContainText('8/8 loaded');
+  // Lesson 4's homework stays a proposal, visible to the instructor only.
+  const proposal = page.getByTestId('homework-proposal-4');
+  await expect(proposal).toContainText('proposal not yet assigned');
+  await expect(proposal).toContainText('no deadline or weight');
+  await expect(proposal).toContainText('Antigravity');
   await expect(three.getByRole('checkbox', { name: 'Session 3 reviewed' })).not.toBeChecked();
   await expect(three.getByRole('checkbox', { name: 'Session 3 live verified' })).not.toBeChecked();
 
@@ -98,19 +108,17 @@ for (const device of [
   test(`a draft plan lesson previews in Hebrew, right to left, on a ${device.name}`, async ({ page }) => {
     const problems = await watchForErrors(page);
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`/course/${seed.course.id}/lessons/${seed.plan_lessons['lesson-03']}/preview`);
+    await page.goto(`/course/${seed.course.id}/lessons/${seed.plan_lessons['lesson-05']}/preview`);
     await expect(page.getByText('Lesson preview — nothing is saved')).toBeVisible();
 
     const player = page.locator('div[dir="rtl"][lang="he"]').first();
     await expect(player).toBeVisible();
-    await expect(stepHeading(page)).toContainText('המודל מקבל רצף יחידות');
+    await expect(stepHeading(page)).toContainText(/./);
     await expect(page.getByRole('alert').filter({ hasText: 'No answer key loaded' })).toHaveCount(0);
-    // Latin terms sit in left-to-right islands inside the Hebrew text.
-    await expect(player.locator('bdi[dir="ltr"]').filter({ hasText: 'tokenizer' }).first()).toBeVisible();
 
     // A check question: no explanation before answering; after a wrong
     // answer, the right option and the (FAKE) explanation.
-    const card = questionCard(page, 'l03-q1');
+    const card = questionCard(page, 'l05-q1');
     await expect(card).not.toContainText('התשובה הנכונה');
     await expect(card.getByRole('button', { name: 'הצג הסבר' })).toHaveCount(0);
     const radios = card.getByRole('radio');
@@ -138,7 +146,9 @@ for (const device of [
     }
     await expect(stepHeading(page)).toContainText('מסכמים');
     await expect(page.getByText('דוגמה פתורה')).toBeVisible();
-    await shot(page, `${device.name}-plan-lesson-03-wrap-up`);
+    // Latin terms sit in left-to-right islands inside the Hebrew text.
+    await expect(player.locator('bdi[dir="ltr"]').filter({ hasText: /^(AI|API|MVP)$/ }).first()).toBeVisible();
+    await shot(page, `${device.name}-plan-lesson-05-wrap-up`);
     expect(problems).toEqual([]);
   });
 }

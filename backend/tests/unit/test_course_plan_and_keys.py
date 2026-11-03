@@ -18,7 +18,7 @@ from lesson_samples import sample_content
 from sqlalchemy import func, select
 from test_lessons import Browser, _code, _course, _ok, _rid, env  # noqa: F401  (env is a fixture)
 
-from app.lessons import FIXTURES, PLANS, assets_root, load_fixture, load_plan, validate_content
+from app.lessons import FIXTURES, PLANS, assets_root, course_plan, load_fixture, load_plan, validate_content
 from app.models.entities import Course, Lesson, LessonAnswerKey, LessonVersion
 from app.core.config import get_settings
 from app.services import lessons as lessons_svc
@@ -32,6 +32,17 @@ FAKE_EMAIL = "fake-instructor@example.invalid"
 PRIVATE_FIELDS = {"answer", "correct_choice_id", "feedback_he", "correct", "misconceptions", "explanation",
                   "sample_reasoning", "rubric", "email"}
 PLAN_KEYS = [f"42052-lesson-{n:02d}" for n in range(1, 14)]
+
+
+def _choice_keys(fixture_key: str) -> list[str]:
+    """The single-choice questions of a fixture: the ones that need a key."""
+    return [k for k, q in load_fixture(fixture_key)["questions"].items() if q["type"] == "single_choice"]
+
+
+# Lesson 3's checks (a generated lesson here: its seed's three).
+L03_CHECKS = _choice_keys("42052-lesson-03")
+# Lesson 4 is authored in the repository (more checks than its seed's three).
+L04_CHECKS = _choice_keys("42052-lesson-04")
 
 
 def _script(name: str):
@@ -117,7 +128,12 @@ def test_each_plan_lesson_is_a_valid_keyless_draft(key):
     content = validate_content(raw, assets_root())
     assert content.course_code == "42052"
     checks = [q for q in raw["questions"].values() if q["type"] == "single_choice"]
-    assert len(checks) == 3 and all(q["mode"] == "check" for q in checks)  # no reveal before an answer
+    assert all(q["mode"] == "check" for q in checks)  # no reveal before an answer
+    # A generated lesson has its seed's three checks; an authored one has at least those.
+    seed_checks = load_plan("42052")["lessons"][raw["slug"]]["checks"]
+    assert len(seed_checks) == 3 and set(seed_checks) <= {q["key"] for q in checks}
+    if raw["slug"] not in course_plan.AUTHORED:
+        assert len(checks) == 3
     assert all("answer" not in q for q in raw["questions"].values())
     assert raw["steps"][-1]["key"] == "wrap-up"
     # A homework proposal is not shown to students; it stays in the plan.
@@ -175,6 +191,8 @@ def test_import_plan_installs_13_drafts_and_publishes_nothing(penv):
     assert ready["drafted"] is True and ready["reviewed_at"] is None and ready["published"] is False
     assert ready["live_verified_at"] is None and ready["handoff_says_taught"] is False
     assert ready["runnable"]["state"] == "not_built" and ready["still_needed"]
+    four = sessions[3]["readiness"]["runnable"]  # lesson 4: authored here
+    assert four["state"] == "built_not_reviewed" and "not run in Antigravity" in four["note"]
     assert sessions[0]["readiness"]["runnable"]["state"] == "prepared_not_rerun"
 
     marked = _ok(env.client.patch(f"/api/courses/{course.id}/plan/sessions/3", json={"reviewed": True}))
@@ -247,15 +265,16 @@ def test_key_upload_shapes_dry_run_and_status_never_return_a_key(penv):
     _import(env, course)
     data = fake_key_file(["42052-lesson-03"])
     dry = _ok(_upload(env, course, data, dry_run=True))
-    assert (dry["keys"], dry["added"], dry["dry_run"], dry["instructor_contact"]) == (3, 3, True, "set")
+    n = len(L03_CHECKS)
+    assert (dry["keys"], dry["added"], dry["dry_run"], dry["instructor_contact"]) == (n, n, True, "set")
     assert _stored(env) == 0
 
     first = _ok(_upload(env, course, data))
-    assert (first["added"], first["lessons"], first["instructor_contact"]) == (3, ["lesson-03"], "set")
+    assert (first["added"], first["lessons"], first["instructor_contact"]) == (n, ["lesson-03"], "set")
     # Left out of the file: reported, not refused; the other plan lessons by slug.
     assert first["not_in_file"] == [f"lesson-{n:02d}" for n in range(1, 14) if n != 3]
     again = _ok(_upload(env, course, data))
-    assert (again["unchanged"], again["instructor_contact"]) == (3, "unchanged")
+    assert (again["unchanged"], again["instructor_contact"]) == (n, "unchanged")
 
     # feedback_he is one text; a lesson given in part is reported.
     q = load_fixture("42052-lesson-04")["questions"]["l04-q1"]
@@ -264,28 +283,31 @@ def test_key_upload_shapes_dry_run_and_status_never_return_a_key(penv):
     assert _upload(env, course, per_option).json()["detail"]["errors"] == ["lessons.lesson-04.l04-q1: feedback_he must be a text"]
     partial = {"lessons": {"lesson-04": {"l04-q1": fake_entry(q)}}}
     result = _ok(_upload(env, course, partial))
-    assert result["added"] == 1 and result["not_in_file"][:2] == ["lesson-04/l04-q2", "lesson-04/l04-q3"]
+    assert result["added"] == 1 and {"lesson-04/l04-q2", "lesson-04/l04-q3"} <= set(result["not_in_file"])
+    assert "lesson-04/l04-q1" not in result["not_in_file"]
 
     status = env.client.get(f"/api/courses/{course.id}/answer-keys")
     body = _ok(status)
-    assert body["stored_keys"] == 4 and body["instructor_contact_set"] is True
+    assert body["stored_keys"] == n + 1 and body["instructor_contact_set"] is True
     l03 = next(l for l in body["lessons"] if l["slug"] == "lesson-03")
-    assert l03["latest"] == {"version_number": 1, "needed": 3, "missing": [], "mismatched": []}
+    assert l03["latest"] == {"version_number": 1, "needed": n, "missing": [], "mismatched": []}
     for res in (status, env.client.get(f"/api/courses/{course.id}/plan"), env.client.get(f"/api/courses/{course.id}/lessons")):
         assert FAKE not in res.text and FAKE_EMAIL not in res.text
     with env.Session() as db:
         assert db.get(Course, course.id).instructor_email == FAKE_EMAIL
 
 
-def test_the_whole_plan_file_loads_13_lessons_and_39_checks(penv):
+def test_the_whole_plan_file_loads_13_lessons_and_every_check(penv):
     """A file of the instructor's shape covering every plan check (FAKE values)."""
     env = penv
     course = _plan_course(env)
     _import(env, course)
     data = fake_key_file(PLAN_KEYS)
-    assert sum(len(v) for v in data["lessons"].values()) == 39 and len(data["lessons"]) == 13
+    total = sum(len(_choice_keys(k)) for k in PLAN_KEYS)  # three per generated lesson, more in an authored one
+    assert total == 36 + len(L04_CHECKS)
+    assert sum(len(v) for v in data["lessons"].values()) == total and len(data["lessons"]) == 13
     result = _ok(_upload(env, course, data))
-    assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (39, 39, [], "set")
+    assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (total, total, [], "set")
     status = _ok(env.client.get(f"/api/courses/{course.id}/answer-keys"))
     assert all(l["latest"]["missing"] == [] for l in status["lessons"])
 
@@ -311,7 +333,7 @@ def test_a_stored_key_that_no_longer_fits_a_revised_version_blocks_publishing(pe
     v2 = _ok(env.client.post(f"{base}/install", json={"fixture_key": "42052-lesson-03"}))
     assert v2["answer_keys"]["latest"]["mismatched"] == ["l03-q1"]
     assert v2["answer_keys"]["latest"]["missing"] == ["l03-q1"]  # no usable key
-    assert v2["answer_keys"]["live"] == {"version_number": 1, "needed": 3, "missing": [], "mismatched": []}
+    assert v2["answer_keys"]["live"] == {"version_number": 1, "needed": len(L03_CHECKS), "missing": [], "mismatched": []}
 
     res = env.client.post(f"{base}/{lesson['id']}/publish", json={"version_id": v2["draft_version"]["id"]})
     assert _code(res, 422) == "answer_key_mismatch" and res.json()["detail"]["questions"] == ["l03-q1"]
@@ -430,11 +452,11 @@ def test_publishing_needs_keys_and_the_preview_warns_the_instructor(penv):
     lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-03")
     base = f"/api/courses/{course.id}/lessons/{lesson['id']}"
     preview = _ok(env.client.get(f"{base}/preview"))
-    assert preview["missing_answer_keys"] == ["l03-q1", "l03-q2", "l03-q3"]
+    assert preview["missing_answer_keys"] == L03_CHECKS
     evaluated = _ok(env.client.post(f"{base}/preview/evaluate", json={"question_key": "l03-q1", "answer": {"choice": "1"}}))
     assert evaluated["feedback"] == {"correct": None}  # nothing to check against
     res = env.client.post(f"{base}/publish", json={"version_id": lesson["draft_version"]["id"]})
-    assert _code(res, 422) == "missing_answer_keys" and res.json()["detail"]["questions"] == ["l03-q1", "l03-q2", "l03-q3"]
+    assert _code(res, 422) == "missing_answer_keys" and res.json()["detail"]["questions"] == L03_CHECKS
 
     _ok(_upload(env, course, fake_key_file(["42052-lesson-03"])))
     assert _ok(env.client.get(f"{base}/preview"))["missing_answer_keys"] == []

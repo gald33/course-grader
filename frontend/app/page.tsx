@@ -140,7 +140,7 @@ export default function HomePage() {
         <div>
           <strong className="font-semibold text-ink">Working through a course?</strong> Pick it below. The course
           sidebar groups its pages by job: <em>Students</em> (roster, accounts, teams), <em>Teaching</em> (lessons,
-          peer review) and <em>Grading</em> (queue → curve → overrides → gradebook). A new course opens on Students,
+          peer review) and <em>Grading</em> (queue → rubrics → curve → overrides → gradebook). A new course opens on Students,
           since the roster comes first.
         </div>
       </div>

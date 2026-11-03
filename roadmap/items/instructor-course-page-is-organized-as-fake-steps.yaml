@@ -44,9 +44,10 @@ evidence: |
   overflow their cards at 1440px.
 
   Done when: the sidebar groups its pages by job — Students (Students,
-  Teams), Teaching (Lessons, Peer review), Grading (Grading queue, Curve &
-  calibration, Overrides, Gradebook) — with Course settings at the bottom
-  and no step numbers; each import sits with what it feeds (roster on
+  Teams), Teaching (Lessons, Peer review), Grading (Grading queue,
+  Rubrics, Curve & calibration, Overrides, Gradebook) — with Course
+  settings at the bottom and no step numbers; each import sits with what
+  it feeds (roster on
   Students, assignment ZIPs and Google on the Grading queue, the
   presentation sheet on Gradebook) and there is no Imports page; Students
   holds the roster, accounts and personal links, and Teams is its own page;

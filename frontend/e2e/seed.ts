@@ -17,6 +17,15 @@ export type Seed = {
   /** One student per lesson test that saves something, so no test sees another's progress. */
   lesson_students: Record<'trees' | 'experiments' | 'navigation' | 'insights' | 'resilience' | 'access', SignedInStudent>;
   test_student: { id: number; name: string };
+  /** Custom rubrics, in a course of their own: an HW2 without one, and a
+   * project whose submission has one criterion scored by the LLM and one not. */
+  rubrics: {
+    course_id: number;
+    hw2_id: number;
+    project_id: number;
+    project_submission_id: number;
+    criteria: { id: number; name: string; description: string; max_points: number }[];
+  };
 };
 
 export function loadSeed(): Seed {

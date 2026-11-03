@@ -12,6 +12,7 @@ import { GradeReleaseCard } from '@/components/grade-release-card';
 import { LessonsStep } from '@/components/lessons/instructor-lessons';
 import { PeerReviewStep, StudentAccessCards, TeamsStep } from '@/components/peer-review/peer-review-step';
 import { RosterCard } from '@/components/roster-card';
+import { RubricsStep } from '@/components/rubric-editor';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
@@ -134,7 +135,8 @@ type Assignment = {
 };
 
 /* The course's pages, grouped by the job they serve rather than numbered:
- * only Grading is a sequence (queue → curve → overrides → gradebook). Each
+ * only Grading is a sequence (queue → rubrics → curve → overrides →
+ * gradebook; a rubric needs its assignment's ZIP imported first). Each
  * import lives with what it feeds: the roster on Students, assignment ZIPs on
  * the grading queue, the presentation sheet on the gradebook. */
 type SectionKey = CourseSection;
@@ -146,6 +148,7 @@ const SECTIONS: { key: SectionKey; group: SectionGroup; label: string; icon: str
   { key: 'lessons', group: 'Teaching', label: 'Lessons', icon: '✦', sub: 'Guided lessons: preview, publish, and where understanding breaks down.' },
   { key: 'peer', group: 'Teaching', label: 'Peer review', icon: '⇄', sub: 'Presentation schedule, rubrics, student reviews, and round scores.' },
   { key: 'queue', group: 'Grading', label: 'Grading queue', icon: '📥', sub: 'Import assignment ZIPs, then fetch, run and grade each submission.' },
+  { key: 'rubrics', group: 'Grading', label: 'Rubrics', icon: '☰', sub: 'Custom per-assignment rubrics the autograder scores with the LLM.' },
   { key: 'curve', group: 'Grading', label: 'Curve & calibration', icon: '⚙', sub: 'Adjust dimension curves and the attendance threshold.' },
   { key: 'overrides', group: 'Grading', label: 'Overrides', icon: '✎', sub: 'Per-student deltas with reasons.' },
   { key: 'gradebook', group: 'Grading', label: 'Gradebook', icon: '▦', sub: 'Final scores by component, presentation scores, release and export.' },
@@ -290,6 +293,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               setToast={setToast}
               refresh={loadAll}
             />
+          ) : null}
+          {step === 'rubrics' ? (
+            <RubricsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
           ) : null}
           {step === 'peer' ? <PeerReviewStep courseId={courseId} setToast={setToast} /> : null}
           {step === 'lessons' ? <LessonsStep courseId={courseId} course={course} setToast={setToast} /> : null}

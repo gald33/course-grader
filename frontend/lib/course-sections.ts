@@ -6,6 +6,7 @@ export type CourseSection =
   | 'lessons'
   | 'peer'
   | 'queue'
+  | 'rubrics'
   | 'curve'
   | 'overrides'
   | 'gradebook'

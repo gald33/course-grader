@@ -13,6 +13,8 @@ from app.models.entities import (
     Assignment,
     ColabSnapshot,
     Course,
+    CriterionOverride,
+    CriterionResult,
     Enrollment,
     NotebookRun,
     RubricDimensionScore,
@@ -37,6 +39,7 @@ from app.schemas.api import (
     SubmissionRequirements,
 )
 from app.services.consistency import notebook_text_from_ipynb
+from app.services.custom_rubrics import submission_view as custom_rubric_view
 from app.services.llm_code_review import LLMCodeReviewError, review_code_dimensions
 from app.services.llm_review import LLMReviewError, review_project_report
 from app.services import storage
@@ -316,6 +319,7 @@ def get_submission_detail(submission_id: int, db: Session = Depends(get_db)) -> 
         code_review=json.loads(submission.code_review_json)
         if submission.code_review_json
         else None,
+        custom_rubric=custom_rubric_view(db, submission),
     )
 
 
@@ -364,7 +368,16 @@ def delete_submission(submission_id: int, db: Session = Depends(get_db)) -> dict
     locations = set(db.scalars(select(Artifact.path).where(Artifact.submission_id == submission_id)).all())
 
     db.execute(update(Submission).where(Submission.id == submission_id).values(pinned_run_id=None))
-    for model in (NotebookRun, ColabSnapshot, Artifact, RubricDimensionScore, StudentComponentOverride, SubmissionMember):
+    for model in (
+        CriterionResult,
+        CriterionOverride,
+        NotebookRun,
+        ColabSnapshot,
+        Artifact,
+        RubricDimensionScore,
+        StudentComponentOverride,
+        SubmissionMember,
+    ):
         db.execute(delete(model).where(model.submission_id == submission_id))
     db.execute(delete(Submission).where(Submission.id == submission_id))
     db.commit()

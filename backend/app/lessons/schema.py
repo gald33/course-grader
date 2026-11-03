@@ -182,11 +182,20 @@ class PromptBlock(_Model):
 
 
 class ColabBlock(_Model):
+    """One step's notebook. The page shows `lead` (one sentence on what this
+    step does there) and an "open in Colab" button; everything else (how to
+    run, download and upload, the executed copy, troubleshooting) sits in one
+    collapsed "help and alternatives" expander. The button opens the lesson's
+    instructor-set Colab link if there is one, else this notebook straight
+    from the repository on GitHub (its path under frontend/public)."""
+
     type: Literal["colab"]
     notebook_asset: str
+    executed_asset: str | None = None  # an executed copy to read, offered in the help
     section: Inline | None = None
-    instructions: list[Inline]
-    return_note: Inline
+    lead: Inline | None = None
+    instructions: list[Inline] = []
+    return_note: Inline | None = None
 
 
 class LinkBlock(_Model):
@@ -1020,8 +1029,9 @@ def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[s
                 elif isinstance(block, ActualTreeBlock) and assets_root is not None:
                     _check_actual_tree(where, content, block, assets_root, errors)
             elif isinstance(block, ColabBlock):
-                if block.notebook_asset not in content.assets:
-                    errors.append(f"{where}: unknown asset '{block.notebook_asset}'")
+                for asset in (block.notebook_asset, block.executed_asset):
+                    if asset is not None and asset not in content.assets:
+                        errors.append(f"{where}: unknown asset '{asset}'")
             elif isinstance(block, ManualTreeBlock):
                 _check_tree(where, block.root, block.nodes, set(block.feature_labels), errors)
                 ids = [c.id for c in block.customers]

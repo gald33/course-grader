@@ -6,26 +6,54 @@
   "course_code": "42052",
   "intro": "שיעור 3 בנוי משני חלקים, ושניהם חובה. בחלק הזה נבנה צעד אחרי צעד: חישוב אחד פשוט, רשת שלומדת מדוגמאות, ומילים שהופכות למספרים. כל ההדגמות רצות כאן בדפדפן; מחברת קולאב חינמית היא תוספת למי שרוצה לנסות בקוד. ההתקדמות נשמרת, ואפשר לחזור לכל שלב.",
   "assets": {
-    "notebook": {
-      "path": "/lessons/lesson-03/v2/lesson-3-part-1-he.ipynb",
-      "filename": "lesson-3-part-1-he.ipynb",
-      "mime": "application/x-ipynb+json",
-      "label": "מחברת חלק 1 (ipynb)",
-      "sha256": "94c36bc66039ee830c936cf5cd1c4ae7bcc59ca66885630013c88d2c547796a6"
-    },
-    "notebook_executed": {
-      "path": "/lessons/lesson-03/v2/lesson-3-part-1-he-executed.ipynb",
-      "filename": "lesson-3-part-1-he-executed.ipynb",
-      "mime": "application/x-ipynb+json",
-      "label": "מחברת חלק 1 – עותק מורץ (ipynb)",
-      "sha256": "2247f64ff519e336693836600479b160dc9b7d24c7bf41b1ef8e123eaac214bb"
-    },
     "embedding_map": {
       "path": "/lessons/lesson-03/v1/embedding-map.json",
       "filename": "embedding-map.json",
       "mime": "application/json",
       "label": "מפת הייצוגים, מחושבת מראש (JSON)",
       "sha256": "63e19d1385075057452538d23a9693cb3e87737a7f29d3b3bef9534e52d9d289"
+    },
+    "notebook_neuron": {
+      "path": "/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he.ipynb",
+      "filename": "lesson-3-part-1-a-neuron-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב A (ipynb)",
+      "sha256": "77544e7f3d71d5c880db678dfde29d5dc1d6b3b4f62d27e6fdb2a4381a54acbe"
+    },
+    "notebook_neuron_executed": {
+      "path": "/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he-executed.ipynb",
+      "filename": "lesson-3-part-1-a-neuron-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב A – עותק מורץ (ipynb)",
+      "sha256": "f95172aa3c93b7151656e8b766b8dd1f4e508978c27800dd8d5987a5fbd9ed19"
+    },
+    "notebook_network": {
+      "path": "/lessons/lesson-03/v3/lesson-3-part-1-b-network-he.ipynb",
+      "filename": "lesson-3-part-1-b-network-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב B (ipynb)",
+      "sha256": "5e660962b09a44cb1e8b05def3b26d7c3d8aaa4123b293de955a21a97acfa3fd"
+    },
+    "notebook_network_executed": {
+      "path": "/lessons/lesson-03/v3/lesson-3-part-1-b-network-he-executed.ipynb",
+      "filename": "lesson-3-part-1-b-network-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב B – עותק מורץ (ipynb)",
+      "sha256": "03a67c5f0e3923440dc9e17440edefdbdf3118e9d03acb843280b6ebd81cfb06"
+    },
+    "notebook_embeddings": {
+      "path": "/lessons/lesson-03/v3/lesson-3-part-1-c-embeddings-he.ipynb",
+      "filename": "lesson-3-part-1-c-embeddings-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב C (ipynb)",
+      "sha256": "718b8af86d0106828029d2171591c3628e94516418bca4bfcbca14840f27d7a5"
+    },
+    "notebook_embeddings_executed": {
+      "path": "/lessons/lesson-03/v3/lesson-3-part-1-c-embeddings-he-executed.ipynb",
+      "filename": "lesson-3-part-1-c-embeddings-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב C – עותק מורץ (ipynb)",
+      "sha256": "e4b715b4b44eb57bfcdcbf3b09cb7fa65bd20c0f3c53a386e8c2987de2289702"
     }
   },
   "steps": [
@@ -120,26 +148,11 @@
           "blocks": [
             {
               "type": "colab",
-              "notebook_asset": "notebook",
+              "notebook_asset": "notebook_neuron",
+              "executed_asset": "notebook_neuron_executed",
               "section": "סעיף 1",
-              "instructions": [
-                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
-                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי.",
-                "בכל סעיף: נחשו מה יקרה, הריצו, שנו דבר אחד – והריצו שוב."
-              ],
+              "lead": "מחברת קצרה לשלב הזה בלבד: נוירון אחד מחושב ביד, ואתם משנים משקל ורואים מתי ההחלטה מתהפכת.",
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
-            },
-            {
-              "type": "expander",
-              "title": "אין גישה לקולאב?",
-              "blocks": [
-                {
-                  "type": "download",
-                  "asset": "notebook_executed",
-                  "label": "העותק המורץ של המחברת (ipynb)",
-                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
-                }
-              ]
             }
           ]
         },
@@ -362,11 +375,10 @@
           "blocks": [
             {
               "type": "colab",
-              "notebook_asset": "notebook",
+              "notebook_asset": "notebook_network",
+              "executed_asset": "notebook_network_executed",
               "section": "סעיף 2, 2א ו-2ב",
-              "instructions": [
-                "המחברת עדיין פתוחה? המשיכו בה. אחרת פתחו אותה שוב והריצו מההתחלה לפי הסדר: כל סעיף משתמש במה שהסעיפים שלפניו טוענים."
-              ],
+              "lead": "מחברת לשלב הזה בלבד: רשת קטנה מתאמנת על נתוני המאפייה, ואתם משנים את קצב הלמידה ואת גודל הרשת וסופרים את הפרמטרים.",
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
             },
             {
@@ -458,11 +470,10 @@
           "blocks": [
             {
               "type": "colab",
-              "notebook_asset": "notebook",
+              "notebook_asset": "notebook_embeddings",
+              "executed_asset": "notebook_embeddings_executed",
               "section": "סעיף 3 ו-3א",
-              "instructions": [
-                "המחברת עדיין פתוחה? המשיכו בה. אחרת פתחו אותה שוב והריצו מההתחלה לפי הסדר: כל סעיף משתמש במה שהסעיפים שלפניו טוענים."
-              ],
+              "lead": "מחברת לשלב הזה בלבד: ייצוגים אמיתיים ממודל פתוח למילים שאתם בוחרים, ומפה דו-ממדית שלהן.",
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
             },
             {

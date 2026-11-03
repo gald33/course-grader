@@ -37,6 +37,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `lesson-title-sync-on-install` — Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles
 - `lessons-one-page-per-lesson` — The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page
 - `no-button-to-recheck-site-links` — Add a "re-check all links" button for a round
+- `notebooks-per-step` — Each lesson-3 part sends every Colab step to one long notebook, and the Colab block buries its one button under generic instructions
 - `onboarding-guide-has-todo-sections` — ONBOARDING.md still has _TODO_ under Team Tips and Get Started
 - `peer-round-scores-never-reach-the-gradebook` — Peer-review round scores have to be copied into the gradebook by hand
 - `project-bonus-has-no-editor` — The per-student project bonus can't be edited directly

@@ -56,6 +56,10 @@ def _download(asset: str, label: str) -> dict:
     return {"type": "download", "asset": asset, "label": label}
 
 
+def _colab(asset: str, lead: str) -> dict:
+    return {"type": "colab", "notebook_asset": asset, "lead": ltr(lead), "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"}
+
+
 def seed_to_content(
     seed: dict,
     course_code: str,
@@ -69,7 +73,8 @@ def seed_to_content(
     is not added here.
 
     assets/downloads attach files the handoff already prepared: assets by
-    key, downloads by step key (download blocks for the step's try section)."""
+    key, downloads by step key (download or Colab blocks for the step's try
+    section)."""
     downloads = downloads or {}
     questions: dict[str, dict] = {}
     steps: list[dict] = []
@@ -168,7 +173,14 @@ _PREPARED: dict[str, dict] = {
                 "label": "מחברת דוכן הקינוחים (ipynb)",
             }
         },
-        "downloads": {"dessert": ["notebook"]},
+        # The whole notebook is step B's (the stall calculator), so it opens
+        # in Colab as is: one notebook, one step, no markers needed.
+        "colab": {
+            "dessert": (
+                "notebook",
+                "מחברת לשלב הזה: מחשבון דוכן הקינוחים מוכן להרצה – שנו את הכמות ובדקו 100, 66 ו-67 מארזים וכמות שלילית.",
+            )
+        },
     },
     "lesson-02": {
         "assets": {
@@ -277,6 +289,8 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
         downloads = {
             step: [_download(a, assets[a]["label"]) for a in keys] for step, keys in prepared.get("downloads", {}).items()
         }
+        for step, (asset, lead) in prepared.get("colab", {}).items():
+            downloads.setdefault(step, []).append(_colab(asset, lead))
         if slug not in AUTHORED:
             contents[slug] = seed_to_content(seed, code, assets, downloads)
         ready = readiness.get(number, {})

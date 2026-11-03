@@ -27,9 +27,19 @@ REPO = BACKEND.parent
 SEED = REPO / "content" / "course-42052" / "lessons" / "lesson-03.json"
 L3_DIR = ASSETS_ROOT / "lessons" / "lesson-03"
 DEEP_DIR = ASSETS_ROOT / "lessons" / "lesson-03-deeper"
-P1_NB, P1_RUN = L3_DIR / "v2" / "lesson-3-part-1-he.ipynb", L3_DIR / "v2" / "lesson-3-part-1-he-executed.ipynb"
-P2_NB, P2_RUN = DEEP_DIR / "v2" / "lesson-3-part-2-he.ipynb", DEEP_DIR / "v2" / "lesson-3-part-2-he-executed.ipynb"
-NOTEBOOKS = [(P1_NB, P1_RUN), (P2_NB, P2_RUN)]
+# One small notebook per Colab step (v3), clean and executed.
+P1_STEPS = {"neuron": "a-neuron", "network": "b-network", "embeddings": "c-embeddings"}
+P2_STEPS = {"tokens": "a-tokens", "next-token": "b-next-token", "attention": "c-attention", "grounding": "f-grounding"}
+
+
+def _pair(folder: Path, part: int, stem: str) -> tuple[Path, Path]:
+    base = folder / "v3" / f"lesson-3-part-{part}-{stem}-he"
+    return base.with_suffix(".ipynb"), base.parent / f"{base.name}-executed.ipynb"
+
+
+P1_NBS = {key: _pair(L3_DIR, 1, stem) for key, stem in P1_STEPS.items()}
+P2_NBS = {key: _pair(DEEP_DIR, 2, stem) for key, stem in P2_STEPS.items()}
+NOTEBOOKS = [*P1_NBS.values(), *P2_NBS.values()]
 PRIVATE_FIELDS = {"answer", "correct_choice_id", "feedback_he", "correct", "correct_options", "misconceptions",
                   "explanation", "sample_reasoning", "rubric", "instructor_email", "email"}
 WIDGETS = {"live_tokenizer", "next_word_guess", "attention_view", "neuron_playground", "training_demo", "embedding_map", "image"}
@@ -60,6 +70,12 @@ def _nb(path) -> dict:
 
 def _outputs(nb) -> str:
     return "\n".join("".join(o.get("text", "")) for c in nb["cells"] if c["cell_type"] == "code" for o in c["outputs"])
+
+
+def _part(nbs: dict) -> tuple[str, str]:
+    """A part's executed notebooks, all together: (sources, outputs)."""
+    ran = [_nb(executed) for _, executed in nbs.values()]
+    return "\n".join("".join(c["source"]) for nb in ran for c in nb["cells"]), "\n".join(_outputs(nb) for nb in ran)
 
 
 @pytest.fixture(scope="module")
@@ -264,7 +280,25 @@ def test_no_fake_colab_link_and_no_paid_or_keyed_service(p1, p2):
     for lesson in (p1, p2):
         text = json.dumps(lesson, ensure_ascii=False)
         assert not re.search(r"colab\.research\.google\.com/(drive|github|notebooks)", text) and "http" not in text
-        assert all(b["notebook_asset"] == "notebook" for _, b in _all_blocks(lesson) if b["type"] == "colab")
+
+
+def test_each_colab_step_opens_its_own_notebook(p1, p2):
+    """One notebook per Colab step: the step's block points at that step's
+    notebook (and its executed copy), and the notebook says which step it is."""
+    for lesson, nbs in ((p1, P1_NBS), (p2, P2_NBS)):
+        colab = {key: b for key, b in _all_blocks(lesson) if b["type"] == "colab"}
+        assert set(colab) == set(nbs), lesson["slug"]
+        letters = {s["key"]: s["letter"] for s in lesson["steps"]}
+        for key, (clean, executed) in nbs.items():
+            block, assets = colab[key], lesson["assets"]
+            assert assets[block["notebook_asset"]]["path"] == "/" + str(clean.relative_to(ASSETS_ROOT))
+            assert assets[block["executed_asset"]]["path"] == "/" + str(executed.relative_to(ASSETS_ROOT))
+            assert block["lead"] and not block.get("instructions")
+            intro = "".join(_nb(clean)["cells"][0]["source"])
+            assert f"המחברת הזו היא לשלב {letters[key]} (" in intro, (key, intro[:120])
+            # Only this step's sections: the notebook's section numbers are the ones the block names.
+            numbers = set(re.findall(r"<h2>(\d) \|", "".join("".join(c["source"]) for c in _nb(clean)["cells"])))
+            assert numbers and numbers == set(re.findall(r"\d", block["section"])[:1]), (key, numbers, block["section"])
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +365,7 @@ def test_other_broken_widgets_are_refused(p1, p2):
     for problem in ("input 'orders' needs", "start 'nope' is not a word", "need both labels"):
         assert problem in joined, problem
     raw = copy.deepcopy(p2)
-    next(b for _, b in _all_blocks(raw) if b["type"] == "image")["asset"] = "notebook"
+    next(b for _, b in _all_blocks(raw) if b["type"] == "image")["asset"] = "notebook_tokens"
     next(b for _, b in _all_blocks(raw) if b["type"] == "live_tokenizer")["encoding"] = "cl100k_base"
     with pytest.raises(ContentError):
         validate_content(raw, assets_root())
@@ -373,7 +407,7 @@ def test_notebook_is_clean_and_executed_with_no_path(clean, executed):
         if kind == "markdown":
             assert s.startswith('<div dir="rtl"') and re.search(r"[֐-׿]", s)
     # Every section: predict, run, change one thing, observe.
-    sections = re.split(r"<h2>\d", "\n".join(s for k, s in src(student) if k == "markdown"))[1:-1]
+    sections = re.split(r"<h2>\d", "\n".join(s for k, s in src(student) if k == "markdown"))[1:]
     for section in sections:
         assert "①" in section and "③" in section, section[:60]
     for path in (clean, executed):
@@ -383,10 +417,7 @@ def test_notebook_is_clean_and_executed_with_no_path(clean, executed):
 
 
 def test_notebooks_do_what_each_part_needs():
-    one, two = _nb(P1_RUN), _nb(P2_RUN)
-    src1 = "\n".join("".join(c["source"]) for c in one["cells"])
-    src2 = "\n".join("".join(c["source"]) for c in two["cells"])
-    out1, out2 = _outputs(one), _outputs(two)
+    (src1, out1), (src2, out2) = _part(P1_NBS), _part(P2_NBS)
     # Part 1: a neuron by hand; a tiny network, learning rate / size changed, parameters counted; your own words.
     assert "def neuron(" in src1 and "MLPClassifier" in src1 and "my_words" in src1
     assert "baseline network (8 hidden): 33 parameters" in out1 and "learning rate" in out1
@@ -401,7 +432,7 @@ def test_notebooks_do_what_each_part_needs():
 
 def test_every_number_the_page_quotes_is_in_the_executed_output(p1, p2):
     page1, page2 = json.dumps(p1, ensure_ascii=False), json.dumps(p2, ensure_ascii=False)
-    out1, out2 = _outputs(_nb(P1_RUN)), _outputs(_nb(P2_RUN))
+    (_, out1), (_, out2) = _part(P1_NBS), _part(P2_NBS)
     pairs = [
         (page1, "[[0.65]] ל-[[0.15]]", out1, "loss after 1 step: 0.647   after 300 steps: 0.151"),
         (page1, "מ-66% ל-92%", out1, "66% after 1 step, 92% after 300"),

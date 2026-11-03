@@ -32,6 +32,7 @@ _Nothing deferred._
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
+| `notebooks-per-step` | claude/notebooks-per-step | 2026-11-03T19:35:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -67,6 +68,7 @@ graph TD
   lesson_title_sync_on_install["Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles"]:::claimed
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
+  notebooks_per_step["Each lesson-3 part sends every Colab step to one long notebook, and the Colab block buries its one button under generic instructions"]:::claimed
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
   project_bonus_has_no_editor["✓ The per-student project bonus can't be edited directly"]:::done
@@ -85,6 +87,7 @@ graph TD
   lesson_3_how_language_models_work --> lesson_3_part_b_deeper
   course_42052_whole_syllabus --> lesson_4_coding_agent
   lesson_4_coding_agent --> lesson_5_product_definition
+  exit_check_no_chatbot --> notebooks_per_step
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
@@ -264,6 +267,7 @@ graph TD
 - **status:** claimed
 - **priority:** now
 - **claimed by:** claude/exit-check-no-chatbot (since 2026-11-03T19:00:00Z)
+- **blocks:** `notebooks-per-step`
 - **refs:**
   - `content/course-42052/lessons/`
   - `backend/app/lessons/content/course-42052/`
@@ -888,6 +892,46 @@ graph TD
 > status updates.
 >
 > SHIPPED: #10, merged as d0d18fa and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `notebooks-per-step`
+
+- **title:** Each lesson-3 part sends every Colab step to one long notebook, and the Colab block buries its one button under generic instructions
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/notebooks-per-step (since 2026-11-03T19:35:00Z)
+- **blocked on:** `exit-check-no-chatbot`
+- **refs:**
+  - `backend/scripts/build_step_notebooks.py`
+  - `frontend/public/lessons/lesson-03/v3/`
+  - `frontend/public/lessons/lesson-03-deeper/v3/`
+  - `frontend/components/lessons/blocks.tsx`
+  - `backend/app/lessons/schema.py`
+  - `backend/app/lessons/course_plan.py`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03: "each note book should only cover what we show in
+> that part of the lesson, not the whole lesson, unless it's necessary, and
+> then mark clearly on the notebook from where to where is relevant for our
+> part"; and "in the lesson block for colab, collapse any generic
+> instructions or alternatives, basically just show the open in colab
+> button uncollapsed". VERIFIED at 68e45be: lesson-03 and lesson-03-deeper
+> each point all their Colab steps at one notebook (v2), and the colab block
+> shows the button only when an instructor link is set, with the download
+> and upload steps always expanded. Lesson 1's notebook is a bare download.
+>
+> This item: one small notebook per Colab step (Part 1: neuron, network,
+> embeddings; Part 2: tokens, next-token, attention, grounding), sliced from
+> v2 by a committed script, each with its own setup, executed clean on CPU
+> at v3/. Every step needed its own notebook; no combined notebook, so no
+> banner markers. Lesson 1's notebook is wholly step B's, so it stays one
+> notebook and gets a Colab block. The colab block shows one line and a
+> visible "open in Colab" button that opens the step's own notebook from the
+> public repository (main); everything else is in one collapsed "help and
+> alternatives". An instructor-set lesson link still overrides, and the
+> instructor page says so. Live lesson 2's content is unchanged.
 
 </details>
 

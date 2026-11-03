@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Avatar, AvatarStack } from '@/components/ui/avatar';
 import { BilingualName, isHebrew } from '@/components/ui/bilingual-name';
@@ -9,12 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { GradeReleaseCard } from '@/components/grade-release-card';
 import { LessonsStep } from '@/components/lessons/instructor-lessons';
-import { PeerReviewStep } from '@/components/peer-review/peer-review-step';
+import { PeerReviewStep, StudentAccessCards, TeamsStep } from '@/components/peer-review/peer-review-step';
 import { RosterCard } from '@/components/roster-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar, ProgressRing } from '@/components/ui/progress-ring';
-import { apiBase, apiFetch, apiGet, apiPatch, apiPost, putToStorage, type UploadTarget } from '@/lib/api';
+import { apiBase, apiFetch, apiGet, apiPatch, apiPost, errorMessage, putToStorage, type UploadTarget } from '@/lib/api';
+import { courseSectionHref, type CourseSection } from '@/lib/course-sections';
 
 type Course = {
   id: number;
@@ -131,18 +133,53 @@ type Assignment = {
   submission_count: number;
 };
 
-type StepKey = 'queue' | 'imports' | 'peer' | 'lessons' | 'curve' | 'overrides' | 'gradebook' | 'settings';
+/* The course's pages, grouped by the job they serve rather than numbered:
+ * only Grading is a sequence (queue → curve → overrides → gradebook). Each
+ * import lives with what it feeds: the roster on Students, assignment ZIPs on
+ * the grading queue, the presentation sheet on the gradebook. */
+type SectionKey = CourseSection;
+type SectionGroup = 'Students' | 'Teaching' | 'Grading' | 'Course';
 
-const STEPS: { key: StepKey; label: string; icon: string; title: string; sub: string }[] = [
-  { key: 'queue', label: 'Grading queue', icon: '📥', title: 'Grading queue', sub: 'Submissions, snapshots, and runs.' },
-  { key: 'imports', label: 'Imports', icon: '⤴', title: 'Imports', sub: 'Roster, assignment ZIPs, presentation sheets.' },
-  { key: 'peer', label: 'Peer review', icon: '⇄', title: 'Peer review', sub: 'Presentation schedule, student reviews, and round scores.' },
-  { key: 'lessons', label: 'Lessons', icon: '✦', title: 'Lessons', sub: 'Guided lessons: preview, publish, and where understanding breaks down.' },
-  { key: 'curve', label: 'Curve & calibration', icon: '⚙', title: 'Curve & calibration', sub: 'Adjust dimension curves and attendance threshold.' },
-  { key: 'overrides', label: 'Overrides', icon: '✎', title: 'Overrides', sub: 'Per-student deltas with reasons.' },
-  { key: 'gradebook', label: 'Gradebook', icon: '▦', title: 'Gradebook', sub: 'Final scores by component.' },
-  { key: 'settings', label: 'Course settings', icon: '◉', title: 'Course settings', sub: 'Course-level preferences.' }
+const SECTIONS: { key: SectionKey; group: SectionGroup; label: string; icon: string; sub: string }[] = [
+  { key: 'students', group: 'Students', label: 'Students', icon: '👥', sub: 'Roster, sign-in accounts, and each student’s personal link.' },
+  { key: 'teams', group: 'Students', label: 'Teams', icon: '⚇', sub: 'Who works with whom, and when students can still change teams.' },
+  { key: 'lessons', group: 'Teaching', label: 'Lessons', icon: '✦', sub: 'Guided lessons: preview, publish, and where understanding breaks down.' },
+  { key: 'peer', group: 'Teaching', label: 'Peer review', icon: '⇄', sub: 'Presentation schedule, rubrics, student reviews, and round scores.' },
+  { key: 'queue', group: 'Grading', label: 'Grading queue', icon: '📥', sub: 'Import assignment ZIPs, then fetch, run and grade each submission.' },
+  { key: 'curve', group: 'Grading', label: 'Curve & calibration', icon: '⚙', sub: 'Adjust dimension curves and the attendance threshold.' },
+  { key: 'overrides', group: 'Grading', label: 'Overrides', icon: '✎', sub: 'Per-student deltas with reasons.' },
+  { key: 'gradebook', group: 'Grading', label: 'Gradebook', icon: '▦', sub: 'Final scores by component, presentation scores, release and export.' },
+  { key: 'settings', group: 'Course', label: 'Course settings', icon: '◉', sub: 'Course details and archiving.' }
 ];
+const SIDEBAR_GROUPS: SectionGroup[] = ['Students', 'Teaching', 'Grading'];
+
+const isSection = (v: string | null): v is SectionKey => SECTIONS.some((s) => s.key === v);
+
+/* The open section lives in ?section=, so a section can be linked, refresh
+ * stays on it and back/forward move between sections. The bare URL means "the
+ * default" (see CoursePage). */
+function useSectionInUrl(): [SectionKey | null, (s: SectionKey) => void] {
+  const [section, setSectionState] = useState<SectionKey | null>(null);
+  useEffect(() => {
+    const read = () => {
+      const v = new URLSearchParams(window.location.search).get('section');
+      setSectionState(isSection(v) ? v : null);
+    };
+    read();
+    window.addEventListener('popstate', read);
+    return () => window.removeEventListener('popstate', read);
+  }, []);
+  const setSection = useCallback((s: SectionKey) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('section', s);
+    if (url.href !== window.location.href) {
+      window.history.pushState(window.history.state, '', url);
+      window.scrollTo(0, 0);
+    }
+    setSectionState(s);
+  }, []);
+  return [section, setSection];
+}
 
 /* =============== Page =============== */
 
@@ -155,16 +192,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [activeCurve, setActiveCurve] = useState<ActiveCurve | null>(null);
   const [dimensionDistributions, setDimensionDistributions] = useState<Record<string, number[]>>({});
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
-  const [step, setStep] = useState<StepKey>('queue');
+  const [urlSection, setSection] = useSectionInUrl();
+  // Where the bare course URL opens, decided once on the first load so that
+  // uploading the roster doesn't move you off the page you're on.
+  const [defaultSection, setDefaultSection] = useState<SectionKey | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? (localStorage.getItem('cg-course-step') as StepKey | null) : null;
-    if (stored && STEPS.some((s) => s.key === stored)) setStep(stored);
-  }, []);
-  useEffect(() => {
-    if (typeof window !== 'undefined') localStorage.setItem('cg-course-step', step);
-  }, [step]);
 
   useEffect(() => {
     if (!toast) return;
@@ -186,6 +218,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setAssignments(assignmentsRes);
     setSubmissions(submissionsRes);
     setGradebook(gradebookRes.rows);
+    // The grading queue, or Students while the course has no roster yet,
+    // since nothing else works before it.
+    setDefaultSection((d) => d ?? (gradebookRes.rows.length === 0 ? 'students' : 'queue'));
     setActiveCurve(curveRes);
     setOverrides(overridesRes);
     setDimensionDistributions(distRes);
@@ -196,15 +231,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
-  const counts: Record<StepKey, number | null> = {
+  // Badges only where the number says something: how many students, how many
+  // submissions, how many overrides are on file.
+  const counts: Partial<Record<SectionKey, number>> = {
+    students: gradebook.length,
     queue: submissions.length,
-    imports: assignments.length,
-    peer: null,
-    lessons: null,
-    curve: activeCurve?.revision_number ?? 0,
-    overrides: overrides.length,
-    gradebook: gradebook.length,
-    settings: null
+    overrides: overrides.length
   };
 
   const graded = submissions.filter((s) => derivedState(s) === 'graded').length;
@@ -215,8 +247,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     return <div className="p-10 text-ink-3">Loading…</div>;
   }
 
-  const stepInfo = STEPS.find((s) => s.key === step) ?? STEPS[0];
-  const stepIdx = STEPS.findIndex((s) => s.key === step);
+  const step: SectionKey = urlSection ?? defaultSection ?? 'queue';
+  const stepInfo = SECTIONS.find((s) => s.key === step) ?? SECTIONS[0];
 
   return (
     <div className="grid min-h-screen" style={{ gridTemplateColumns: '248px 1fr' }}>
@@ -226,19 +258,17 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         total={total}
         remaining={remaining}
         step={step}
-        setStep={setStep}
+        setStep={setSection}
         counts={counts}
       />
 
       <div className="min-w-0">
-        {/* Step header */}
+        {/* Section header */}
         <div className="mx-auto max-w-[1500px] px-10 pt-9">
           <div className="flex items-end justify-between gap-6">
             <div>
-              <div className="label-eyebrow mb-1.5">
-                Step {stepIdx + 1} of {STEPS.length}
-              </div>
-              <h1 className="font-display text-[34px] leading-tight tracking-tight">{stepInfo.title}</h1>
+              <div className="label-eyebrow mb-1.5">{stepInfo.group}</div>
+              <h1 className="font-display text-[34px] leading-tight tracking-tight">{stepInfo.label}</h1>
               <p className="mt-1 text-[15px] text-ink-3">{stepInfo.sub}</p>
             </div>
           </div>
@@ -246,17 +276,20 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="mx-auto max-w-[1500px] px-10 pb-20">
+          {step === 'students' ? (
+            <StudentsStep courseId={courseId} setToast={setToast} refresh={loadAll} />
+          ) : null}
+          {step === 'teams' ? <TeamsStep courseId={courseId} setToast={setToast} /> : null}
           {step === 'queue' ? (
             <QueueStep
               submissions={submissions}
               assignments={assignments}
               courseId={courseId}
+              hasStudents={gradebook.length > 0}
+              go={setSection}
               setToast={setToast}
               refresh={loadAll}
             />
-          ) : null}
-          {step === 'imports' ? (
-            <ImportsStep courseId={courseId} assignments={assignments} setToast={setToast} refresh={loadAll} />
           ) : null}
           {step === 'peer' ? <PeerReviewStep courseId={courseId} setToast={setToast} /> : null}
           {step === 'lessons' ? <LessonsStep courseId={courseId} course={course} setToast={setToast} /> : null}
@@ -285,6 +318,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               gradebook={gradebook}
               activeCurve={activeCurve}
               courseId={courseId}
+              go={setSection}
               setToast={setToast}
               refresh={loadAll}
             />
@@ -322,10 +356,33 @@ function Sidebar({
   graded: number;
   total: number;
   remaining: number;
-  step: StepKey;
-  setStep: (s: StepKey) => void;
-  counts: Record<StepKey, number | null>;
+  step: SectionKey;
+  setStep: (s: SectionKey) => void;
+  counts: Partial<Record<SectionKey, number>>;
 }) {
+  // Real links, so a section opens in a new tab with a modified click; a plain
+  // click switches in place.
+  const item = (s: (typeof SECTIONS)[number]) => (
+    <a
+      key={s.key}
+      href={courseSectionHref(course.id, s.key)}
+      className={`nav-step no-underline ${step === s.key ? 'active' : ''}`}
+      aria-current={step === s.key ? 'page' : undefined}
+      onClick={(e) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        e.preventDefault();
+        setStep(s.key);
+      }}
+    >
+      <span className="w-[18px] text-center text-[15px]" aria-hidden>
+        {s.icon}
+      </span>
+      <span className="nav-label">{s.label}</span>
+      {counts[s.key] ? <span className="nav-count tnum">{counts[s.key]}</span> : null}
+    </a>
+  );
+  const settings = SECTIONS.find((s) => s.key === 'settings')!;
+
   return (
     <aside className="sticky top-0 flex h-screen flex-col gap-1 overflow-y-auto border-r border-border bg-paper-2 px-[18px] py-6">
       <Link href="/" className="mb-2 flex items-center gap-2.5 border-b border-border px-2 pb-4 pt-1 no-underline">
@@ -362,26 +419,23 @@ function Sidebar({
         )}
       </div>
 
-      {/* Steps */}
-      {STEPS.map((s, i) => (
-        <button
-          key={s.key}
-          className={`nav-step ${step === s.key ? 'active' : ''}`}
-          onClick={() => setStep(s.key)}
-        >
-          <span className="nav-num">{i + 1}</span>
-          <span className="text-[15px]" aria-hidden>
-            {s.icon}
-          </span>
-          <span className="nav-label">{s.label}</span>
-          {counts[s.key] != null && counts[s.key]! > 0 ? (
-            <span className="nav-count tnum">{counts[s.key]}</span>
-          ) : null}
-        </button>
-      ))}
+      <nav aria-label="Course sections" className="grid gap-1">
+        {SIDEBAR_GROUPS.map((group) => (
+          <div key={group} className="grid gap-0.5">
+            <div className="label-eyebrow px-2.5 pb-1 pt-3">{group}</div>
+            {SECTIONS.filter((s) => s.group === group).map(item)}
+          </div>
+        ))}
+      </nav>
 
-      <div className="mt-auto border-t border-border px-2 pt-3 text-[11px] text-ink-4">
-        Localhost · No auth needed
+      <div className="mt-auto grid gap-0.5 border-t border-border pt-3">
+        {item(settings)}
+        <Link href={`/course/${course.id}/student-view`} className="nav-step no-underline">
+          <span className="w-[18px] text-center text-[15px]" aria-hidden>
+            👁
+          </span>
+          <span className="nav-label">View as student</span>
+        </Link>
       </div>
     </aside>
   );
@@ -526,15 +580,21 @@ function QueueStep({
   submissions,
   assignments,
   courseId,
+  hasStudents,
+  go,
   setToast,
   refresh
 }: {
   submissions: Submission[];
   assignments: Assignment[];
   courseId: number;
+  hasStudents: boolean;
+  go: (s: SectionKey) => void;
   setToast: (s: string) => void;
   refresh: () => Promise<void>;
 }) {
+  // The import form stays folded away once there is something to grade.
+  const [importOpen, setImportOpen] = useState(submissions.length === 0);
   const [filter, setFilter] = useState<'all' | RunState | 'flagged' | 'incomplete'>('all');
   const [search, setSearch] = useState('');
   const [assignmentFilter, setAssignmentFilter] = useState<string>('all');
@@ -620,9 +680,31 @@ function QueueStep({
           One row per group submission. <strong className="text-ink">Open</strong> takes you into the review workspace
           where the executed notebook + report live alongside the rubric. Use the filter chips to narrow down —{' '}
           <strong className="text-ink">Not run</strong> shows what's missing a Colab URL,{' '}
-          <strong className="text-ink">Flagged</strong> shows originality mismatches.
+          <strong className="text-ink">Flagged</strong> shows originality mismatches. Rubric scores then pass through{' '}
+          <SectionLink go={go} to="curve" /> and <SectionLink go={go} to="overrides" /> into the{' '}
+          <SectionLink go={go} to="gradebook" />.
         </div>
       </div>
+
+      {!hasStudents ? (
+        <div className="hint hint-warm">
+          <span className="hint-icon">!</span>
+          <div>
+            This course has no students yet. Upload the roster on <SectionLink go={go} to="students" /> first, so
+            group members in a ZIP are matched to students.
+          </div>
+        </div>
+      ) : null}
+
+      {importOpen ? (
+        <AssignmentImportCard
+          courseId={courseId}
+          assignments={assignments}
+          setToast={setToast}
+          refresh={refresh}
+          onClose={submissions.length > 0 ? () => setImportOpen(false) : undefined}
+        />
+      ) : null}
 
       {/* Per-assignment requirements summary */}
       <AssignmentRequirementsSummary
@@ -654,6 +736,11 @@ function QueueStep({
           );
         })}
         <div className="ml-auto flex items-center gap-2">
+          {!importOpen ? (
+            <Button variant="soft" size="sm" onClick={() => setImportOpen(true)}>
+              ⤴ Import ZIP
+            </Button>
+          ) : null}
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3">⌕</span>
             <Input
@@ -681,10 +768,21 @@ function QueueStep({
       {filtered.length === 0 ? (
         <Card>
           <div className="grid place-items-center gap-2 px-6 py-10 text-center">
-            <div className="font-display text-lg">Nothing matches that view</div>
-            <div className="max-w-sm text-sm text-ink-3">
-              Try a different filter, or clear the search to see everything in the queue.
-            </div>
+            {submissions.length === 0 ? (
+              <>
+                <div className="font-display text-lg">No submissions yet</div>
+                <div className="max-w-sm text-sm text-ink-3">
+                  Import an assignment ZIP above; each group submission in it becomes one row here.
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-display text-lg">Nothing matches that view</div>
+                <div className="max-w-sm text-sm text-ink-3">
+                  Try a different filter, or clear the search to see everything in the queue.
+                </div>
+              </>
+            )}
           </div>
         </Card>
       ) : (
@@ -854,45 +952,143 @@ function SubmissionCard({
   );
 }
 
-/* =============== Imports Step =============== */
+/* =============== Imports, next to what they feed =============== */
 
-function ImportsStep({
+/** Uploads one import file (direct to storage when hosted) and posts it to the
+ * import endpoint. Returns an error message, or null on success. */
+async function uploadImport(
+  courseId: number,
+  file: File,
+  path: string,
+  extra?: Record<string, string>
+): Promise<string | null> {
+  const fd = new FormData();
+  try {
+    const target = await apiPost<UploadTarget>(`/api/courses/${courseId}/imports/upload-url`, { filename: file.name });
+    if (target.direct) fd.append('storage_key', await putToStorage(target, file));
+    else fd.append('file', file);
+  } catch (err) {
+    return errorMessage(err);
+  }
+  if (extra) for (const [k, v] of Object.entries(extra)) fd.append(k, v);
+  const res = await apiFetch(path, { method: 'POST', body: fd });
+  return res.ok ? null : await res.text();
+}
+
+/** A single-file import tile: pick a file, upload it, refresh the page's data. */
+function FileImportTile({
+  courseId,
+  icon,
+  title,
+  sub,
+  accept,
+  path,
+  button,
+  setToast,
+  refresh
+}: {
+  courseId: number;
+  icon: string;
+  title: string;
+  sub: string;
+  accept: string;
+  path: string;
+  button: string;
+  setToast: (m: string) => void;
+  refresh: () => Promise<void>;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!file) return;
+    const err = await uploadImport(courseId, file, path);
+    if (err) {
+      setToast(`Upload failed: ${err}`);
+      return;
+    }
+    setToast('Uploaded');
+    await refresh();
+  };
+  return (
+    <ImportTile icon={icon} title={title} sub={sub}>
+      <form onSubmit={submit} className="flex flex-wrap items-center justify-end gap-2">
+        <input type="file" accept={accept} onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="min-w-0 text-xs" />
+        <Button type="submit" size="sm" disabled={!file}>
+          {button}
+        </Button>
+      </form>
+    </ImportTile>
+  );
+}
+
+/* =============== Students Step =============== */
+
+function StudentsStep({
+  courseId,
+  setToast,
+  refresh
+}: {
+  courseId: number;
+  setToast: (m: string) => void;
+  refresh: () => Promise<void>;
+}) {
+  return (
+    <div className="grid gap-3.5 pt-6">
+      <div className="hint hint-warm">
+        <span className="hint-icon">1</span>
+        <div>
+          Start here at the beginning of the term. Upload the <strong className="text-ink">roster</strong> first (so
+          attendance, teams and group membership work), then create <strong className="text-ink">sign-in accounts</strong>{' '}
+          and share each student's <strong className="text-ink">personal link</strong>. Re-uploading the roster replaces
+          the previous import; for one student, use the card below instead.
+        </div>
+      </div>
+
+      <FileImportTile
+        courseId={courseId}
+        icon="👥"
+        title="Roster"
+        sub="XLSX with תעודת זהות + שם columns (Yedion exports work). Attendance is computed per session; emails become student logins."
+        accept=".xlsx"
+        path={`/api/courses/${courseId}/imports/roster`}
+        button="Upload roster"
+        setToast={setToast}
+        refresh={refresh}
+      />
+      <RosterCard courseId={courseId} setToast={setToast} refresh={refresh} />
+      <StudentAccessCards courseId={courseId} setToast={setToast} />
+    </div>
+  );
+}
+
+/* =============== Assignment import (on the grading queue) =============== */
+
+function AssignmentImportCard({
   courseId,
   assignments,
   setToast,
-  refresh
+  refresh,
+  onClose
 }: {
   courseId: number;
   assignments: Assignment[];
   setToast: (m: string) => void;
   refresh: () => Promise<void>;
+  onClose?: () => void;
 }) {
-  const [rosterFile, setRosterFile] = useState<File | null>(null);
   const [zipFile, setZipFile] = useState<File | null>(null);
-  const [presFile, setPresFile] = useState<File | null>(null);
   const [zipForm, setZipForm] = useState({ assignment_type: 'PROJECT', workcode: 1, assignment_name: '' });
 
-  const upload = async (
-    e: FormEvent,
-    file: File | null,
-    path: string,
-    extra?: Record<string, string>
-  ) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!file) return;
-    const fd = new FormData();
-    try {
-      const target = await apiPost<UploadTarget>(`/api/courses/${courseId}/imports/upload-url`, { filename: file.name });
-      if (target.direct) fd.append('storage_key', await putToStorage(target, file));
-      else fd.append('file', file);
-    } catch (err) {
-      setToast(`Upload failed: ${err instanceof Error ? err.message : String(err)}`);
-      return;
-    }
-    if (extra) for (const [k, v] of Object.entries(extra)) fd.append(k, v);
-    const res = await apiFetch(path, { method: 'POST', body: fd });
-    if (!res.ok) {
-      setToast(`Upload failed: ${await res.text()}`);
+    if (!zipFile) return;
+    const err = await uploadImport(courseId, zipFile, `/api/courses/${courseId}/imports/submissions-zip`, {
+      assignment_type: zipForm.assignment_type,
+      workcode: String(zipForm.workcode),
+      assignment_name: zipForm.assignment_name
+    });
+    if (err) {
+      setToast(`Upload failed: ${err}`);
       return;
     }
     setToast('Uploaded');
@@ -910,47 +1106,32 @@ function ImportsStep({
   };
 
   return (
-    <div className="grid gap-3.5 pt-6">
-      <div className="hint hint-warm">
-        <span className="hint-icon">1</span>
+    <Card className="grid gap-4">
+      <div className="grid items-start gap-4" style={{ gridTemplateColumns: '52px minmax(0, 1fr) minmax(280px, 360px)' }}>
+        <div className="grid h-11 w-11 place-items-center rounded-xl bg-terracotta-tint text-xl text-terracotta">⤴</div>
         <div>
-          Start here at the beginning of the term. Upload the <strong className="text-ink">roster</strong> first (so
-          attendance and group membership work), then assignment <strong className="text-ink">ZIPs</strong> as students
-          submit. The presentation sheet comes last, after talks. Re-uploading replaces the previous import.
+          <div className="flex items-baseline gap-3">
+            <div className="font-display text-lg">Import an assignment ZIP</div>
+            {onClose ? (
+              <button type="button" onClick={onClose} className="text-[13px] text-forest hover:underline">
+                Hide
+              </button>
+            ) : null}
+          </div>
+          <div className="text-[13px] leading-relaxed text-ink-3">
+            Filenames like <span className="font-mono text-[12px]">ID_&lt;id1&gt;+ID_&lt;id2&gt;+..._WorkCode_&lt;n&gt;.&lt;ext&gt;</span>{' '}
+            are parsed automatically. {assignments.length} assignment{assignments.length === 1 ? '' : 's'} loaded;
+            re-uploading an assignment replaces its previous import.
+          </div>
         </div>
-      </div>
-
-      {/* Roster */}
-      <ImportTile icon="👥" title="Roster" sub="XLSX with תעודת זהות + שם columns. Attendance is computed per session.">
-        <form onSubmit={(e) => upload(e, rosterFile, `/api/courses/${courseId}/imports/roster`)} className="flex items-center gap-2">
-          <input type="file" accept=".xlsx" onChange={(e) => setRosterFile(e.target.files?.[0] ?? null)} className="text-xs" />
-          <Button type="submit" size="sm">Upload roster</Button>
-        </form>
-      </ImportTile>
-      <RosterCard courseId={courseId} setToast={setToast} refresh={refresh} />
-
-      {/* ZIP */}
-      <ImportTile
-        icon="⤴"
-        title="Assignment ZIP"
-        sub={`Filenames like ID_<id1>+ID_<id2>+..._WorkCode_<n>.<ext> are parsed automatically. ${assignments.length} assignment${assignments.length === 1 ? '' : 's'} loaded.`}
-      >
-        <form
-          onSubmit={(e) =>
-            upload(e, zipFile, `/api/courses/${courseId}/imports/submissions-zip`, {
-              assignment_type: zipForm.assignment_type,
-              workcode: String(zipForm.workcode),
-              assignment_name: zipForm.assignment_name
-            })
-          }
-          className="grid gap-2"
-        >
+        <form onSubmit={submit} className="grid gap-2">
           <input type="file" accept=".zip" onChange={(e) => setZipFile(e.target.files?.[0] ?? null)} className="text-xs" />
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-[90px_80px_1fr] gap-2">
             <select
               className="h-9 rounded-md border border-border bg-card px-2 text-[13px]"
               value={zipForm.assignment_type}
               onChange={(e) => setZipForm({ ...zipForm, assignment_type: e.target.value })}
+              aria-label="Assignment type"
             >
               <option>HW1</option>
               <option>HW2</option>
@@ -961,6 +1142,7 @@ function ImportsStep({
               value={zipForm.workcode}
               onChange={(e) => setZipForm({ ...zipForm, workcode: Number(e.target.value) })}
               placeholder="WorkCode"
+              aria-label="WorkCode"
               className="h-9"
             />
             <Input
@@ -971,35 +1153,33 @@ function ImportsStep({
             />
           </div>
           <div className="flex justify-end">
-            <Button type="submit" size="sm">Upload ZIP</Button>
+            <Button type="submit" size="sm" disabled={!zipFile}>
+              Upload ZIP
+            </Button>
           </div>
         </form>
-      </ImportTile>
-
-      {/* Presentations */}
-      <ImportTile icon="🎤" title="Presentations sheet" sub="Two-sheet XLSX with presentation + final talk scores per group, in Hebrew.">
-        <form onSubmit={(e) => upload(e, presFile, `/api/courses/${courseId}/imports/presentations`)} className="flex items-center gap-2">
-          <input type="file" accept=".xlsx" onChange={(e) => setPresFile(e.target.files?.[0] ?? null)} className="text-xs" />
-          <Button type="submit" size="sm">Upload presentations</Button>
-        </form>
-      </ImportTile>
-
-      {/* Google */}
-      <Card className="bg-paper-2">
-        <div className="flex items-center gap-3">
-          <span className="text-lg">🌐</span>
-          <div className="flex-1">
-            <div className="font-display text-base">Google Drive (for private Colabs)</div>
-            <div className="text-[13px] text-ink-3">
-              Connect once to fetch private notebook snapshots automatically.
-            </div>
-          </div>
-          <Button variant="soft" size="sm" onClick={startOAuth}>
-            Connect Google
-          </Button>
+      </div>
+      <div className="flex items-center gap-3 border-t border-line-soft pt-3">
+        <span className="text-lg">🌐</span>
+        <div className="flex-1 text-[13px] text-ink-3">
+          <span className="text-ink">Private Colabs?</span> Connect Google Drive once to fetch private notebook snapshots
+          automatically.
         </div>
-      </Card>
-    </div>
+        <Button variant="soft" size="sm" onClick={startOAuth}>
+          Connect Google
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+/** An inline link to another section of the course page, named as the sidebar names it. */
+function SectionLink({ go, to }: { go: (s: SectionKey) => void; to: SectionKey }) {
+  const label = SECTIONS.find((s) => s.key === to)?.label ?? to;
+  return (
+    <button type="button" onClick={() => go(to)} className="font-medium text-forest hover:underline">
+      {label}
+    </button>
   );
 }
 
@@ -1016,7 +1196,7 @@ function ImportTile({
 }) {
   return (
     <Card>
-      <div className="grid items-center gap-4" style={{ gridTemplateColumns: '52px 1fr 280px' }}>
+      <div className="grid items-center gap-4" style={{ gridTemplateColumns: '52px minmax(0, 1fr) minmax(280px, auto)' }}>
         <div className="grid h-11 w-11 place-items-center rounded-xl bg-terracotta-tint text-xl text-terracotta">
           {icon}
         </div>
@@ -1462,12 +1642,14 @@ function GradebookStep({
   gradebook,
   activeCurve,
   courseId,
+  go,
   setToast,
   refresh
 }: {
   gradebook: GradebookRow[];
   activeCurve: ActiveCurve | null;
   courseId: number;
+  go: (s: SectionKey) => void;
   setToast: (m: string) => void;
   refresh: () => Promise<void>;
 }) {
@@ -1542,13 +1724,27 @@ function GradebookStep({
       <div className="hint">
         <span className="hint-icon">i</span>
         <div>
-          Read-only summary of what students will see. <strong className="text-ink">Final</strong> = 0.10·HW1 + 0.10·HW2
-          + 0.70·(Project + Bonus) + 0.10·Attendance. To change a score, go back to the rubric in the submission, the
-          curve in step 3, or add an override in step 4. Export the CSV when you're ready to submit grades.
+          What students will see. <strong className="text-ink">Final</strong> = 0.10·HW1 + 0.10·HW2 + 0.70·(Project +
+          Bonus) + 0.10·Attendance. To change a score, edit the rubric on the submission (
+          <SectionLink go={go} to="queue" />
+          ), adjust the <SectionLink go={go} to="curve" />, or add one of the{' '}
+          <SectionLink go={go} to="overrides" />. Export the CSV when you're ready to submit grades.
         </div>
       </div>
 
       <GradeReleaseCard courseId={courseId} setToast={setToast} />
+
+      <FileImportTile
+        courseId={courseId}
+        icon="🎤"
+        title="Presentation scores"
+        sub="Two-sheet XLSX with presentation + final talk scores per group, in Hebrew. Upload after the talks; re-uploading replaces the previous import."
+        accept=".xlsx"
+        path={`/api/courses/${courseId}/imports/presentations`}
+        button="Upload presentations"
+        setToast={setToast}
+        refresh={refresh}
+      />
 
       <DistributionPanel rows={gradebook} activeCurve={activeCurve} />
 
@@ -1893,7 +2089,17 @@ function SettingsStep({
   setToast: (m: string) => void;
   onSaved: () => Promise<void>;
 }) {
+  const router = useRouter();
   const [form, setForm] = useState({ name: course.name, code: course.code, year: String(course.year), semester: course.semester });
+  const archive = async () => {
+    if (!window.confirm(`Archive ${course.code} · ${course.name}? It leaves the home page; you can restore it there.`)) return;
+    try {
+      await apiPost(`/api/courses/${course.id}/archive`);
+      router.push('/');
+    } catch (e) {
+      setToast(`Archive failed: ${errorMessage(e)}`);
+    }
+  };
   const save = async () => {
     try {
       await apiPatch(`/api/courses/${course.id}`, { ...form, year: Number(form.year) });
@@ -1941,7 +2147,7 @@ function SettingsStep({
           <div className="font-display text-[19px] text-bad">Archive course</div>
           <div className="text-[13px] text-ink-3">Hides it from the active list. Data is preserved.</div>
         </div>
-        <Button variant="ghost" size="sm" className="border border-bad-soft text-bad">
+        <Button variant="ghost" size="sm" className="border border-bad-soft text-bad" onClick={() => void archive()}>
           Archive {course.code}
         </Button>
       </Card>

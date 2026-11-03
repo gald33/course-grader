@@ -15,6 +15,7 @@ import { ProgressRing } from '@/components/ui/progress-ring';
 import { Textarea } from '@/components/ui/textarea';
 import { TweakRadio, TweaksPanel } from '@/components/ui/tweaks-panel';
 import { apiBase, apiFetch, apiGet, apiPatch, apiPost, apiPut } from '@/lib/api';
+import { courseSectionHref } from '@/lib/course-sections';
 
 type RubricRow = {
   component: string;
@@ -818,7 +819,7 @@ function ReviewHeader({
       style={{ background: 'rgba(245, 241, 232, 0.92)', backdropFilter: 'blur(10px)' }}
     >
       <Link
-        href={`/course/${courseId}`}
+        href={courseSectionHref(courseId, 'queue')}
         className="rounded-md px-2 py-1 text-[13px] text-ink-2 hover:bg-paper-2 hover:text-ink no-underline"
       >
         ← All submissions
@@ -1463,8 +1464,8 @@ function RubricPanel(props: SharedProps & { embedded?: boolean }) {
               ✦
             </span>
             <span>
-              Score every dimension you can — partial rubrics still save. The curve in step 3 turns these 0–5 dots into
-              0–100 scores.
+              Score every dimension you can — partial rubrics still save. The course's Curve &amp; calibration page turns
+              these 0–5 dots into 0–100 scores.
             </span>
           </div>
         </>

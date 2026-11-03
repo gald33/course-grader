@@ -21,9 +21,7 @@ test('instructor proposes, reviews and approves team placements', async ({ page,
   const settings = await request.put(`${API}${base}/team-settings`, { data: { teams_open: false, max_team_size: 3 } });
   expect(settings.ok()).toBeTruthy();
 
-  await page.addInitScript(() => localStorage.setItem('cg-course-step', 'peer'));
-  await page.goto(`/course/${course.id}`);
-  await page.getByRole('button', { name: 'Teams & links' }).click();
+  await page.goto(`/course/${course.id}?section=teams`);
   await page.getByRole('button', { name: 'הצע שיבוץ' }).click();
 
   // A preview only: two new pairs, and the server still has nobody placed.

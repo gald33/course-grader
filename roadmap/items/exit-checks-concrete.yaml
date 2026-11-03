@@ -1,0 +1,27 @@
+id: exit-checks-concrete
+title: Every lesson's exit check asks the same generic "explain what you tried, saw and still don't know", and students don't know what it wants
+status: ready
+priority: now
+claim:
+  by: claude/exit-checks-concrete
+  at: '2026-11-03T21:00:00Z'
+blocked_on: []
+refs:
+- 'content/course-42052/lessons/'
+- 'backend/app/lessons/content/course-42052/'
+- 'backend/app/lessons/course_plan.py'
+- 'content/course-42052/START-HERE.txt'
+evidence: |
+  Operator, 2026-11-03: "בדיקת יציאה question - I don't understand what it
+  wants". VERIFIED at c5ca5c5: every 42052 seed (lesson-01..13) and every
+  built lesson except lesson-03-deeper asks the same generic "הסבירו במילים
+  שלכם מה ניסיתם, מה ראיתם ומה עדיין אינו ידוע.", under the title "בדיקת
+  יציאה" (set in course_plan._LABELS for generated lessons, by hand in the
+  authored 03, 03-deeper, 04, 05). The live lesson-2 fixture
+  (from-data-to-prediction) has no such question.
+
+  This item: each lesson gets its own concrete question (the operator's
+  wording, verbatim), the title becomes "לסיום: במילים שלכם" with one helper
+  line saying the answer is short and ungraded, question ids unchanged; the
+  rule recorded in START-HERE.txt; a whole-course test that pins every prompt
+  and that no seed or built lesson keeps the generic prompt or the old title.

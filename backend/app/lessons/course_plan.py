@@ -34,11 +34,17 @@ _LABELS = {
     "goal": "מטרת השיעור",
     "wrap_title": "מסכמים",
     "worked_example": "דוגמה פתורה",
-    "exit_check": "בדיקת יציאה",
+    "exit_check": "לסיום: במילים שלכם",
+    "exit_check_help": "תשובה קצרה, משפט או שניים. אין כאן ציון – זה עוזר לכם (ולמרצה) לראות מה התבהר.",
     "work_product": "התוצר של השיעור",
     "extension": "להעמקה (רשות)",
     "homework": "מטלה",
 }
+
+# The exit question's section: a title and one line under it (operator rule,
+# 2026-11-03: each lesson asks its own concrete question, not a generic one).
+EXIT_CHECK_TITLE = _LABELS["exit_check"]
+EXIT_CHECK_HELP = _LABELS["exit_check_help"]
 
 _LETTERS = "ABCDEFGHIJ"
 
@@ -165,7 +171,12 @@ def seed_to_content(
     }
     wrap: list[dict] = [
         {"type": "callout", "tone": "note", "title": _LABELS["worked_example"], "body": [ltr(seed["worked_example_he"])]},
-        {"type": "section", "label": "check", "title": _LABELS["exit_check"], "blocks": [{"type": "question", "question": exit_key}]},
+        {
+            "type": "section",
+            "label": "check",
+            "title": _LABELS["exit_check"],
+            "blocks": [_text(_LABELS["exit_check_help"]), {"type": "question", "question": exit_key}],
+        },
         {"type": "callout", "tone": "info", "title": _LABELS["work_product"], "body": [ltr(seed["work_product_he"])]},
     ]
     # Only an assignment that already exists is shown; a proposal is not

@@ -69,7 +69,73 @@ export type Block =
     }
   | { type: 'commitment' }
   | { type: 'summary' }
-  | { type: 'ack'; key: string; label: Inline; description?: Inline };
+  | { type: 'ack'; key: string; label: Inline; description?: Inline }
+  /* Interactive teaching widgets (schema.py has the rules). */
+  | { type: 'live_tokenizer'; encoding: 'o200k_base'; caption?: Inline; examples: string[]; initial?: string }
+  | { type: 'next_word_guess'; asset: string; prompts: string[]; caption?: Inline; temperature?: boolean }
+  | { type: 'attention_view'; caption?: Inline; sentences: AttentionSentence[] }
+  | {
+      type: 'neuron_playground';
+      caption?: Inline;
+      inputs: NeuronInput[];
+      weight_range: [number, number];
+      bias: number;
+      bias_range: [number, number];
+      activation: 'step' | 'sigmoid';
+      output_labels: [Inline, Inline];
+    }
+  | {
+      type: 'training_demo';
+      caption?: Inline;
+      x_label: Inline;
+      y_label: Inline;
+      class_labels: [Inline, Inline];
+      points: { x: number; y: number; label: 0 | 1 }[];
+      start: [number, number, number]; // w_x, w_y, bias
+      learning_rate: number;
+    }
+  | { type: 'embedding_map'; asset: string; caption?: Inline; start?: string }
+  | { type: 'image'; asset: string; alt: string; caption?: Inline };
+
+export type AttentionSentence = {
+  id: string;
+  label?: Inline;
+  tokens: string[];
+  weights: number[][]; // row i: how much token i draws on each token (hand-picked)
+  start?: number;
+};
+
+export type NeuronInput = { key: string; label: Inline; min: number; max: number; step: number; value: number; weight: number };
+
+/** next-word.json: precomputed offline from a small open model. */
+export type NextWordData = {
+  format: 1;
+  model: string;
+  revision: string;
+  generated_at: string;
+  script: string;
+  prompts: {
+    id: string;
+    context: string;
+    lang: 'he' | 'en';
+    candidates: { word: string; share: number }[];
+    top_tokens: { token: string; p: number }[];
+    other_p: number;
+  }[];
+};
+
+/** embedding-map.json: a 2D projection and full-dimension neighbours. */
+export type EmbeddingMapData = {
+  format: 1;
+  model: string;
+  revision: string;
+  dimensions: number;
+  projection: string;
+  explained_variance_2d: number;
+  generated_at: string;
+  script: string;
+  words: { id: string; text: string; group: string; lang: 'he' | 'en'; x: number; y: number; neighbors: { id: string; cosine: number }[] }[];
+};
 
 export type CompletionRule =
   | { type: 'answered'; question: string }
@@ -133,6 +199,7 @@ export type LessonContent = {
   course_code: string;
   date?: string;
   intro?: Inline;
+  enrichment?: boolean; // an optional extra lesson ("go deeper")
   assets: Record<string, Asset>;
   steps: LessonStep[];
   questions: Record<string, Question>;

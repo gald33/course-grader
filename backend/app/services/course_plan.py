@@ -69,6 +69,7 @@ def import_plan(db: Session, course: Course, plan_code: str, allow_course_mismat
         details = {
             **plan["lessons"][session["lesson_slug"]],
             "existing_fixture_keys": session["existing_fixture_keys"],
+            "enrichment_fixture_keys": session.get("enrichment_fixture_keys", []),
         }
         values = {
             "plan_code": plan_code,
@@ -95,8 +96,10 @@ def import_plan(db: Session, course: Course, plan_code: str, allow_course_mismat
     db.commit()
     installs = []
     for session in plan["sessions"]:
-        lesson, install = lessons_svc.install_fixture(db, course, session["fixture_key"], allow_course_mismatch)
-        installs.append({"session": session["session"], "slug": lesson.slug, "action": install.action})
+        # The session's lesson, then its optional extra lessons, in that order.
+        for key in [session["fixture_key"], *session.get("enrichment_fixture_keys", [])]:
+            lesson, install = lessons_svc.install_fixture(db, course, key, allow_course_mismatch)
+            installs.append({"session": session["session"], "slug": lesson.slug, "action": install.action})
     return {"installs": installs, **plan_view(db, course)}
 
 
@@ -177,6 +180,9 @@ def plan_view(db: Session, course: Course) -> dict:
                 "lesson": lesson,
                 "existing_lessons": [
                     _lesson_state(db, by_fixture[k]) for k in details.get("existing_fixture_keys", []) if k in by_fixture
+                ],
+                "enrichment_lessons": [
+                    _lesson_state(db, by_fixture[k]) for k in details.get("enrichment_fixture_keys", []) if k in by_fixture
                 ],
                 "content_status": details.get("content_status"),
                 "checks": details.get("checks", []),

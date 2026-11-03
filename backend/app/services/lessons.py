@@ -891,7 +891,8 @@ def lesson_links(db: Session, enrollment: Enrollment) -> list[dict]:
     got (the same numbers as the lesson list), so the page can point at a
     lesson in progress."""
     keep = ("slug", "title", "status", "required_done", "required_total")
-    return [{k: row[k] for k in keep} for row in student_lessons(db, enrollment)]
+    # An optional extra lesson says so; other links keep their shape.
+    return [{**{k: row[k] for k in keep}, **({"enrichment": True} if row["enrichment"] else {})} for row in student_lessons(db, enrollment)]
 
 
 def student_lesson(db: Session, enrollment: Enrollment, slug: str) -> Lesson:
@@ -1015,6 +1016,7 @@ def student_lessons(db: Session, enrollment: Enrollment) -> list[dict]:
                 "slug": lesson.slug,
                 "title": lesson.title,
                 "guiding_question": content["guiding_question"],
+                "enrichment": bool(content.get("enrichment")),
                 "status": status,
                 "required_done": done,
                 "required_total": total,

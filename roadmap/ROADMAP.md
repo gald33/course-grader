@@ -29,6 +29,7 @@ _Nothing deferred._
 |---|---|---|
 | `course-42052-whole-syllabus` | claude/course-42052-whole-syllabus | 2026-10-27T16:00:00Z |
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
+| `lesson-3-how-language-models-work` | claude/lesson-3-how-language-models-work | 2026-11-03T12:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -53,6 +54,7 @@ graph TD
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
+  lesson_3_how_language_models_work["Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session"]:::claimed
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
@@ -68,6 +70,7 @@ graph TD
   team_formation_closes_at_a_deadline["✓ Let students form their own teams until a deadline, then lock teams automatically"]:::done
   unreleasing_a_peer_round_keeps_its_gradebook_scores["Un-releasing a peer round leaves its applied scores in the gradebook"]:::ready
   unteamed_students_need_instructor_approved_auto_assign["After teams lock, propose teams for unteamed students and apply them only on the instructor's approval"]:::ready
+  course_42052_whole_syllabus --> lesson_3_how_language_models_work
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
@@ -170,6 +173,7 @@ graph TD
 - **status:** claimed
 - **priority:** now
 - **claimed by:** claude/course-42052-whole-syllabus (since 2026-10-27T16:00:00Z)
+- **blocks:** `lesson-3-how-language-models-work`
 - **refs:**
   - `content/course-42052/COURSE-HANDOFF.txt`
   - `backend/app/lessons/schema.py`
@@ -360,6 +364,57 @@ graph TD
 > links to "View as student"; Archive archives; the README's walkthroughs
 > name the new places; and the Playwright smoke test covers switching
 > sections through the URL.
+
+</details>
+
+### `lesson-3-how-language-models-work`
+
+- **title:** Lesson 3 (how language models work) is only a three-step seed, with no runnable demo, no chatbot exercises and no notebook, and it is the next class session
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/lesson-3-how-language-models-work (since 2026-11-03T12:00:00Z)
+- **blocked on:** `course-42052-whole-syllabus`
+- **refs:**
+  - `content/course-42052/lessons/lesson-03.json`
+  - `content/course-42052/readiness.json`
+  - `content/course-42052/COURSE-HANDOFF.txt`
+  - `backend/app/lessons/course_plan.py`
+  - `backend/app/lessons/content/course-42052/lesson-03.json`
+  - `frontend/public/lessons/lesson-03/v1/`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03: lesson 3 is the next class session (priority high).
+> Build on the 42052 answer-key mechanism (course-42052-whole-syllabus,
+> migration 0026; no new migration).
+>
+> VERIFIED at b03ad18. The plan generates lesson-03 from its seed: three
+> steps (tokens / attention / grounding), each one paragraph of explanation,
+> one paragraph of action and one check, then a wrap-up. readiness.json
+> entry 3 lists as still needed: an expanded student flow, a runnable demo
+> or clearly labeled mock, current tool/API access, and any homework.
+>
+> This item: lesson 3 authored in the repository from the seed (the plan
+> build leaves an authored fixture alone): five steps (tokens, next-token
+> prediction, representation and attention, grounding, wrap-up), each with
+> one goal, a short explanation, one action, ungraded checkpoints and a next
+> step; the seed's checks, worked example, exit check and work product kept
+> verbatim. A free Colab notebook in Hebrew (no API key, no paid service):
+> real tokenizers by name (o200k_base, cl100k_base, Qwen2.5) on Hebrew vs
+> English; next-token probabilities from the small open model
+> Qwen/Qwen2.5-0.5B with its limits stated; a hand-picked attention picture
+> labeled as an illustration; a small model inventing a pickup time, and an
+> input-based check. Executed copy plus clean student copy. Chatbot
+> exercises for a free chatbot with the exact text to paste. The homework
+> stays a proposal in the instructor's readiness table (no deadline, no
+> weight). Answer keys are not in the repository (tested); they are in the
+> instructor's private file, in the 42052 shape.
+>
+> Done when: lesson 3 previews end to end in Hebrew on desktop and phone;
+> the notebook runs top to bottom on a clean CPU environment with no
+> credentials; no answer key in the repository (tested); CI is green.
+> Not in this item: the instructor's own review and live check in class,
+> the real Colab share link (set by the instructor), and a homework brief.
 
 </details>
 

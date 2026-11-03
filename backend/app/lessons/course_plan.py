@@ -191,6 +191,20 @@ _PREPARED: dict[str, dict] = {
     },
 }
 
+# Lessons authored in this repository: an expanded student flow written from
+# the seed (more steps, a notebook, chatbot exercises), not generated from it.
+# build_plan leaves their fixture alone (it is not stale against the seed), and
+# a test checks that the seed's checks, worked example, exit check and work
+# product survive in it unchanged. "runnable" is what this repository built and
+# ran; the instructor's own review is still the reviewed/live-verified marks.
+AUTHORED: dict[str, dict] = {
+    "lesson-03": {
+        "runnable": "Colab notebook built and executed end to end in this repository on CPU, no API key or paid "
+        "service (real tokenizers, a small open model, a labeled attention illustration); not yet run by the "
+        "instructor in Colab",
+    },
+}
+
 # A session whose topic an installed fixture already teaches (the live lesson
 # 2, "from-data-to-prediction", fixture key lesson-2).
 _EXISTING_FIXTURES = {2: ["lesson-2"]}
@@ -202,7 +216,8 @@ def fixture_key(code: str, slug: str) -> str:
 
 def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
     """(plan, lesson contents by slug, public files to copy: site path ->
-    handoff file) from a handoff directory."""
+    handoff file) from a handoff directory. An AUTHORED lesson has no
+    generated content: its fixture is the hand-written one."""
     import hashlib
 
     course = json.loads((handoff / "course.json").read_text(encoding="utf-8"))
@@ -236,7 +251,8 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
         downloads = {
             step: [_download(a, assets[a]["label"]) for a in keys] for step, keys in prepared.get("downloads", {}).items()
         }
-        contents[slug] = seed_to_content(seed, code, assets, downloads)
+        if slug not in AUTHORED:
+            contents[slug] = seed_to_content(seed, code, assets, downloads)
         ready = readiness.get(number, {})
         lessons[slug] = {
             "number": number,
@@ -251,6 +267,8 @@ def build_plan(handoff: Path) -> tuple[dict, dict[str, dict], dict[str, Path]]:
             },
             "homework": {"status": seed.get("homework_status"), "text": seed.get("homework_he")},
         }
+        if slug in AUTHORED:
+            lessons[slug]["authored"] = AUTHORED[slug]
         sessions.append(
             {
                 "session": number,

@@ -116,8 +116,12 @@ def set_marks(db: Session, course: Course, number: int, reviewed: bool | None, l
     return plan_view(db, course)
 
 
-def _runnable(readiness: dict) -> dict:
-    """What the handoff says about runnable material; never verified here."""
+def _runnable(readiness: dict, authored: dict | None = None) -> dict:
+    """What the handoff says about runnable material, unless the lesson was
+    authored in this repository with runnable material of its own (what was
+    built and run there; the instructor has not reviewed it)."""
+    if authored and authored.get("runnable"):
+        return {"state": "built_not_reviewed", "note": authored["runnable"]}
     missing = [item for item in readiness.get("still_needed", []) if "runnable" in item or "demo" in item]
     if missing:
         return {"state": "not_built", "note": "; ".join(missing)}
@@ -180,7 +184,7 @@ def plan_view(db: Session, course: Course) -> dict:
                 "readiness": {
                     "drafted": bool(lesson and lesson["latest_version"]),
                     "reviewed_at": iso(row.reviewed_at),
-                    "runnable": _runnable(readiness),
+                    "runnable": _runnable(readiness, details.get("authored")),
                     "published": bool(lesson and lesson["published_version"]),
                     "live_verified_at": iso(row.live_verified_at),
                     "handoff_says_taught": bool(readiness.get("published_or_taught_verified")),

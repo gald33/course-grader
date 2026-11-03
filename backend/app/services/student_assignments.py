@@ -11,7 +11,13 @@ filled only while its gradebook component (HW1 -> hw1, HW2 -> hw2,
 PROJECT -> project) is released, under the same rules as grades_view, and
 disappears again when the instructor un-releases it. The total score comes
 from the same gradebook row as the Grades tab, and only on the submission
-the gradebook counts for that type."""
+the gradebook counts for that type.
+
+An assignment with a custom rubric (#26) is scored on it instead of the
+fixed code dimensions: its entry says so (`custom_rubric`) and leaves the
+code component out, and the criteria themselves come from the payload's
+`rubrics` list (student_grades.rubrics_view), gated by the same release.
+The project report stays on the fixed rubric either way."""
 
 from __future__ import annotations
 
@@ -22,6 +28,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.models.entities import Assignment, Enrollment, RubricDimensionScore, Submission, SubmissionMember
+from app.services import custom_rubrics
 from app.services.scoring import (
     COMPONENT_DIMENSIONS,
     _get_submission_for_student,
@@ -39,6 +46,8 @@ RUBRIC_COMPONENTS = {"HW1": (), "HW2": ("hw2_code",), "PROJECT": ("project_code"
 # The gradebook task holding a type's peer-round part and delta overrides.
 GRADEBOOK_TASK = {"HW1": "hw1", "HW2": "hw2", "PROJECT": "project_code"}
 CODE_COMPONENTS = {"hw2_code", "project_code"}
+# The types a custom rubric can score (student_grades.RUBRIC_RELEASE_COMPONENT).
+CUSTOM_RUBRIC_TYPES = {"HW2", "PROJECT"}
 
 
 def _iso(dt: datetime | None) -> str | None:
@@ -49,14 +58,19 @@ def _points(weight: float) -> float:
     return round(weight * 100, 2)
 
 
-def _rubric(assignment_type: str) -> list[dict]:
+def _components(assignment_type: str, custom: bool) -> tuple[str, ...]:
+    # A custom rubric replaces the fixed code dimensions (scoring.py).
+    return tuple(c for c in RUBRIC_COMPONENTS.get(assignment_type, ()) if not (custom and c in CODE_COMPONENTS))
+
+
+def _rubric(components: tuple[str, ...]) -> list[dict]:
     return [
         {
             "key": component,
             "max": 100.0,
             "dimensions": [{"key": d.key, "max": _points(d.weight)} for d in COMPONENT_DIMENSIONS[component]],
         }
-        for component in RUBRIC_COMPONENTS.get(assignment_type, ())
+        for component in components
     ]
 
 
@@ -96,7 +110,7 @@ def _rationale(explanation: dict | None, row: RubricDimensionScore) -> str:
     return str(explanation.get("rationale") or "").strip()
 
 
-def _breakdown(db: Session, submission: Submission, assignment_type: str) -> list[dict]:
+def _breakdown(db: Session, submission: Submission, components: tuple[str, ...]) -> list[dict]:
     """Per component, each dimension's points as the gradebook counts them
     (the curved score, out of the dimension's weight), the component's
     subtotal, and the run-ratio multiplier on code components."""
@@ -106,7 +120,7 @@ def _breakdown(db: Session, submission: Submission, assignment_type: str) -> lis
     }
     explanations = _explanations(submission)
     out = []
-    for component in RUBRIC_COMPONENTS.get(assignment_type, ()):
+    for component in components:
         missing = component == "project_report" and _is_report_missing(db, submission)
         multiplier = _penalty_for_submission(db, submission) if component in CODE_COMPONENTS else 1.0
         dims = []
@@ -157,6 +171,10 @@ def assignments_view(db: Session, enrollment: Enrollment) -> list[dict]:
         submission = _own_submission(db, a.id, enrollment.student_id)
         is_released = RELEASE_COMPONENT.get(a.assignment_type) in released
         counts = submission is not None and counted.get(a.assignment_type) == submission.id
+        # Same test as rubrics_view: a rubric without criteria isn't used.
+        rubric = custom_rubrics.get_rubric(db, a.id) if a.assignment_type in CUSTOM_RUBRIC_TYPES else None
+        custom = rubric is not None and bool(rubric.criteria)
+        components = _components(a.assignment_type, custom)
         entry: dict = {
             "id": a.id,
             "name": a.name,
@@ -165,7 +183,8 @@ def assignments_view(db: Session, enrollment: Enrollment) -> list[dict]:
             "submission": {"recorded_at": _iso(submission.created_at)} if submission else None,
             "counts": counts,
             "released": is_released,
-            "rubric": _rubric(a.assignment_type),
+            "custom_rubric": custom,
+            "rubric": _rubric(components),
             "result": None,
         }
         if is_released and submission is not None and row is not None:
@@ -173,11 +192,13 @@ def assignments_view(db: Session, enrollment: Enrollment) -> list[dict]:
             peer = row["peer"].get(task)
             result: dict = {
                 "manual": submission.manual_grade is not None,
-                "components": [] if submission.manual_grade is not None else _breakdown(db, submission, a.assignment_type),
+                "components": [] if submission.manual_grade is not None else _breakdown(db, submission, components),
                 "feedback": (submission.feedback_student or "").strip(),
                 "score": None,
                 "peer": None,
                 "adjustment": None,
+                # The run-ratio multiplier on the custom rubric's percent.
+                "custom_multiplier": round(_penalty_for_submission(db, submission), 4) if custom else None,
             }
             # The total, peer part and adjustments belong to the gradebook's
             # counted submission only; another submission of the same type

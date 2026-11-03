@@ -25,6 +25,9 @@ export type AssignmentSummary = {
   submission: { recorded_at: string | null } | null;
   counts: boolean;
   released: boolean;
+  // Scored on a custom rubric (its criteria are in `rubrics`); `rubric` then
+  // leaves out the fixed code part it replaces.
+  custom_rubric: boolean;
   rubric: RubricComponent[];
   result: {
     manual: boolean;
@@ -34,12 +37,14 @@ export type AssignmentSummary = {
     project?: { code: number; report: number; presentation: number | null; bonus: number };
     peer: { rounds: number[]; weight: number; peer: number; auto: number | null } | null;
     adjustment: number | null;
+    // The run-ratio multiplier on a custom rubric's percent, when there is one.
+    custom_multiplier: number | null;
   } | null;
 };
 
-/* A custom rubric (/api/r/<token> "rubrics", from the custom rubrics work):
- * criteria always, scores only after release. Absent on a backend without
- * custom rubrics, and for an assignment that has none. */
+/* A custom rubric (/api/r/<token> "rubrics", student_grades.rubrics_view):
+ * criteria always, scores only after release. Listed only for assignments
+ * that have one. */
 export type CustomRubric = {
   assignment_id: number;
   name: string;
@@ -54,8 +59,8 @@ export type CustomRubric = {
 
 export type AssignmentData = {
   course: { name: string };
-  assignments?: AssignmentSummary[];
-  rubrics?: CustomRubric[];
+  assignments: AssignmentSummary[];
+  rubrics: CustomRubric[];
 };
 
 export type PortalFrom = 'info' | 'grades' | 'home';
@@ -67,8 +72,6 @@ const COMPONENT_LABEL: Record<string, string> = {
   project_code: 'קוד',
   project_report: 'דוח'
 };
-// The custom rubric replaces these (the code part); the report stays fixed.
-const CODE_COMPONENTS = new Set(['hw2_code', 'project_code']);
 
 const DIMENSION_LABEL: Record<string, string> = {
   data_scope_adequacy: 'היקף הנתונים',
@@ -176,8 +179,8 @@ export function AssignmentView({
     load();
   }, [load]);
 
-  const assignment = data?.assignments?.find((a) => a.id === assignmentId) ?? null;
-  const custom = data?.rubrics?.find((r) => r.assignment_id === assignmentId) ?? null;
+  const assignment = data?.assignments.find((a) => a.id === assignmentId) ?? null;
+  const custom = assignment?.custom_rubric ? data?.rubrics.find((r) => r.assignment_id === assignmentId) ?? null : null;
 
   return (
     <div dir="rtl" lang="he" className="min-h-screen">
@@ -209,10 +212,11 @@ export function AssignmentView({
 
 function AssignmentBody({ assignment: a, custom, courseName }: { assignment: AssignmentSummary; custom: CustomRubric | null; courseName: string }) {
   const result = a.result;
-  // The custom rubric replaces the fixed code part; its scores arrive only once released.
+  // Its scores arrive only once released; the server already left out the
+  // fixed code part it replaces.
   // A manual grade replaces the rubric, so its criterion scores aren't shown.
   const customScored = (custom?.released ?? false) && !result?.manual;
-  const fixed = (result ? result.components : a.rubric).filter((c) => !(custom && CODE_COMPONENTS.has(c.key)));
+  const fixed = result ? result.components : a.rubric;
   const feedback = result?.feedback || (customScored ? custom?.feedback ?? '' : '');
   const recorded = formatDate(a.submission?.recorded_at ?? null);
 
@@ -248,7 +252,7 @@ function AssignmentBody({ assignment: a, custom, courseName }: { assignment: Ass
           </p>
         ) : null}
         {result?.manual ? <p className="mt-2 text-[14px] text-ink-2">הציון במטלה הזו נקבע ידנית על ידי המרצה, ולא לפי המחוון.</p> : null}
-        {custom ? <CustomRubricSection rubric={custom} scored={customScored} /> : null}
+        {custom ? <CustomRubricSection rubric={custom} scored={customScored} multiplier={result?.custom_multiplier ?? null} /> : null}
         {fixed.map((c) => (
           <FixedComponent key={c.key} component={c} />
         ))}
@@ -346,7 +350,7 @@ function FixedComponent({ component: c }: { component: RubricComponent | ScoredC
   );
 }
 
-function CustomRubricSection({ rubric, scored }: { rubric: CustomRubric; scored: boolean }) {
+function CustomRubricSection({ rubric, scored, multiplier }: { rubric: CustomRubric; scored: boolean; multiplier: number | null }) {
   const maxTotal = rubric.max_total ?? rubric.criteria.reduce((s, c) => s + c.max_points, 0);
   return (
     <div className="mt-3">
@@ -360,6 +364,11 @@ function CustomRubricSection({ rubric, scored }: { rubric: CustomRubric; scored:
           <span className="text-[13px] text-ink-3">{num(maxTotal)} נק׳</span>
         )}
       </div>
+      {scored && multiplier != null && multiplier < 1 ? (
+        <p className="mt-1 text-[13px] text-ink-3">
+          כולל הפחתה על תאים שלא רצו במחברת (הניקוד הוכפל ב-<span dir="ltr">{num(multiplier)}</span>).
+        </p>
+      ) : null}
       <ul className="mt-1.5 grid gap-1.5">
         {rubric.criteria.map((c, i) => (
           <Criterion

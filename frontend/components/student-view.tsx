@@ -103,11 +103,10 @@ export type Home = {
   // Published guided lessons and how far the student got; absent on a
   // database without the lessons migration.
   lessons?: LessonLink[];
-  // Every assignment with its rubric; scores only once released. Absent on
-  // an older backend.
-  assignments?: AssignmentSummary[];
-  // Custom rubrics, from a backend that has them (feature-detected).
-  rubrics?: CustomRubric[];
+  // Every assignment with its rubric, and the custom rubrics (#26) some are
+  // scored on; scores in either only once released.
+  assignments: AssignmentSummary[];
+  rubrics: CustomRubric[];
 };
 type LessonLink = {
   slug: string;
@@ -337,7 +336,7 @@ export function StudentView({
         ) : (
           <EmptyNote>עדיין לא פורסמו ציונים. כשהמרצה יפרסם ציון, הוא יופיע כאן.</EmptyNote>
         )}
-        {home.assignments?.length ? (
+        {home.assignments.length ? (
           <div className="mt-4">
             <PortalAssignments assignments={home.assignments} from="grades" />
           </div>
@@ -691,7 +690,7 @@ function CourseInfoTab({ token, home, go }: { token: string; home: Home; go: (t:
     <div className="grid gap-4">
       {home.lessons?.length ? <LessonsCard token={token} lessons={home.lessons} /> : null}
 
-      {home.assignments?.length ? <PortalAssignments assignments={home.assignments} from="info" /> : null}
+      {home.assignments.length ? <PortalAssignments assignments={home.assignments} from="info" /> : null}
 
       <section className="rounded-lg border border-border bg-card p-4 shadow-soft">
         <h2 className="font-hebrew text-[20px]">{course.name}</h2>

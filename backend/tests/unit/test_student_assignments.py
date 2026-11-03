@@ -218,3 +218,61 @@ def test_test_student_and_preview_see_the_same_view(env, course):
             assert preview == own
     test_view = _assignments(env, course, "test")[course.a["hw2"]]["result"]
     assert test_view["score"] is not None and test_view["feedback"] == "Models: well done, test"
+
+
+def test_custom_rubric_replaces_the_fixed_code_part(env, course):
+    """#26: an assignment with a custom rubric drops the fixed code
+    dimensions; its criteria come from `rubrics`, gated by the same release,
+    and the total matches the gradebook."""
+    from app.models.entities import CriterionResult
+
+    c = env.client
+    hw2 = course.a["hw2"]
+    rubric = _ok(
+        c.put(
+            f"/api/courses/{course.id}/assignments/{hw2}/rubric",
+            json={"criteria": [{"name": "Models", "description": "Compare three", "max_points": 20}, {"name": "Plots", "max_points": 10}]},
+        )
+    )["rubric"]
+    models, plots = (crit["id"] for crit in rubric["criteria"])
+    with env.Session() as db:
+        sub_id = (
+            db.query(Submission)
+            .join(SubmissionMember, SubmissionMember.submission_id == Submission.id)
+            .filter(Submission.assignment_id == hw2, SubmissionMember.student_id == course.ids["real"])
+            .one()
+            .id
+        )
+        db.add(CriterionResult(submission_id=sub_id, criterion_id=models, status="scored", score=15, rationale="שלושה מודלים", model="t"))
+        db.add(CriterionResult(submission_id=sub_id, criterion_id=plots, status="scored", score=8, rationale="LLM on plots", model="t"))
+        db.commit()
+    _ok(c.put(f"/api/submissions/{sub_id}/custom-rubric/{plots}/override", json={"score": 5, "note": "private"}))
+
+    def payload():
+        return _ok(c.get(f"/api/r/{course.tokens['real']}"))
+
+    before = payload()
+    entry = next(a for a in before["assignments"] if a["id"] == hw2)
+    assert entry["custom_rubric"] is True and entry["rubric"] == [] and entry["result"] is None
+    (custom,) = [r for r in before["rubrics"] if r["assignment_id"] == hw2]
+    assert custom["released"] is False and not _has_key(custom, SCORED_KEYS | {"total"})
+    # Other assignments keep the fixed rubric.
+    assert next(a for a in before["assignments"] if a["id"] == course.a["hw2_old"])["custom_rubric"] is False
+
+    _release(env, course, "hw2")
+    after = payload()
+    entry = next(a for a in after["assignments"] if a["id"] == hw2)
+    (custom,) = [r for r in after["rubrics"] if r["assignment_id"] == hw2]
+    assert entry["result"]["components"] == [] and entry["result"]["custom_multiplier"] == 1.0
+    assert [(k["score"], k["rationale"]) for k in custom["criteria"]] == [(15, "שלושה מודלים"), (5, "")]
+    assert custom["total"] == 20 and custom["max_total"] == 30
+    assert "private" not in json.dumps(after)
+    # The page's total is the gradebook's, now taken from the custom rubric.
+    assert entry["result"]["score"] == after["grades"]["hw2"]["score"] == pytest.approx(20 / 30 * 100, abs=0.01)
+    preview = _ok(c.get(f"/api/courses/{course.id}/peer/student-view/{course.ids['real']}"))
+    assert (preview["assignments"], preview["rubrics"]) == (after["assignments"], after["rubrics"])
+
+    _release(env, course, "hw2", released=False)
+    again = payload()
+    assert next(a for a in again["assignments"] if a["id"] == hw2)["result"] is None
+    assert not _has_key(again["rubrics"], SCORED_KEYS | {"total"})

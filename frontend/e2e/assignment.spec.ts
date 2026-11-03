@@ -84,3 +84,25 @@ test('view as student opens the same assignment page', async ({ page }) => {
   await expect(tab(page, 'מידע על הקורס')).toHaveAttribute('aria-selected', 'true');
   expect(problems).toEqual([]);
 });
+
+test('a custom-rubric assignment shows its own criteria in place of the fixed code rubric', async ({ page }) => {
+  const problems = await watchForErrors(page);
+  const { student, project } = seed.assignments;
+  await page.goto(`/r/${student.token}?tab=grades`);
+
+  await page.getByRole('link', { name: new RegExp(project.name) }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(project.name);
+  await expect(page.getByRole('heading', { name: 'מחוון המטלה' })).toBeVisible();
+  const [question, models] = project.criteria;
+  const row = (name: string) => page.getByTestId('criterion').filter({ hasText: name });
+  await expect(row(question.name)).toContainText(`${project.scores[0]} / ${question.max_points}`);
+  await expect(row(question.name)).toContainText(question.description);
+  await expect(row(question.name)).toContainText(project.rationale);
+  // Overridden by the instructor: the score shows, the LLM's rationale does not.
+  await expect(row(models.name)).toContainText(`${project.scores[1]} / ${models.max_points}`);
+  await expect(row(models.name).locator('p')).toHaveCount(1);
+  // The fixed code dimensions are gone; the project report stays on the fixed rubric.
+  await expect(row('איכות הקוד')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'דוח', exact: true })).toBeVisible();
+  expect(problems).toEqual([]);
+});

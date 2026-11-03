@@ -49,7 +49,7 @@ type PlanSession = {
   readiness: {
     drafted: boolean;
     reviewed_at: string | null;
-    runnable: { state: 'not_built' | 'prepared_not_rerun' | 'unknown'; note: string };
+    runnable: { state: 'not_built' | 'prepared_not_rerun' | 'built_not_reviewed' | 'unknown'; note: string };
     published: boolean;
     live_verified_at: string | null;
     handoff_says_taught: boolean;
@@ -260,7 +260,7 @@ function ReadinessTable({
       <h3 className="mb-1 font-semibold">Schedule and readiness</h3>
       <p className="mb-2 text-[13px] text-ink-3">
         Five separate states, never one “ready”: <b>drafted</b> (a lesson version exists), <b>reviewed</b> (you checked
-        the content), <b>runnable</b> (what the handoff says about runnable material), <b>published</b> (students can open
+        the content), <b>runnable</b> (what the handoff says about runnable material, or what this repository built and ran), <b>published</b> (students can open
         it) and <b>live verified</b> (you checked it live with students).
       </p>
       <div className="overflow-x-auto rounded-md border border-line-soft">
@@ -345,7 +345,9 @@ function ReadinessTable({
                         ? 'not built'
                         : r.runnable.state === 'prepared_not_rerun'
                           ? 'prepared, not re-run'
-                          : 'unknown'}
+                          : r.runnable.state === 'built_not_reviewed'
+                            ? 'built here, not reviewed'
+                            : 'unknown'}
                     </span>
                   </td>
                   <td className={td}>
@@ -385,7 +387,18 @@ function ReadinessTable({
                       <span className="text-ink-3">nothing listed</span>
                     )}
                     {s.homework?.status && s.homework.status !== 'existing_assignment' ? (
-                      <div className="mt-1 text-ink-3">homework: {s.homework.status.replace(/_/g, ' ')}</div>
+                      s.homework.text ? (
+                        <details className="mt-1 text-ink-3" data-testid={`homework-proposal-${s.session}`}>
+                          <summary className="cursor-pointer">
+                            homework: {s.homework.status.replace(/_/g, ' ')} (not shown to students; no deadline or weight)
+                          </summary>
+                          <p dir="rtl" lang="he" className="mt-1 text-ink-2">
+                            {s.homework.text}
+                          </p>
+                        </details>
+                      ) : (
+                        <div className="mt-1 text-ink-3">homework: {s.homework.status.replace(/_/g, ' ')}</div>
+                      )
                     ) : null}
                   </td>
                 </tr>

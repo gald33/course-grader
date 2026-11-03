@@ -85,6 +85,8 @@ def main(argv: list[str] | None = None, session_factory: Callable[[], Session] |
         if plan.course_code != course.code:
             print(f"Warning: fixture '{args.fixture}' is for course {plan.course_code}; installing anyway.")
         print(f"Fixture '{args.fixture}' (content sha256 {plan.content_hash}): will {plan.describe()}.")
+        if plan.renames:
+            print(f"Lesson title: '{plan.lesson.title}' -> '{plan.lesson_title}'.")
         target = plan.version
         already_live = (
             target is not None
@@ -99,6 +101,8 @@ def main(argv: list[str] | None = None, session_factory: Callable[[], Session] |
                 if already_live
                 else f"Then: publish version {plan.version_number} (students who haven't started get it)."
             )
+            if not already_live and plan.lesson_title != plan.title:
+                print(f"Publishing sets the lesson title to '{plan.title}'.")
         if args.dry_run:
             print("Dry run: nothing written.")
             return 0

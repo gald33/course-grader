@@ -1,0 +1,23 @@
+id: exit-check-no-chatbot
+title: Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason
+status: ready
+priority: now
+claim:
+  by: claude/exit-check-no-chatbot
+  at: '2026-11-03T19:00:00Z'
+blocked_on: []
+refs:
+- 'content/course-42052/lessons/'
+- 'backend/app/lessons/content/course-42052/'
+- 'content/course-42052/START-HERE.txt'
+evidence: |
+  Operator rule, 2026-11-03: no chatbot task without a reason (Reed's #41
+  N1). VERIFIED at 1fac480: the exit check of every 42052 lesson (seeds
+  lesson-01..13 and the built lessons, plus lesson-03-deeper) ends "ענו
+  תחילה בעצמכם, ואז אפשר לבקש מהצ׳טבוט לאתגר את ההסבר." Lesson 5 also has
+  an optional "find more hard test cases" chatbot prompt in its SPEC examples
+  step, which has a stated job and stays.
+
+  This item: the sentence removed from all seeds and built lessons (generated
+  ones rebuilt from the seeds), the rule recorded in START-HERE.txt, and a
+  whole-course test that it stays gone.

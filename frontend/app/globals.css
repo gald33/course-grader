@@ -332,3 +332,32 @@ input[type='file']::file-selector-button:hover { background: var(--paper-2); }
 /* Native scrollbars that sit quietly on the dark ground */
 * { scrollbar-color: #27272a transparent; }
 .divider { height: 1px; background: var(--line); margin: 18px 0; }
+
+/* Lesson complete (components/lessons/celebration.tsx): a short confetti
+ * burst and a badge pop, ≤ 2 s. Not rendered at all under reduced motion. */
+.cg-confetti > span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 12px;
+  margin: -6px 0 0 -4px;
+  opacity: 0;
+  animation: cg-confetti 1.3s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+@keyframes cg-confetti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(0.6); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 40px)) rotate(var(--r)) scale(1); }
+}
+.cg-badge-pop {
+  animation: cg-badge-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes cg-badge-pop {
+  0% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg-confetti { display: none; }
+  .cg-badge-pop { animation: none; }
+}

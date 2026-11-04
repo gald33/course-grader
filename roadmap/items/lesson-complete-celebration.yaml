@@ -1,0 +1,42 @@
+id: lesson-complete-celebration
+title: Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page
+status: claimed
+priority: next
+claim:
+  by: claude/lesson-complete-celebration
+  at: '2026-11-03'
+blocked_on: []
+refs:
+- 'frontend/components/lessons/celebration.tsx'
+- 'frontend/components/lessons/lesson-player.tsx'
+- 'frontend/app/r/[token]/lessons/[slug]/page.tsx'
+- 'frontend/app/course/[id]/lessons/[lessonId]/preview/page.tsx'
+- 'frontend/app/globals.css'
+- 'frontend/e2e/lesson.spec.ts'
+- 'frontend/e2e/lesson-complete.spec.ts'
+evidence: |
+  The operator, 2026-11-03: "give some kind of visual prize when clicking
+  to complete the lesson and go back to the main lesson page or main page".
+
+  Before: completing the last required step only showed a one-line text
+  banner in the lesson header (lesson-player.tsx, "✓ השלמת את כל שלבי
+  החובה"); the only way back was the small links at the top of the page.
+  `completed_at` is set by the server (or the preview backend) the first
+  time every required step is done, and is never unset.
+
+  Done when:
+    1. The first time completed_at goes from unset to set during a visit,
+       a dialog shows: "כל הכבוד! סיימתם את שיעור N – <title>", steps done
+       and questions answered (no grade, no points), a CSS-only confetti
+       burst (≤ 2 s, no sound, no library), and links to the lesson list,
+       the course page, and the next published lesson when there is one.
+       Opening an already-completed lesson shows no dialog.
+    2. × or Esc closes it and leaves the student on the lesson; focus moves
+       into it and is trapped; role=dialog with aria-labelledby.
+    3. prefers-reduced-motion: no confetti element, a static badge.
+    4. The lesson header keeps a "✓ השיעור הושלם" badge, and the completion
+       banner carries the two return links. The lessons list already marks
+       completed lessons ("✓ כל שלבי החובה הושלמו").
+    5. The instructor preview shows it too (next = next lesson in course
+       order with a version), saving nothing.
+    6. No backend change; what counts as completed is unchanged.

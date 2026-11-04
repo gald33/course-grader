@@ -61,6 +61,7 @@ LESSON_FIXTURE = "lesson-2"
 # One student per lesson test that saves something (no team needed).
 LESSON_STUDENTS = [
     # (role, national id, name)
+    ("live", "900000018", "Dvir Lesson"),  # insights-live.spec: only opens the lesson and moves a step
     ("trees", "900000011", "Lior Lesson"),
     ("experiments", "900000012", "Maya Lesson"),
     ("navigation", "900000013", "Omer Lesson"),

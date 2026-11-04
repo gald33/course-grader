@@ -185,6 +185,9 @@ class ColabBlock(_Model):
     type: Literal["colab"]
     notebook_asset: str
     section: Inline | None = None
+    # One line, shown above the button: what to do in THIS notebook for THIS
+    # step. Optional, so stored versions without it still validate.
+    lead: Inline | None = None
     instructions: list[Inline]
     return_note: Inline
 

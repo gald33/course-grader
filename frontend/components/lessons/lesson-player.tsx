@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { BlockList, TERRA_PILL } from '@/components/lessons/blocks';
+import { LessonCelebration, type LessonNav } from '@/components/lessons/celebration';
 import { ruleDone } from '@/components/lessons/completion';
 import { InlineText, Ltr, plainInline } from '@/components/lessons/inline';
 import { newUuid } from '@/components/lessons/student-backend';
@@ -476,11 +477,15 @@ const BLOCKED_CARD_ID = 'lesson-blocked-card';
 export function LessonPlayer({
   backend,
   token,
-  banner
+  banner,
+  loadNav
 }: {
   backend: LessonBackend;
   token: string | null;
   banner?: React.ReactNode;
+  /** The lesson's number and the next lesson (and, in the preview, where the
+   * return links lead), asked for only when the lesson has just been completed. */
+  loadNav?: () => Promise<LessonNav | null>;
 }) {
   // Taken once, at mount (remount with a key to switch lessons or versions):
   // a backend built inline on every render must not reload the lesson, and
@@ -505,6 +510,13 @@ export function LessonPlayer({
   const moved = useRef(false); // focus the step heading only after the student navigates
   const tabId = useRef(newUuid()); // this tab's own entry in the device mirror
   const pendingUi = useRef(new Map<string, PendingUi>());
+  // The lesson complete dialog shows once, when completed_at goes from unset
+  // to set during this visit — not when an already-completed lesson opens.
+  const completedOnLoad = useRef<boolean | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
+  const [loadedNav, setLoadedNav] = useState<LessonNav | null>(null);
+  const loadNavRef = useRef(loadNav);
+  loadNavRef.current = loadNav;
 
   useEffect(() => {
     let cancelled = false;
@@ -543,6 +555,7 @@ export function LessonPlayer({
         setQuestions(data.questions);
         setExperiments(data.experiments);
         setCommitments(data.commitments);
+        completedOnLoad.current = !!data.progress?.completed_at;
         setCompletedAt(data.progress?.completed_at ?? null);
 
         // Resume: the address (#step=… survives a trip to Colab and back),
@@ -567,6 +580,18 @@ export function LessonPlayer({
   }, [reloadCount]);
 
   useEffect(() => () => saverRef.current?.dispose(), []);
+
+  useEffect(() => {
+    if (!completedAt || completedOnLoad.current !== false) return;
+    completedOnLoad.current = true;
+    const load = loadNavRef.current;
+    if (!load) return setCelebrating(true);
+    // Without the list (offline, say) it still offers the lesson list and the course page.
+    load()
+      .then((n) => n && setLoadedNav(n))
+      .catch(() => undefined)
+      .finally(() => setCelebrating(true));
+  }, [completedAt]);
 
   // Leaving the tab (e.g. for Colab) sends what's waiting right away; coming
   // back online retries a failed save.
@@ -732,6 +757,9 @@ export function LessonPlayer({
   const step = allSteps[index];
   const prev = index > 0 ? allSteps[index - 1] : null;
   const next = index < allSteps.length - 1 ? allSteps[index + 1] : null;
+  const nav: LessonNav | null =
+    loadedNav ?? (token ? { lessons: `/r/${token}/lessons`, home: `/r/${token}`, next: null, number: null } : null);
+  const questionKeys = Object.keys(content.questions);
 
   const apply = {
     attempt: (r: AttemptResult) => {
@@ -842,6 +870,11 @@ export function LessonPlayer({
             </div>
           ) : null}
           <h1 className={`font-hebrew leading-tight ${index === 0 ? 'text-[26px]' : 'text-[18px] text-ink-2'}`}>{content.title}</h1>
+          {completedAt ? (
+            <span data-testid="lesson-complete-badge" className="pill pill-ok mt-1 inline-flex">
+              ✓ השיעור הושלם
+            </span>
+          ) : null}
           {index === 0 ? (
             <p className="mt-1 text-[15px] text-ink-2">
               <InlineText text={content.guiding_question} />
@@ -849,7 +882,19 @@ export function LessonPlayer({
           ) : null}
           {/* completed_at is when the student first finished; the banner follows the current evidence. */}
           {completedAt && required.length > 0 && requiredDone === required.length ? (
-            <p className="mt-2 text-[14px] text-ok">✓ השלמת את כל שלבי החובה. השלמה אינה ציון – אפשר לחזור לכל שלב.</p>
+            <div className="mt-2 text-[14px]">
+              <p className="text-ok">✓ השלמת את כל שלבי החובה. השלמה אינה ציון – אפשר לחזור לכל שלב.</p>
+              {nav ? (
+                <p className="mt-1 flex flex-wrap gap-x-4">
+                  <a href={nav.lessons} className="inline-flex min-h-[40px] items-center text-forest underline">
+                    לרשימת השיעורים
+                  </a>
+                  <a href={nav.home} className="inline-flex min-h-[40px] items-center text-forest underline">
+                    לדף הבית של הקורס
+                  </a>
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </header>
 
@@ -970,6 +1015,20 @@ export function LessonPlayer({
           </nav>
         </article>
       </main>
+      {celebrating && nav ? (
+        <LessonCelebration
+          title={content.title}
+          nav={nav}
+          preview={preview}
+          summary={{
+            stepsDone: requiredDone,
+            stepsTotal: required.length,
+            answered: questionKeys.filter((k) => (questions[k]?.attempts ?? 0) > 0).length,
+            questionsTotal: questionKeys.length
+          }}
+          onClose={() => setCelebrating(false)}
+        />
+      ) : null}
     </Shell>
   );
 }

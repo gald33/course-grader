@@ -337,7 +337,10 @@
       },
       "homework": {
         "status": "proposal_not_yet_assigned",
-        "text": "הצעה: השלימו מסלול קטן שניתן להרצה בידי חבר אחר; תעדו מגבלה אמיתית אחת."
+        "text": "שלד עובד + README + קישור למאגר"
+      },
+      "authored": {
+        "runnable": "README template and a one-page team git routine (downloads, sha256 in the lesson's assets) built and tested here. The agent's scaffolding in Google Antigravity, the GitHub push/clone round and the fresh-clone run were not run, here or by the instructor; the GitHub steps follow GitHub's docs, checked on 2026-11-03"
       }
     },
     "lesson-07": {

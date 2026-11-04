@@ -70,6 +70,7 @@ graph TD
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
+  lesson_6_skeleton["Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run"]:::verifying
   lesson_complete_celebration["Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page"]:::claimed
   lesson_title_sync_on_install["Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles"]:::claimed
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
@@ -93,6 +94,7 @@ graph TD
   lesson_3_how_language_models_work --> lesson_3_part_b_deeper
   course_42052_whole_syllabus --> lesson_4_coding_agent
   lesson_4_coding_agent --> lesson_5_product_definition
+  lesson_5_product_definition --> lesson_6_skeleton
   exit_check_no_chatbot --> notebooks_per_step
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
@@ -799,6 +801,7 @@ graph TD
 - **priority:** next
 - **claimed by:** claude/lesson-5-product-definition (since 2026-11-03T18:00:00Z)
 - **blocked on:** `lesson-4-coding-agent`
+- **blocks:** `lesson-6-skeleton`
 - **refs:**
   - `content/course-42052/lessons/lesson-05.json`
   - `content/course-42052/sources/syllabus-2.txt`
@@ -856,6 +859,72 @@ graph TD
 > backend tests pass on SQLite and Postgres; tsc and Playwright are green.
 > Not in this item: a real Antigravity spec interview, the instructor's
 > review and live check, and a homework brief or route.
+
+</details>
+
+### `lesson-6-skeleton`
+
+- **title:** Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run
+- **status:** verifying
+- **priority:** next
+- **claimed by:** claude/lesson-6-skeleton (since 2026-11-03T20:00:00Z)
+- **blocked on:** `lesson-5-product-definition`
+- **refs:**
+  - `content/course-42052/lessons/lesson-06.json`
+  - `content/course-42052/sources/syllabus-2.txt`
+  - `content/course-42052/materials/lesson-06/`
+  - `backend/app/lessons/course_plan.py`
+  - `backend/app/lessons/content/course-42052/lesson-06.json`
+  - `frontend/public/lessons/lesson-06/v1/`
+
+<details><summary>evidence</summary>
+
+> Dispatch (Marshal), 2026-11-03: build lesson 6 from its seed like lessons
+> 4 and 5, as a team activity, on top of lesson 4 (Antigravity, AGENTS.md,
+> commits) and lesson 5 (SPEC.md, MVP, architecture map). Operator rules of
+> the day apply: no chatbot task without a stated purpose, teach on the
+> page, no concept before it is explained, one required action per step,
+> no Colab. No migration.
+>
+> VERIFIED at c5ca5c5. The plan generates lesson-06 from its seed: four
+> steps (slice / version / run / wrap-up), one paragraph each of
+> explanation and action and one check. The syllabus (lesson 6, Sprint 1)
+> asks for scaffolding with the agent, project structure, running locally,
+> and version control (git/GitHub) through the agent.
+>
+> This item: lesson 6 authored in the repository (the plan build leaves an
+> authored fixture alone). There are five steps:
+> (A) skeleton, vertical slice and stub defined; the agent reads SPEC.md
+> and AGENTS.md, plans first and scaffolds the one MVP action end to end,
+> with the AI step a stub labelled "הדגמה ללא מודל חי" (no live API until
+> lesson 7); the team compares the output with SPEC.md's expected answer.
+> (B) folders, entry file, dependency file and run command, explained on
+> the page; each member writes one line per folder into README.
+> (C) GitHub, remote, push, pull and clone; pull before push; a conflict
+> example and an agent prompt that resolves it together, reading the diff;
+> GitHub sign-in by `gh auth login` (HTTPS), with GitHub Desktop as the
+> alternative; every GitHub/Antigravity step cites the docs checked on
+> 2026-11-03 (Antigravity's docs have no GitHub page; its sandbox and
+> permissions pages say git push runs outside the sandbox with approval);
+> GitHub Education is mentioned only as an option.
+> (D) README sections (prerequisites, install, run, test, known limits);
+> a teammate who did not set it up runs it from a fresh clone using only
+> the README.
+> (E) the seed's worked example, exit check and work product.
+> There are two downloads with their sha256 in the assets: a README template
+> and a one-page team git routine. There is no chatbot task; every prompt is
+> a request to the agent. The seed's checks l06-q1..q3 and the exit check are
+> kept verbatim (tested), and five formative checks are added. Answer keys
+> are not in the repository (tested). The homework stays a proposal in the
+> readiness table ("שלד עובד + README + קישור למאגר"; no deadline, weight
+> or route).
+>
+> Done when: lesson 6 previews end to end at 390 and 1280 by keyboard; the
+> templates download (sha256 tested); seed checks are verbatim and no keys
+> are in the repository (tested); backend SQLite+PG, tsc and the full
+> Playwright suite are green. Not in this item: a real Antigravity
+> scaffold, a GitHub round with real accounts, the instructor's review,
+> and a homework brief or route.
 
 </details>
 

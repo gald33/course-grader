@@ -1105,25 +1105,30 @@ function InsightsPanel({
   const [loadCount, setLoadCount] = useState(0);
   const stampRef = useRef<string | null>(null);
   const lastLoadRef = useRef(0);
+  // Loads can overlap (a live refetch, ↻ Refresh, the test-students toggle):
+  // only the latest one started may show its answer.
+  const loadSeqRef = useRef(0);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   // Publishing or a new draft can change which version the numbers are read against.
   const versionsKey = `${lesson.status}:${lesson.versions.map((v) => `${v.id}${v.status}`).join(',')}`;
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     lastLoadRef.current = Date.now();
     try {
       // The stamp first: a change landing between the two reads is already in
       // the insights, and the next check just refetches once more.
       const stamp = await apiGet<{ stamp: string }>(`${base}/insights/stamp`).catch(() => null);
       const data = await apiGet<Insights>(`${base}/insights?include_test=${includeTest}`);
+      if (seq !== loadSeqRef.current) return; // a newer load started; it shows its own answer
       if (stamp) stampRef.current = stamp.stamp;
       setShown({ data, includeTest });
       setUpdatedAt(new Date());
       setLoadCount((n) => n + 1);
       setError(null);
     } catch (e) {
-      setError(errorMessage(e));
+      if (seq === loadSeqRef.current) setError(errorMessage(e));
     }
   }, [base, includeTest]);
 

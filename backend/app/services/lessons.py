@@ -16,6 +16,7 @@ client; viewing a step is "viewed", never "completed".
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import math
@@ -27,7 +28,7 @@ from posixpath import dirname
 from typing import Any
 from urllib.parse import urlsplit
 
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -58,6 +59,7 @@ from app.models.entities import (
     Course,
     Enrollment,
     Lesson,
+    LessonAnswerKey,
     LessonAttempt,
     LessonCommitment,
     LessonExperiment,
@@ -1836,6 +1838,44 @@ def _question_stats(content: dict, students: list[_Activity]) -> list[dict]:
         stats["free_text"] = texts
         out.append(stats)
     return out
+
+
+def insights_stamp(db: Session, lesson: Lesson) -> str:
+    """A short value that changes whenever anything insights() or
+    student_detail() read changes, computed from aggregates only, so the
+    instructor's page can ask every few seconds and refetch the insights only
+    when it moves (the live view). It covers the lesson and its versions
+    (which version the numbers are read against), every progress write
+    (drafts too: they move a student's last saved time), each attempt and its
+    review flag, experiments, commitments and final results, the course's
+    enrollments (test and withdrawn students change what is counted) and the
+    lesson's answer keys. A student's renamed name is not covered."""
+
+    def agg(where: Any, *columns: Any) -> list[Any]:
+        return list(db.execute(select(*columns).where(where)).one())
+
+    parts: list[Any] = [lesson.status, lesson.active_version_id, lesson.updated_at]
+    parts += agg(LessonVersion.lesson_id == lesson.id,
+                 func.count(LessonVersion.id), func.max(LessonVersion.id), func.max(LessonVersion.published_at))
+    parts += agg(LessonProgress.lesson_id == lesson.id,
+                 func.count(LessonProgress.id), func.max(LessonProgress.updated_at), func.sum(LessonProgress.revision))
+    # The sum of flagged attempt ids, not their count: flagging one answer and
+    # unflagging another between two looks still changes it.
+    parts += agg(LessonAttempt.lesson_id == lesson.id,
+                 func.count(LessonAttempt.id), func.max(LessonAttempt.id),
+                 func.sum(case((LessonAttempt.review_flag.is_(True), LessonAttempt.id), else_=0)))
+    parts += agg(LessonExperiment.lesson_id == lesson.id,
+                 func.count(LessonExperiment.id), func.max(LessonExperiment.updated_at), func.max(LessonExperiment.deleted_at))
+    parts += agg(LessonCommitment.lesson_id == lesson.id,
+                 func.count(LessonCommitment.id), func.max(LessonCommitment.committed_at),
+                 func.max(LessonCommitment.final_recorded_at))
+    parts += agg(Enrollment.course_id == lesson.course_id,
+                 func.count(Enrollment.id), func.max(Enrollment.withdrawn_at),
+                 func.sum(case((Enrollment.is_test.is_(True), Enrollment.id), else_=0)),
+                 func.sum(case((Enrollment.withdrawn_at.is_(None), 0), else_=Enrollment.id)))
+    parts += agg((LessonAnswerKey.course_id == lesson.course_id) & (LessonAnswerKey.lesson_slug == lesson.slug),
+                 func.count(LessonAnswerKey.id), func.max(LessonAnswerKey.updated_at))
+    return hashlib.sha256("|".join(str(p) for p in parts).encode("utf-8")).hexdigest()[:16]
 
 
 def insights(db: Session, lesson: Lesson, include_test: bool = False) -> dict:

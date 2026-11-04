@@ -1,0 +1,13 @@
+{
+  "name": "bakery-ai-reference",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lesson 7 reference: one server-side Gemini API call with structured output, validation and a labelled mock",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node check.js"
+  },
+  "dependencies": {
+    "@google/genai": "^2.32.0"
+  }
+}

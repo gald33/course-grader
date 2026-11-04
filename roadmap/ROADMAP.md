@@ -68,6 +68,7 @@ graph TD
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
+  lesson_7_ai_api["Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario"]:::verifying
   lesson_title_sync_on_install["Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles"]:::claimed
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
@@ -89,6 +90,7 @@ graph TD
   lesson_3_how_language_models_work --> lesson_3_part_b_deeper
   course_42052_whole_syllabus --> lesson_4_coding_agent
   lesson_4_coding_agent --> lesson_5_product_definition
+  lesson_5_product_definition --> lesson_7_ai_api
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
@@ -793,6 +795,7 @@ graph TD
 - **priority:** next
 - **claimed by:** claude/lesson-5-product-definition (since 2026-11-03T18:00:00Z)
 - **blocked on:** `lesson-4-coding-agent`
+- **blocks:** `lesson-7-ai-api`
 - **refs:**
   - `content/course-42052/lessons/lesson-05.json`
   - `content/course-42052/sources/syllabus-2.txt`
@@ -850,6 +853,81 @@ graph TD
 > backend tests pass on SQLite and Postgres; tsc and Playwright are green.
 > Not in this item: a real Antigravity spec interview, the instructor's
 > review and live check, and a homework brief or route.
+
+</details>
+
+### `lesson-7-ai-api`
+
+- **title:** Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario
+- **status:** verifying
+- **priority:** next
+- **claimed by:** claude/lesson-7-ai-api (since 2026-11-04T12:00:00Z)
+- **blocked on:** `lesson-5-product-definition`
+- **refs:**
+  - `content/course-42052/lessons/lesson-07.json`
+  - `content/course-42052/sources/syllabus-2.txt`
+  - `content/course-42052/fixtures/bakery-orders.json`
+  - `content/course-42052/fixtures/product-test-cases.json`
+  - `content/course-42052/materials/lesson-07/bakery-ai-reference/`
+  - `backend/app/lessons/course_plan.py`
+  - `backend/app/lessons/content/course-42052/lesson-07.json`
+  - `backend/scripts/build_lesson_7_reference.py`
+  - `backend/tests/unit/test_lesson_7_content.py`
+  - `backend/tests/unit/test_no_secrets_in_repo.py`
+  - `frontend/e2e/lesson-7.spec.ts`
+  - `frontend/public/lessons/lesson-07/v1/`
+
+<details><summary>evidence</summary>
+
+> Dispatch (Marshal), 2026-11-04: build lesson 7 from its seed like lessons
+> 5 and 6, as a team activity. Operator decision (2026-11-04): students use
+> the Gemini API free tier, each with their own key; a clearly labelled mock
+> is the fallback for a student without a key. No migration.
+>
+> VERIFIED at defbde8. The plan generates lesson-07 from its seed: four
+> steps (contract / secrets / failure / wrap-up), one paragraph of
+> explanation, one of action and one check each, no runnable material. The
+> syllabus (lesson 7) asks for connecting a Claude/Gemini/OpenAI API to the
+> app, prompt design in product context, structured output, function/tool
+> calling, keys and secrets, costs and rate limits, and an end-to-end lab.
+>
+> This item: lesson 7 authored in the repository (the plan build leaves an
+> authored fixture alone). Five steps, each with a goal, an explanation on
+> the page, one required action, a checkpoint and a next-step hint: (A) the
+> contract: request/response, error, JSON, schema, structured output, and
+> valid JSON is not correct content; the agent adds an order schema and two
+> examples (full order; Michal with pickup_time null and
+> needs_clarification true) to SPEC.md; (B) the key: what an API key is, why
+> never in frontend code or the repository, environment variables, .env,
+> .gitignore and .env.example, the call goes from the server; each student
+> makes a personal key in Google AI Studio, stores it in .env and checks git
+> status; the agent replaces lesson 6's stub with one server-side call.
+> Google's facts (key, Israel availability, age 18, SDK names, a model name,
+> structured output, rate limits, free-tier data use) are cited with the
+> pages checked on 2026-11-04, with no pricing or quota numbers; synthetic
+> data only. A labelled mock route covers students with no key; (C) output
+> checks in code (schema + business rules), the product-test-cases inputs
+> including instruction-in-data, and tool calling as "the model suggests;
+> your server decides and authorises"; (D) errors, timeout, 429, bounded
+> retry, a labelled failure switch (AI_FORCE_ERROR), loading state, locked
+> button, clear error; (E) the seed's worked example, the concrete exit
+> question and the work product. Downloads: a reference implementation
+> (zip; server-side call with @google/genai, validation, mock, failure
+> switch, no key) whose `node check.js` runs in CI with the mock, no
+> network and no key, and a .env.example. The seed's l07-q1..q3 and exit
+> check are kept verbatim (l07-q3 moved to step C, where tool calling is
+> taught); six formative checks are added. No answer keys and no key-like
+> strings are in the repository (tested). The homework stays a proposal in
+> the instructor's readiness table ("תכונת AI אחת מקצה לקצה + בדיקת פלט +
+> תרחיש כשל"). The generic-draft pins in course-plan.spec.ts and the
+> load-script test move to lesson 8.
+>
+> Done when: lesson 7 previews end to end in Hebrew at 390 and 1280 by
+> keyboard inside its lesson page; the reference check runs with no network
+> or key; the downloads match their sha256; backend tests pass on SQLite and
+> Postgres; tsc and the full Playwright suite are green. Not in this item: a
+> live call with a real key, the Antigravity steps run for real, the
+> instructor's review and live check, and a homework brief or route.
 
 </details>
 

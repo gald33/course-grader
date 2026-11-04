@@ -2,8 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { loadSeed, type Seed } from './seed';
 
-/* A Colab block shows the step line and ONE action — the instructor's Colab
- * link when set, otherwise the notebook download. Everything else (the
+/* A Colab block shows its lead (what to do in THIS notebook for THIS step) and
+ * ONE action — the instructor's Colab link when set, otherwise the step's own
+ * notebook opened in Colab from the public repository. Everything else (the
  * download/upload how-to, sign in, run cells, CPU, the secondary download and
  * colab.research.google.com, the return note) is in a collapsed "עזרה וחלופות" expander that
  * opens by keyboard. Instructor previews only: nothing is saved. */
@@ -30,13 +31,19 @@ async function openPreview(page: Page, lessonId: number, step: string, colabUrl?
   return block;
 }
 
-test('lesson 3 part 1: the download is the visible action; the how-to is collapsed and opens by keyboard', async ({ page }) => {
+test('lesson 3 part 1: the lead and the per-step Colab button are visible; the how-to is collapsed and opens by keyboard', async ({ page }) => {
   const block = await openPreview(page, seed.plan_lessons['lesson-03'], 'neuron');
   await expect(block.getByRole('heading')).toContainText('עובדים בקולאב');
-  await expect(block.getByRole('link', { name: /פתיחה בקולאב/ })).toHaveCount(0);
+  await expect(block.getByTestId('colab-lead')).toBeVisible();
+  await expect(block.getByTestId('colab-lead')).toContainText('שנו משקל אחד');
+  const open = block.getByRole('link', { name: /פתיחה בקולאב/ });
+  await expect(open).toBeVisible();
+  await expect(open).toHaveAttribute(
+    'href',
+    'https://colab.research.google.com/github/gald33/course-grader/blob/main/frontend/public/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he.ipynb'
+  );
   const download = block.getByRole('link', { name: /הורדת המחברת/ });
-  await expect(download).toHaveCount(1);
-  await expect(download).toBeVisible();
+  await expect(download).toBeHidden();
 
   const help = block.getByTestId('colab-help');
   const summary = help.locator('summary');
@@ -52,6 +59,8 @@ test('lesson 3 part 1: the download is the visible action; the how-to is collaps
   await page.keyboard.press('Enter');
   await expect(help).toHaveAttribute('open', '');
   await expect(howTo).toBeVisible();
+  await expect(download).toBeVisible();
+  await expect(download).toHaveAttribute('href', '/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he.ipynb');
   await expect(block.getByRole('link', { name: /colab\.research\.google\.com/ })).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(howTo).toBeHidden();
@@ -68,17 +77,17 @@ test('lesson 2: an instructor Colab (Drive) link stays visible; download and how
   const returnNote = block.getByText('חזרו ללשונית הזו – המקום שלכם נשמר');
   await expect(returnNote).toBeHidden();
 
+  // What to run now is the lead: visible, outside the help.
+  await expect(block.getByTestId('colab-lead')).toBeVisible();
+  await expect(block.getByTestId('colab-lead')).toContainText('הריצו עכשיו רק את תחילת המחברת');
   const download = block.getByRole('link', { name: /הורדת המחברת/ });
-  const stepOnly = block.getByText(/בשלב הזה מריצים רק את תחילת המחברת/);
   await expect(download).toBeHidden();
-  await expect(stepOnly).toBeHidden();
 
   const summary = block.getByTestId('colab-help').locator('summary');
   await summary.focus();
   await page.keyboard.press(' ');
   // Nothing lost: every instruction, the download and colab.research.google.com are inside.
-  await expect(block.locator('details ol > li')).toHaveCount(5);
-  await expect(stepOnly).toBeVisible();
+  await expect(block.locator('details ol > li')).toHaveCount(4); // generic how-to only
   await expect(returnNote).toBeVisible();
   await expect(download).toBeVisible();
   await expect(download).toHaveAttribute('href', '/lessons/lesson-2/v1/lesson-2-machine-learning-he.ipynb');

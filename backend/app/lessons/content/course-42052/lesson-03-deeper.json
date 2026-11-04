@@ -6,20 +6,6 @@
   "course_code": "42052",
   "intro": "חלק 2 של שיעור 3; שני החלקים חובה. נראה צעד אחרי צעד איך מודל שפה הופך את מה שכתבתם לתשובה, ונבדוק בעצמנו מתי צריך לא לסמוך עליה. כל ההדגמות רצות כאן בדפדפן; מחברת קולאב חינמית היא תוספת למי שרוצה לנסות בקוד.",
   "assets": {
-    "notebook": {
-      "path": "/lessons/lesson-03-deeper/v2/lesson-3-part-2-he.ipynb",
-      "filename": "lesson-3-part-2-he.ipynb",
-      "mime": "application/x-ipynb+json",
-      "label": "מחברת חלק 2 (ipynb)",
-      "sha256": "dc16d5357e529a75f7905597a3e7cf502b510945ba992ed988bb43ef05c12fd8"
-    },
-    "notebook_executed": {
-      "path": "/lessons/lesson-03-deeper/v2/lesson-3-part-2-he-executed.ipynb",
-      "filename": "lesson-3-part-2-he-executed.ipynb",
-      "mime": "application/x-ipynb+json",
-      "label": "מחברת חלק 2 – עותק מורץ (ipynb)",
-      "sha256": "6d57155017e602f1903af917b8488a56eddd225979bdc97d9b0566a47fedbfcf"
-    },
     "next_word": {
       "path": "/lessons/lesson-03/v1/next-word.json",
       "filename": "next-word.json",
@@ -33,6 +19,62 @@
       "mime": "image/svg+xml",
       "label": "תרשים: בתוך transformer (SVG)",
       "sha256": "4ccc95a1697f3393bab7f274f2e4910f73d92d6f872e08765b14b6f3fa50ac03"
+    },
+    "notebook_tokens": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-a-tokens-he.ipynb",
+      "filename": "lesson-3-part-2-a-tokens-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב A (ipynb)",
+      "sha256": "76a3e1dea0ee9cdd43a388baff22aebd9be0bf069aaffccae6cfc99c815a6f06"
+    },
+    "notebook_tokens_executed": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-a-tokens-he-executed.ipynb",
+      "filename": "lesson-3-part-2-a-tokens-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב A – עותק מורץ (ipynb)",
+      "sha256": "59bc4d54813df750548dbbc2a035bfe167ae7204635e590f5d32d768e666a1a6"
+    },
+    "notebook_next_token": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-b-next-token-he.ipynb",
+      "filename": "lesson-3-part-2-b-next-token-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב B (ipynb)",
+      "sha256": "0d6e657e5b4e5444193a46c08df915240f1d12364ab1dd3f68961b9e66d56575"
+    },
+    "notebook_next_token_executed": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-b-next-token-he-executed.ipynb",
+      "filename": "lesson-3-part-2-b-next-token-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב B – עותק מורץ (ipynb)",
+      "sha256": "0cbc0ee599772531a38c186ea104e718cba4ffd1a309192c2268cc1e4803aaa3"
+    },
+    "notebook_attention": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-c-attention-he.ipynb",
+      "filename": "lesson-3-part-2-c-attention-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב C (ipynb)",
+      "sha256": "95d4a67bbbb7f1cfccfda24394e59a75a3f9042f14cded12584a90c08b26abef"
+    },
+    "notebook_attention_executed": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-c-attention-he-executed.ipynb",
+      "filename": "lesson-3-part-2-c-attention-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב C – עותק מורץ (ipynb)",
+      "sha256": "c6134da3019f8dff6f63f301afb5852b7214f9cef87f0271f63b2d5b5f0753c2"
+    },
+    "notebook_grounding": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-f-grounding-he.ipynb",
+      "filename": "lesson-3-part-2-f-grounding-he.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב F (ipynb)",
+      "sha256": "ddf8e367402aaed1d1f4867483e8414e071dbcc5e1adc60b3ddde652b0051800"
+    },
+    "notebook_grounding_executed": {
+      "path": "/lessons/lesson-03-deeper/v3/lesson-3-part-2-f-grounding-he-executed.ipynb",
+      "filename": "lesson-3-part-2-f-grounding-he-executed.ipynb",
+      "mime": "application/x-ipynb+json",
+      "label": "מחברת שלב F – עותק מורץ (ipynb)",
+      "sha256": "785880bd24fe8ad9319b24478124f88ba62639a268bcf386271a1e72c79e2bcd"
     }
   },
   "steps": [
@@ -110,14 +152,26 @@
           "blocks": [
             {
               "type": "colab",
-              "notebook_asset": "notebook",
-              "section": "תא ההכנה וסעיף 1",
+              "notebook_asset": "notebook_tokens",
+              "section": "סעיף 1",
+              "lead": "הריצו לפי הסדר; נחשו אם בעברית יהיו יותר טוקנים מבאנגלית, ובסעיף 1ב כתבו משפט משלכם וספרו את הטוקנים בכל [[tokenizer]].",
               "instructions": [
                 "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
-                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי.",
-                "בכל סעיף: נחשו מה יקרה, הריצו, שנו דבר אחד – והריצו שוב."
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
               ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_tokens_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "expander",
@@ -134,27 +188,6 @@
                   "body": [
                     "הסימן � מופיע כשטוקן הוא רק חלק מהבתים של אות עברית, ולכן אי אפשר להציג אותו לבד."
                   ]
-                }
-              ]
-            },
-            {
-              "type": "expander",
-              "title": "קולאב לא נפתח או לא רץ?",
-              "blocks": [
-                {
-                  "type": "list",
-                  "items": [
-                    "אזהרה על [[HF_TOKEN]] – אפשר להתעלם. המודל ציבורי ואין צורך בחשבון.",
-                    "הודעת שגיאה [[NameError]] – כנראה דילגתם על תא. הריצו מההתחלה לפי הסדר ([[Runtime]] ואז [[Run all]]).",
-                    "החיבור נותק? אחרי חיבור מחדש מריצים שוב מהתא הראשון: המחברת לא זוכרת את מה שהורץ קודם.",
-                    "אין גישה לקולאב בכלל? הורידו את העותק המורץ שלמטה וקראו בו את הפלט. זה פלט אמיתי מהרצה שלנו, לא הרצה שלכם."
-                  ]
-                },
-                {
-                  "type": "download",
-                  "asset": "notebook_executed",
-                  "label": "העותק המורץ של המחברת (ipynb)",
-                  "description": "אפשר לפתוח אותו בקולאב גם בלי להריץ, ולקרוא את התוצאות."
                 }
               ]
             }
@@ -267,12 +300,26 @@
           "blocks": [
             {
               "type": "colab",
-              "notebook_asset": "notebook",
+              "notebook_asset": "notebook_next_token",
               "section": "סעיף 2 (2א–2ד)",
+              "lead": "הריצו לפי הסדר; בסעיף 2א נחשו איזה טוקן יוביל, בסעיף 2ג שנו את ההקשר או את המילים המועמדות, ובסעיף 2ד השוו את ההגרלות בטמפרטורות 0.3 ו-1.5.",
               "instructions": [
-                "המחברת עדיין פתוחה? המשיכו בה. אחרת פתחו אותה שוב והריצו מההתחלה לפי הסדר: כל סעיף משתמש במה שהסעיפים שלפניו טוענים."
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
               ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_next_token_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "expander",
@@ -659,12 +706,26 @@
           "blocks": [
             {
               "type": "colab",
-              "notebook_asset": "notebook",
+              "notebook_asset": "notebook_attention",
               "section": "סעיף 3",
+              "lead": "הריצו לפי הסדר; נחשו אם רוב המשקל מ«גדולה» ילך ל«העוגה», ואז שנו בתא האחרון את המשפט ואת המילה והשוו.",
               "instructions": [
-                "המחברת עדיין פתוחה? המשיכו בה. אחרת פתחו אותה שוב והריצו מההתחלה לפי הסדר: כל סעיף משתמש במה שהסעיפים שלפניו טוענים."
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
               ],
               "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_attention_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
             },
             {
               "type": "text",
@@ -997,24 +1058,6 @@
               ]
             },
             {
-              "type": "text",
-              "body": [
-                "שימו לב: הבדיקה האוטומטית בסעיף 4 במחברת מצפה לכמות 3. בגרסה בלי הכמות בדקו בעין: הכמות צריכה להיות [[null]] ולהופיע ברשימה [[missing]]."
-              ]
-            },
-            {
-              "type": "expander",
-              "title": "בדיקה אוטומטית בקולאב (רשות) – סעיף 4",
-              "blocks": [
-                {
-                  "type": "text",
-                  "body": [
-                    "סעיף 4 במחברת מראה קודם איך מודל קטן ממציא שעת איסוף. אחר כך יש בו תא שבודק פלט [[JSON]] מול ההודעה: כמות 3, ושעת איסוף ריקה ומסומנת כחסרה. הפלט שכבר נמצא בתא נכתב ביד כדוגמה. החליפו אותו בתשובה שקיבלתם לבקשה 2 והריצו."
-                  ]
-                }
-              ]
-            },
-            {
               "type": "expander",
               "title": "הצ׳טבוט ענה בטקסט ולא ב-JSON?",
               "blocks": [
@@ -1024,6 +1067,42 @@
                     "זה קורה. כתבו לו באותה שיחה: «ענה שוב ב-JSON בלבד, בלי טקסט נוסף.» ואם עדיין לא – בדקו את שתי הבדיקות בעין. העיקר הוא הבדיקה, לא הפורמט."
                   ]
                 }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "section",
+          "label": "try",
+          "title": "רשות – במחברת: בדיקה אוטומטית של הפלט (סעיף 4)",
+          "blocks": [
+            {
+              "type": "colab",
+              "notebook_asset": "notebook_grounding",
+              "section": "סעיף 4",
+              "lead": "הריצו לפי הסדר; נחשו אם המודל ימציא שעת איסוף, ואז הדביקו בסעיף 4א את התשובה שקיבלתם לבקשה 2 במקום הדוגמה והריצו.",
+              "instructions": [
+                "הורידו את המחברת (הכפתור למטה) ופתחו לשונית חדשה בכתובת [[colab.research.google.com]]. בחרו [[Upload]] (או [[File]] ואז [[Upload notebook]]) והעלו את הקובץ.",
+                "מריצים תא בלחיצה על ▶, תא אחרי תא לפי הסדר. מעבד רגיל ([[CPU]]) מספיק – בלי [[GPU]], בלי מפתח [[API]] ובלי מנוי."
+              ],
+              "return_note": "חזרו ללשונית הזו – המקום שלכם נשמר"
+            },
+            {
+              "type": "expander",
+              "title": "אין גישה לקולאב?",
+              "blocks": [
+                {
+                  "type": "download",
+                  "asset": "notebook_grounding_executed",
+                  "label": "העותק המורץ של המחברת (ipynb)",
+                  "description": "פלט אמיתי מהרצה שלנו, לקריאה."
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "body": [
+                "שימו לב: הבדיקה האוטומטית בסעיף 4 במחברת מצפה לכמות 3. בגרסה בלי הכמות בדקו בעין: הכמות צריכה להיות [[null]] ולהופיע ברשימה [[missing]]."
               ]
             }
           ]

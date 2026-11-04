@@ -15,7 +15,10 @@ export type Seed = {
   /** The published guided lesson (fixture lesson-2) in the seeded course. */
   lesson: { id: number; slug: string; title: string; version_id: number; version_number: number };
   /** One student per lesson test that saves something, so no test sees another's progress. */
-  lesson_students: Record<'trees' | 'experiments' | 'navigation' | 'insights' | 'resilience' | 'access', SignedInStudent>;
+  lesson_students: Record<
+    'trees' | 'experiments' | 'navigation' | 'insights' | 'resilience' | 'access' | 'celebration',
+    SignedInStudent
+  >;
   test_student: { id: number; name: string };
   /** The imported 42052 course plan's draft lessons (slug -> lesson id), with FAKE answer keys loaded. */
   plan_lessons: Record<string, number>;

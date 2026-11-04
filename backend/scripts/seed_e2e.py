@@ -68,6 +68,7 @@ LESSON_STUDENTS = [
     ("insights", "900000014", "Tal Lesson"),
     ("resilience", "900000015", "Yael Lesson"),
     ("access", "900000016", "Rina Lesson"),
+    ("celebration", "900000017", "Dana Lesson"),
 ]
 # Assignment pages, in a course of their own so its released grade stays off
 # the main course's pages: an HW1 the student has not submitted, and an HW2

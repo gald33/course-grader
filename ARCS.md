@@ -37,9 +37,12 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `lesson-3-review-fixes` — Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)
 - `lesson-4-coding-agent` — Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
 - `lesson-5-product-definition` — Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice
+- `lesson-6-skeleton` — Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run
+- `lesson-complete-celebration` — Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page
 - `lesson-title-sync-on-install` — Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles
 - `lessons-one-page-per-lesson` — The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page
 - `no-button-to-recheck-site-links` — Add a "re-check all links" button for a round
+- `notebooks-per-step` — Each lesson-3 part sends every Colab step to one long notebook, and a Colab step has no one-click link to its notebook
 - `onboarding-guide-has-todo-sections` — ONBOARDING.md still has _TODO_ under Team Tips and Get Started
 - `peer-round-scores-never-reach-the-gradebook` — Peer-review round scores have to be copied into the gradebook by hand
 - `project-bonus-has-no-editor` — The per-student project bonus can't be edited directly

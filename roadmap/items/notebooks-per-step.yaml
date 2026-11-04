@@ -1,0 +1,41 @@
+id: notebooks-per-step
+title: Each lesson-3 part sends every Colab step to one long notebook, and a Colab step has no one-click link to its notebook
+status: ready
+priority: now
+claim:
+  by: claude/notebooks-per-step
+  at: '2026-11-03T19:35:00Z'
+blocked_on:
+- exit-check-no-chatbot
+refs:
+- 'backend/scripts/build_step_notebooks.py'
+- 'frontend/public/lessons/lesson-03/v3/'
+- 'frontend/public/lessons/lesson-03-deeper/v3/'
+- 'frontend/components/lessons/blocks.tsx'
+- 'backend/app/lessons/schema.py'
+- 'backend/app/lessons/course_plan.py'
+evidence: |
+  Operator, 2026-11-03: "each note book should only cover what we show in
+  that part of the lesson, not the whole lesson, unless it's necessary, and
+  then mark clearly on the notebook from where to where is relevant for our
+  part". VERIFIED at 68e45be: lesson-03 and lesson-03-deeper each point all
+  their Colab steps at one notebook (v2), the "open in Colab" button appears
+  only when an instructor link is set, and lesson 1's notebook is a bare
+  download.
+
+  This item: one small notebook per Colab step (Part 1: neuron, network,
+  embeddings; Part 2: tokens, next-token, attention, grounding), sliced from
+  v2 by a committed script, each with its own setup, executed clean on CPU
+  at v3/. Every step needed its own notebook; no combined notebook, so no
+  banner markers. Lesson 1's handoff notebook spans the whole lesson (Reed's
+  #46 B1), so step B gets its own notebook at v2/ with only the calculator
+  sections (3-6 and the optional check, 8), and a Colab block. Each Colab button opens the step's own
+  notebook from the public repository (main), unless the instructor set a
+  lesson-level link (which overrides, and the instructor page says so); a
+  test checks every such path exists; that button is the primary action of
+  colab-block-collapse's layout. Add-on (Reed's #43 N1): an optional `lead`
+  on colab blocks, shown above the button, says what to do in this notebook
+  for this step; every colab block in lessons 1, 2 and 3 has one, and
+  step-specific lines moved out of the collapsed help into it. Lesson 2's
+  content changes only by its two leads (a new draft when installed; the
+  published version is untouched).

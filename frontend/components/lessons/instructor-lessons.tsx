@@ -1049,7 +1049,7 @@ function ColabUrlField({ base, lesson, run }: { base: string; lesson: LessonSumm
               size="sm"
               variant="ghost"
               onClick={() => {
-                if (window.confirm('Remove the Colab link? Students keep the download-and-upload steps.')) void save('');
+                if (window.confirm('Remove the Colab link? Each step then opens its own notebook.')) void save('');
               }}
             >
               Clear
@@ -1062,13 +1062,15 @@ function ColabUrlField({ base, lesson, run }: { base: string; lesson: LessonSumm
           <span className="text-bad">{problem}</span>
         ) : lesson.colab_url ? (
           <span className="text-ink-3">
-            Students get an “open in Colab” button for this link, with the notebook download as a fallback. Share it as
-            “anyone with the link can view”; each student then saves their own copy (File › Save a copy in Drive).
+            Lesson-level override: every “open in Colab” button in this lesson opens this link, instead of each
+            step&apos;s own notebook. Clear it to give each step its own notebook. Share it as “anyone with the link can
+            view”; each student then saves their own copy (File › Save a copy in Drive).
           </span>
         ) : (
           <span className="text-ink-3">
-            Not set — students get the notebook download and the colab.research.google.com → File › Upload notebook steps.
-            No placeholder link is ever shown. Only https links on colab.research.google.com or drive.google.com are
+            Not set — each Colab step&apos;s “open in Colab” button opens that step&apos;s own notebook from the
+            public repository (main branch), with download-and-upload as a fallback. Set a link here only to send every
+            step of this lesson to one notebook. Only https links on colab.research.google.com or drive.google.com are
             accepted.
           </span>
         )}

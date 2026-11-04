@@ -100,6 +100,27 @@ async function focusAndPress(locator: Locator, key: string) {
   await locator.press(key);
 }
 
+const COLAB_GITHUB = 'https://colab.research.google.com/github/gald33/course-grader/blob/main/frontend/public';
+
+/** The step's Colab block: its lead (what to do in THIS notebook) and the
+ * "open in Colab" button straight to THIS step's notebook are visible; the
+ * generic help, with the download, is collapsed. The notebook exists. */
+async function colabStep(page: Page, player: Locator, notebook: string) {
+  const block = player.locator('section[data-colab-block]');
+  await expect(block).toHaveCount(1);
+  await expect(block.getByTestId('colab-lead')).toBeVisible();
+  await expect(block.getByTestId('colab-lead')).toContainText('הריצו');
+  const button = block.getByRole('link', { name: /פתיחה בקולאב/ });
+  await expect(button).toBeVisible();
+  await expect(button).toHaveAttribute('href', `${COLAB_GITHUB}${notebook}`);
+  await expect(button).toHaveAttribute('target', '_blank');
+  await expect(block.getByTestId('colab-help')).not.toHaveAttribute('open', '');
+  await expect(block.locator(`a[download][href="${notebook}"]`)).toBeHidden();
+  const res = await page.request.get(notebook);
+  expect(res.status(), notebook).toBe(200);
+  expect((await res.json()).cells.length, notebook).toBeGreaterThan(3);
+}
+
 async function open(page: Page, slug: string, device: { width: number; height: number }) {
   await page.setViewportSize({ width: device.width, height: device.height });
   await page.goto(`/course/${seed.course.id}/lessons/${seed.plan_lessons[slug]}/preview`);
@@ -134,12 +155,7 @@ for (const device of DEVICES) {
     for (let i = 0; i < 4; i += 1) await page.keyboard.press('ArrowUp'); // 10 orders: 5 − 3 − 2 = 0
     await expect(neuron.getByTestId('neuron-sum')).toContainText('= 0');
     await expect(out).toHaveAttribute('data-on', '1');
-    for (const file of ['lesson-3-part-1-he.ipynb', 'lesson-3-part-1-he-executed.ipynb']) {
-      const res = await page.request.get(`/lessons/lesson-03/v2/${file}`);
-      expect(res.status(), file).toBe(200);
-      expect((await res.json()).cells.length, file).toBeGreaterThan(10);
-    }
-    await expect(player.getByRole('link', { name: /פתיחה בקולאב/ })).toHaveCount(0); // no invented Colab link
+    await colabStep(page, player, '/lessons/lesson-03/v3/lesson-3-part-1-a-neuron-he.ipynb');
     await expect(copyPrompt(page)).toHaveCount(0); // no chatbot task in part 1
     await noSideways(page, '1A');
     await shot(page, `${device.name}-part1-A-neuron`);
@@ -149,6 +165,7 @@ for (const device of DEVICES) {
 
     // B: a network that learns — parameters defined here; training steps lower the errors.
     await step(page, player, 'רשת שלומדת', 'איך המשקלים נקבעים בלי שמישהו כותב אותם?');
+    await colabStep(page, player, '/lessons/lesson-03/v3/lesson-3-part-1-b-network-he.ipynb');
     await expect(player).toContainText('נקראים **פרמטרים**'.replace(/\*\*/g, ''));
     const status = page.getByTestId('training-demo').getByTestId('training-status');
     await expect(status).toContainText('טעויות: 22 מתוך 24');
@@ -166,6 +183,7 @@ for (const device of DEVICES) {
 
     // C: embeddings — neighbours by full-dimension cosine, chosen by keyboard.
     await step(page, player, 'ייצוגים', 'איך מודל יודע שמילים «דומות»?');
+    await colabStep(page, player, '/lessons/lesson-03/v3/lesson-3-part-1-c-embeddings-he.ipynb');
     const map = page.getByTestId('embedding-map');
     const neighbours = map.getByTestId('embedding-neighbors');
     await expect(neighbours.locator('li').first()).toContainText('bread');
@@ -220,9 +238,7 @@ for (const device of DEVICES) {
     await tok.getByRole('textbox').focus();
     await page.keyboard.type('שלום');
     await expect(count).toContainText(/\d+ טוקנים · 4 תווים/);
-    for (const file of ['lesson-3-part-2-he.ipynb', 'lesson-3-part-2-he-executed.ipynb']) {
-      expect((await page.request.get(`/lessons/lesson-03-deeper/v2/${file}`)).status(), file).toBe(200);
-    }
+    await colabStep(page, player, '/lessons/lesson-03-deeper/v3/lesson-3-part-2-a-tokens-he.ipynb');
     await expect(copyPrompt(page)).toHaveCount(0);
     await page.getByRole('checkbox', { name: /השוויתי בכלי/ }).check();
     await noSideways(page, '2A');
@@ -233,6 +249,7 @@ for (const device of DEVICES) {
 
     // B: next token — guess first, then the measured bars; context switch and temperature.
     await step(page, player, 'המודל בוחר את ההמשך', 'איך מודל שפה מגיע לתשובה, טוקן אחרי טוקן?');
+    await colabStep(page, player, '/lessons/lesson-03-deeper/v3/lesson-3-part-2-b-next-token-he.ipynb');
     await expect(player).toContainText('**טמפרטורה**'.replace(/\*\*/g, ''));
     const guess = page.getByTestId('next-word-guess');
     await expect(guess.getByRole('button', { name: /בחרו ניחוש קודם|הצגת ההסתברויות/ })).toBeDisabled();
@@ -259,6 +276,7 @@ for (const device of DEVICES) {
 
     // C: attention — the illustration, by keyboard, and the pointer to the real measurement.
     await step(page, player, 'ייצוג ומשמעות תלויים בהקשר', 'איך אותה מילה מקבלת משמעות אחרת במשפט אחר?');
+    await colabStep(page, player, '/lessons/lesson-03-deeper/v3/lesson-3-part-2-c-attention-he.ipynb');
     const att = page.getByTestId('attention-view');
     await expect(att.getByTestId('illustration-label')).toHaveText('המחשה, לא מדידה');
     const big = att.getByTestId('attention-cake-big');
@@ -292,6 +310,7 @@ for (const device of DEVICES) {
 
     // F: grounding — the one chatbot exercise, with its purpose stated.
     await step(page, player, 'תשובה רהוטה עדיין דורשת ראיות', 'איך בודקים שהצ׳טבוט לא השלים פרט שלא נמסר לו?');
+    await colabStep(page, player, '/lessons/lesson-03-deeper/v3/lesson-3-part-2-f-grounding-he.ipynb');
     await expect(player).toContainText('למה בצ׳טבוט:');
     await expect(copyPrompt(page)).toHaveCount(2);
     const checks = page.getByRole('table', { name: 'שתי הבדיקות – לכל אחת משתי התשובות' });

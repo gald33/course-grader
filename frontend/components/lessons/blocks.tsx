@@ -440,6 +440,17 @@ function PromptBlock({ block }: { block: Extract<Block, { type: 'prompt' }> }) {
 
 const COLAB_HOSTS = ['colab.research.google.com', 'drive.google.com'];
 
+/** A lesson notebook opens in Colab straight from the public repository: its
+ * path under frontend/public on main. Versioned paths (…/v3/…) keep a link
+ * stable; a backend test checks every such path exists in the repository. */
+export const COLAB_GITHUB_BASE = 'https://colab.research.google.com/github/gald33/course-grader/blob/main/frontend/public';
+
+export function colabGithubUrl(assetPath: string): string | null {
+  return /^\/lessons\/[A-Za-z0-9._/-]+\.ipynb$/.test(assetPath) && !assetPath.includes('..')
+    ? `${COLAB_GITHUB_BASE}${assetPath}`
+    : null;
+}
+
 function safeColabUrl(url: string | null): string | null {
   if (!url) return null;
   try {
@@ -450,15 +461,18 @@ function safeColabUrl(url: string | null): string | null {
   }
 }
 
-/** A Colab step shows only what it asks for and the one action that opens the
- * notebook: the instructor's Colab link when set, otherwise the download. The
+/** A Colab step shows its one-line lead (what to do in THIS notebook for THIS
+ * step) and the one action that opens the notebook: the instructor's
+ * lesson-level Colab link when set, otherwise this step's own notebook opened
+ * in Colab from the public repository (the download, if the asset is not a
+ * repository notebook). The
  * how-to (download/upload, sign in, run cells, CPU), the secondary download,
  * colab.research.google.com and the return note sit in one collapsed
  * "עזרה וחלופות" expander, so
  * nothing the lesson says is dropped, only folded away. */
 function ColabBlock({ block, api }: { block: Extract<Block, { type: 'colab' }>; api: LessonApi }) {
   const notebook = api.content.assets[block.notebook_asset];
-  const colab = safeColabUrl(api.colabUrl);
+  const colab = safeColabUrl(api.colabUrl) ?? (notebook ? colabGithubUrl(notebook.path) : null);
   const titleId = useId();
   const download = notebook ? (
     <a
@@ -480,11 +494,17 @@ function ColabBlock({ block, api }: { block: Extract<Block, { type: 'colab' }>; 
     <section
       aria-labelledby={titleId}
       data-testid="colab-block"
+      data-colab-block={block.notebook_asset}
       className="grid grid-cols-1 gap-3 rounded-lg border border-info-soft bg-card p-4"
     >
       <h4 id={titleId} className="font-hebrew text-[17px]">
         עובדים בקולאב{block.section ? <>: <InlineText text={block.section} /></> : null}
       </h4>
+      {block.lead ? (
+        <p data-testid="colab-lead" className="text-[15px] font-semibold leading-relaxed">
+          <InlineText text={block.lead} />
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {colab ? (
           <a

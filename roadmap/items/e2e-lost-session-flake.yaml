@@ -1,0 +1,42 @@
+id: e2e-lost-session-flake
+title: The lesson e2e "lost session keeps the draft" fails at page.reload with net::ERR_ABORTED, racing the login page's own ?next= redirect
+status: ready
+priority: now
+claim:
+  by: claude/e2e-lost-session-flake
+  at: '2026-11-10T21:30:00Z'
+blocked_on: []
+refs:
+- 'frontend/e2e/lesson.spec.ts'
+- 'frontend/app/login/page.tsx'
+evidence: |
+  Dispatcher, 2026-11-10: the lesson 2 student test "a classmate's lesson
+  link … lost session keeps the draft" fails at page.reload:
+  net::ERR_ABORTED; a previous builder saw 8/8 failures under
+  --repeat-each=8.
+
+  VERIFIED at 5d6fd29:
+  - Race: the "כניסה לחשבון" link is a plain <a>, so toHaveURL(/login?next=)
+    passes at commit, before that login page's own "already signed in?"
+    GET /api/student-auth/me is sent. When the test's session cookie lands
+    first, the check succeeds and the page sends itself on to ?next= while
+    the test reloads it: page.reload: net::ERR_ABORTED (2/40 serial runs of
+    this test and "signed out … returns to the same step", which has the
+    same pattern).
+  - The 8/8 under --repeat-each is state, not the race: repeats share the
+    seeded student, so from the second run the step is already saved and
+    waitSaved() waits for a save that never comes. Parallel repeats also
+    act as one student in two browsers at once (409s, each other's drafts).
+  No app bug: a real student signs in through the form, not by gaining a
+  cookie between page load and the check.
+
+  This item (test only):
+  - openLoginSignedOut(): click the link, then wait for the login page's
+    401 from /me before the cookie is set.
+  - Before the session drops, wait for the server to have the step and the
+    bar not to be mid-save, instead of for a fresh "✓ נשמר".
+  - The draft is unique per run, so the checks prove this run's draft.
+
+  Done when: --repeat-each=20 --workers=1 passes 20/20 for this test,
+  removing the /me wait brings back ERR_ABORTED, and tsc and the full
+  Playwright suite are green.

@@ -189,7 +189,13 @@ const STUDENT_STATUS: Record<StudentStatus, { label: string; pill: string; order
 };
 
 const COLAB_HOSTS = ['colab.research.google.com', 'drive.google.com'];
-const AUTO_REFRESH_MS = 30_000;
+/* Live insights: the page asks for the insights' stamp (cheap: aggregates
+ * only) every few seconds while it is visible, and refetches the insights only
+ * when the stamp moves, at most once per LIVE_MIN_REFETCH_MS while the class is
+ * busy. A failing check backs off, up to a minute. */
+const LIVE_CHECK_MS = 4_000;
+const LIVE_MIN_REFETCH_MS = 10_000;
+const LIVE_MAX_BACKOFF_MS = 60_000;
 
 /* =============== Helpers =============== */
 
@@ -1095,20 +1101,36 @@ function InsightsPanel({
   const [shown, setShown] = useState<{ data: Insights; includeTest: boolean } | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [live, setLive] = useState(true);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  // Bumped on every load, so an open student drawer refetches with the page.
+  const [loadCount, setLoadCount] = useState(0);
+  const stampRef = useRef<string | null>(null);
+  const lastLoadRef = useRef(0);
+  // Loads can overlap (a live refetch, ↻ Refresh, the test-students toggle):
+  // only the latest one started may show its answer.
+  const loadSeqRef = useRef(0);
   const [studentId, setStudentId] = useState<number | null>(null);
   const [openQuestion, setOpenQuestion] = useState<string | null>(null);
   // Publishing or a new draft can change which version the numbers are read against.
   const versionsKey = `${lesson.status}:${lesson.versions.map((v) => `${v.id}${v.status}`).join(',')}`;
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
+    lastLoadRef.current = Date.now();
     try {
+      // The stamp first: a change landing between the two reads is already in
+      // the insights, and the next check just refetches once more.
+      const stamp = await apiGet<{ stamp: string }>(`${base}/insights/stamp`).catch(() => null);
       const data = await apiGet<Insights>(`${base}/insights?include_test=${includeTest}`);
+      if (seq !== loadSeqRef.current) return; // a newer load started; it shows its own answer
+      if (stamp) stampRef.current = stamp.stamp;
       setShown({ data, includeTest });
       setUpdatedAt(new Date());
+      setLoadCount((n) => n + 1);
       setError(null);
     } catch (e) {
-      setError(errorMessage(e));
+      if (seq === loadSeqRef.current) setError(errorMessage(e));
     }
   }, [base, includeTest]);
 
@@ -1117,10 +1139,45 @@ function InsightsPanel({
   }, [load, versionsKey]);
 
   useEffect(() => {
-    if (!autoRefresh) return;
-    const timer = window.setInterval(() => void load(), AUTO_REFRESH_MS);
-    return () => window.clearInterval(timer);
-  }, [autoRefresh, load]);
+    if (!live) return;
+    let stopped = false;
+    let busy = false;
+    let failures = 0;
+    let timer: number | undefined;
+    const schedule = (ms: number) => {
+      window.clearTimeout(timer);
+      if (!stopped) timer = window.setTimeout(() => void check(), ms);
+    };
+    const check = async () => {
+      // A hidden tab asks nothing; it checks again the moment it is shown.
+      if (stopped || busy || document.visibilityState !== 'visible') return;
+      busy = true;
+      try {
+        const { stamp } = await apiGet<{ stamp: string }>(`${base}/insights/stamp`);
+        failures = 0;
+        setLiveError(null);
+        if (stampRef.current === null) stampRef.current = stamp;
+        else if (stamp !== stampRef.current && Date.now() - lastLoadRef.current >= LIVE_MIN_REFETCH_MS) await load();
+        // Changed but refetched too recently: the stamp stays stale, so the next check refetches.
+      } catch (e) {
+        failures += 1;
+        setLiveError(errorMessage(e));
+      } finally {
+        busy = false;
+        schedule(Math.min(LIVE_MAX_BACKOFF_MS, LIVE_CHECK_MS * 2 ** failures));
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void check();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    schedule(LIVE_CHECK_MS);
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [live, base, load]);
 
   const toggleFlag = useCallback<FlagFn>(
     async (attemptId, flaggedStudent, flagged) => {
@@ -1186,6 +1243,7 @@ function InsightsPanel({
                 {data.totals.excluded_test ? ` · ${data.totals.excluded_test} test student${data.totals.excluded_test === 1 ? '' : 's'} left out` : ''}
                 {data.totals.withdrawn ? ` · ${data.totals.withdrawn} withdrawn, not counted` : ''}
                 {updatedAt ? ` · updated ${updatedAt.toLocaleTimeString()}` : ''}
+                {live && liveError ? <span className="text-terracotta"> · live updates failing, retrying</span> : null}
               </>
             ) : (
               'Loading…'
@@ -1197,10 +1255,18 @@ function InsightsPanel({
             <input type="checkbox" checked={includeTest} onChange={(e) => setIncludeTest(e.target.checked)} />
             Include test students
           </label>
-          <label className="flex items-center gap-1.5">
-            <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
-            Refresh every 30 s
-          </label>
+          <button
+            type="button"
+            aria-pressed={live}
+            onClick={() => setLive((v) => !v)}
+            title={live ? 'Updates as students work. Click to pause.' : 'Paused. Click to update live again.'}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${
+              live ? 'border-forest-soft bg-forest-tint text-forest' : 'border-border bg-card text-ink-3'
+            }`}
+          >
+            <span aria-hidden className={`inline-block h-2 w-2 rounded-full ${live ? 'animate-pulse bg-forest' : 'bg-ink-4'}`} />
+            {live ? 'Live' : 'Paused'}
+          </button>
           <Button size="sm" variant="outline" onClick={() => void load()}>
             ↻ Refresh
           </Button>
@@ -1261,6 +1327,7 @@ function InsightsPanel({
           questions={questionByKey}
           onClose={closeDrawer}
           onFlag={toggleFlag}
+          refreshKey={loadCount}
         />
       ) : null}
     </section>
@@ -1949,7 +2016,8 @@ function StudentDrawer({
   steps,
   questions,
   onClose,
-  onFlag
+  onFlag,
+  refreshKey
 }: {
   base: string;
   studentId: number;
@@ -1957,22 +2025,33 @@ function StudentDrawer({
   questions: Record<string, QuestionStats>;
   onClose: () => void;
   onFlag: FlagFn;
+  // Changes when the page's insights reload (the live view): refetch in place.
+  refreshKey: number;
 }) {
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const shownFor = useRef<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setDetail(null);
-    setError(null);
+    // Another student starts blank; the same student is refreshed in place.
+    if (shownFor.current !== studentId) {
+      setDetail(null);
+      setError(null);
+      shownFor.current = studentId;
+    }
     apiGet<StudentDetail>(`${base}/students/${studentId}`)
-      .then((d) => !cancelled && setDetail(d))
+      .then((d) => {
+        if (cancelled) return;
+        setDetail(d);
+        setError(null);
+      })
       .catch((e) => !cancelled && setError(errorMessage(e)));
     return () => {
       cancelled = true;
     };
-  }, [base, studentId]);
+  }, [base, studentId, refreshKey]);
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;

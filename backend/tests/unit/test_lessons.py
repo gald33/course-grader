@@ -998,6 +998,57 @@ def test_option_bars_never_read_an_answer_with_another_versions_options(env, cou
     assert bars["c"] == ("feature-as-label", 0, 0)
 
 
+def test_insights_stamp_moves_only_when_the_insights_would(env, course):
+    """The live view asks for the stamp every few seconds and refetches the
+    insights only when it moves: reading must not move it, and every write the
+    insights show must."""
+    base = f"{_base(course)}/{course.lesson['id']}"
+    seen = [_ok(env.client.get(f"{base}/insights/stamp"))["stamp"]]
+
+    def stamp() -> str:
+        return _ok(env.client.get(f"{base}/insights/stamp"))["stamp"]
+
+    def moved(what: str) -> None:
+        now = stamp()
+        assert now != seen[-1], f"the stamp did not move after {what}"
+        seen.append(now)
+
+    _ok(env.client.get(f"{base}/insights"))
+    _ok(env.client.get(f"{base}/students/{course.ids['Alice']}"))
+    assert stamp() == seen[-1]  # reading changes nothing
+
+    alice = _browser(env, course, "Alice")
+    _ok(alice.progress({"expected_revision": 0, "viewed_add": ["intro"]}))
+    moved("a viewed step")
+    revision = _ok(alice.lesson())["progress"]["revision"]
+    _ok(alice.progress({"expected_revision": revision, "drafts": {"q_free": "half a thought"}}))
+    moved("a saved draft (it moves the student's last saved time)")
+    _ok(alice.answer("q_pick", {"choice": "b"}))
+    moved("an answer")
+    _ok(alice.answer("q_free", {"text": "Two customers are out of range."}))
+    moved("a written answer")
+
+    attempt = next(q for q in _ok(env.client.get(f"{base}/insights"))["questions"] if q["key"] == "q_free")["free_text"][0]
+    _ok(env.client.post(f"{base}/attempts/{attempt['attempt_id']}/flag", json={"flagged": True}))
+    moved("a review flag")
+    _ok(env.client.post(f"{base}/attempts/{attempt['attempt_id']}/flag", json={"flagged": False}))
+    moved("removing the flag")
+    assert seen[-1] == seen[-3]  # the stamp describes the state: unflagging restores the one before the flag
+
+    with env.Session() as db:
+        wendy = db.scalar(select(Enrollment).where(Enrollment.student_id == course.ids["Wendy"]))
+        wendy.withdrawn_at = datetime(2026, 10, 1)
+        db.commit()
+    moved("a withdrawal")
+
+    # Another course's lesson activity leaves this stamp alone.
+    other = _course(env, "OTHER", [("300000001", "Zed", False)])
+    _publish(env, other, _install(env, other, allow_course_mismatch=True))
+    _ok(_browser(env, other, "Zed").progress({"expected_revision": 0, "viewed_add": ["intro"]}))
+    assert stamp() == seen[-1]
+    assert env.client.get(f"{_base(course)}/99999/insights/stamp").status_code == 404
+
+
 def test_insights_count_enrolled_students_and_export(env, course):
     with env.Session() as db:
         wendy = db.scalar(select(Enrollment).where(Enrollment.student_id == course.ids["Wendy"]))

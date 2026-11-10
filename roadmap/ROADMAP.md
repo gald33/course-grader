@@ -37,6 +37,7 @@ _Nothing deferred._
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
 | `lesson-4-harness-and-fixes` | claude/lesson-4-coding-agent | 2026-11-10T19:30:00Z |
 | `lesson-4-polish` | claude/lesson-4-coding-agent | 2026-11-10T19:50:00Z |
+| `lesson-4-stepper-prompt-shown` | claude/lesson-4-coding-agent | 2026-11-10T20:40:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
 | `notebooks-per-step` | claude/notebooks-per-step | 2026-11-03T19:35:00Z |
 | `lesson-complete-celebration` | claude/lesson-complete-celebration | 2026-11-03T00:00:00Z |
@@ -77,6 +78,7 @@ graph TD
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_4_harness_and_fixes["Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order"]:::claimed
   lesson_4_polish["Lesson 4's turn stepper drops keyboard focus, its 'walked the turn' mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length"]:::claimed
+  lesson_4_stepper_prompt_shown["Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it"]:::claimed
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
   lesson_6_skeleton["Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run"]:::verifying
   lesson_7_ai_api["Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario"]:::verifying
@@ -1010,6 +1012,45 @@ graph TD
 > ack appears only on the last frame; the loop has one required action
 > (tested); backend (SQLite + PG), tsc and the full Playwright suite are
 > green.
+
+</details>
+
+### `lesson-4-stepper-prompt-shown`
+
+- **title:** Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T20:40:00Z)
+- **refs:**
+  - `backend/app/lessons/content/course-42052/lesson-04.json`
+  - `backend/tests/unit/test_lesson_4_content.py`
+  - `frontend/e2e/lesson-4.spec.ts`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-10 (verbatim): "בהדגמה הראשונה, התשובות מתייחסות
+> לפרומפט שכולל את ההנחיות של המשתמש לאיך לעבוד (למשל להריץ בדיקה),
+> אבל עדיין לא הוצג הפרומפט בשלב הזה".
+>
+> VERIFIED at 5d6fd29 (main, with #50 and #51):
+> - Frame f1 of step A's agent_turn_stepper shows the user's message as
+>   «הוסף הודעת אישור… קודם הצג תוכנית.».
+> - f4's reveal says «בהודעה ביקשתם להריץ את הבדיקה», an instruction the
+>   student never saw.
+> - f1 and f2's context list «קובץ ההוראות (AGENTS.md), אם יש בתיקייה», and
+>   step A's context-assembly item defines AGENTS.md, although the file is
+>   taught in step E.
+>
+> This item:
+> - The full message is in a labelled box above the stepper («ההודעה שנשלחת
+>   לסוכן בהמחשה:»), and f1's context quotes it word for word.
+> - f2's and f4's reveals quote the part of the message they rely on.
+> - Step A no longer names AGENTS.md; the instructions file is defined in
+>   step E.
+>
+> Done when: the e2e sees the message box, with node check.js, before frame
+> 1; a test fails if any step before E names AGENTS.md; backend (SQLite +
+> PG), tsc and the full Playwright suite are green.
 
 </details>
 

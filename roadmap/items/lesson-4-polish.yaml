@@ -1,10 +1,8 @@
 id: lesson-4-polish
 title: Lesson 4's turn stepper drops keyboard focus, its "walked the turn" mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length
-status: ready
+status: done
 priority: now
-claim:
-  by: claude/lesson-4-coding-agent
-  at: '2026-11-10T19:50:00Z'
+claim: null
 blocked_on:
 - lesson-4-harness-and-fixes
 refs:
@@ -45,3 +43,5 @@ evidence: |
   ack appears only on the last frame; the loop has one required action
   (tested); backend (SQLite + PG), tsc and the full Playwright suite are
   green.
+
+  SHIPPED: #51, merged as ab079da.

@@ -29,15 +29,13 @@ _Nothing deferred._
 | item | held by | since |
 |---|---|---|
 | `class-insights-update-live` | claude/practical-ride-d2lxpj | 2026-11-04T00:00:00Z |
+| `e2e-lost-session-flake` | claude/e2e-lost-session-flake | 2026-11-10T21:30:00Z |
 | `exit-check-no-chatbot` | claude/exit-check-no-chatbot | 2026-11-03T19:00:00Z |
 | `exit-checks-concrete` | claude/exit-checks-concrete | 2026-11-03T21:00:00Z |
 | `feedback-everywhere` | claude/practical-ride-d2lxpj | 2026-11-10T00:00:00Z |
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
-| `lesson-4-harness-and-fixes` | claude/lesson-4-coding-agent | 2026-11-10T19:30:00Z |
-| `lesson-4-polish` | claude/lesson-4-coding-agent | 2026-11-10T19:50:00Z |
-| `lesson-4-stepper-prompt-shown` | claude/lesson-4-coding-agent | 2026-11-10T20:40:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
 | `notebooks-per-step` | claude/notebooks-per-step | 2026-11-03T19:35:00Z |
 | `lesson-complete-celebration` | claude/lesson-complete-celebration | 2026-11-03T00:00:00Z |
@@ -64,6 +62,7 @@ graph TD
   colab_block_collapse["A Colab lesson block shows only its step line and one open action; the how-to and alternatives fold into 'עזרה וחלופות'"]:::ready
   course_42052_whole_syllabus["✓ The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
+  e2e_lost_session_flake["The lesson e2e 'lost session keeps the draft' fails at page.reload with net::ERR_ABORTED, racing the login page's own ?next= redirect"]:::claimed
   exit_check_no_chatbot["Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason"]:::claimed
   exit_checks_concrete["Every lesson's exit check asks the same generic 'explain what you tried, saw and still don't know', and students don't know what it wants"]:::claimed
   feedback_everywhere["Nobody can report a problem with the site from the page they hit it on"]:::claimed
@@ -76,9 +75,9 @@ graph TD
   lesson_3_restructure_two_parts["Session 3 sends students to a chatbot to learn instead of teaching on the page, uses weights and parameters before neural networks are taught, and frames its second half as optional"]:::claimed
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
-  lesson_4_harness_and_fixes["Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order"]:::claimed
-  lesson_4_polish["Lesson 4's turn stepper drops keyboard focus, its 'walked the turn' mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length"]:::claimed
-  lesson_4_stepper_prompt_shown["Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it"]:::claimed
+  lesson_4_harness_and_fixes["✓ Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order"]:::done
+  lesson_4_polish["✓ Lesson 4's turn stepper drops keyboard focus, its 'walked the turn' mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length"]:::done
+  lesson_4_stepper_prompt_shown["✓ Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
   lesson_6_skeleton["Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run"]:::verifying
   lesson_7_ai_api["Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario"]:::verifying
@@ -357,6 +356,51 @@ graph TD
 > storage; and group membership on a submission can be edited.
 >
 > SHIPPED: #18, merged as ab89251 and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `e2e-lost-session-flake`
+
+- **title:** The lesson e2e "lost session keeps the draft" fails at page.reload with net::ERR_ABORTED, racing the login page's own ?next= redirect
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/e2e-lost-session-flake (since 2026-11-10T21:30:00Z)
+- **refs:**
+  - `frontend/e2e/lesson.spec.ts`
+  - `frontend/app/login/page.tsx`
+
+<details><summary>evidence</summary>
+
+> Dispatcher, 2026-11-10: the lesson 2 student test "a classmate's lesson
+> link … lost session keeps the draft" fails at page.reload:
+> net::ERR_ABORTED; a previous builder saw 8/8 failures under
+> --repeat-each=8.
+>
+> VERIFIED at 5d6fd29:
+> - Race: the "כניסה לחשבון" link is a plain <a>, so toHaveURL(/login?next=)
+>   passes at commit, before that login page's own "already signed in?"
+>   GET /api/student-auth/me is sent. When the test's session cookie lands
+>   first, the check succeeds and the page sends itself on to ?next= while
+>   the test reloads it: page.reload: net::ERR_ABORTED (2/40 serial runs of
+>   this test and "signed out … returns to the same step", which has the
+>   same pattern).
+> - The 8/8 under --repeat-each is state, not the race: repeats share the
+>   seeded student, so from the second run the step is already saved and
+>   waitSaved() waits for a save that never comes. Parallel repeats also
+>   act as one student in two browsers at once (409s, each other's drafts).
+> No app bug: a real student signs in through the form, not by gaining a
+> cookie between page load and the check.
+>
+> This item (test only):
+> - openLoginSignedOut(): click the link, then wait for the login page's
+>   401 from /me before the cookie is set.
+> - Before the session drops, wait for the server to have the step and the
+>   bar not to be mid-save, instead of for a fresh "✓ נשמר".
+> - The draft is unique per run, so the checks prove this run's draft.
+>
+> Done when: --repeat-each=20 --workers=1 passes 20/20 for this test,
+> removing the /me wait brings back ERR_ABORTED, and tsc and the full
+> Playwright suite are green.
 
 </details>
 
@@ -903,9 +947,8 @@ graph TD
 ### `lesson-4-harness-and-fixes`
 
 - **title:** Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T19:30:00Z)
 - **blocks:** `lesson-4-polish`
 - **refs:**
   - `backend/app/lessons/content/course-42052/lesson-04.json`
@@ -962,15 +1005,16 @@ graph TD
 > matches the lesson; every Antigravity fact cites docs checked on the
 > build date; no keys in the repo; backend (SQLite + PG), tsc and e2e are
 > green.
+>
+> SHIPPED: #50, merged as 8106cbb; polish #51, merged as ab079da.
 
 </details>
 
 ### `lesson-4-polish`
 
 - **title:** Lesson 4's turn stepper drops keyboard focus, its "walked the turn" mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T19:50:00Z)
 - **blocked on:** `lesson-4-harness-and-fixes`
 - **refs:**
   - `frontend/components/lessons/widgets.tsx`
@@ -1012,15 +1056,16 @@ graph TD
 > ack appears only on the last frame; the loop has one required action
 > (tested); backend (SQLite + PG), tsc and the full Playwright suite are
 > green.
+>
+> SHIPPED: #51, merged as ab079da.
 
 </details>
 
 ### `lesson-4-stepper-prompt-shown`
 
 - **title:** Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T20:40:00Z)
 - **refs:**
   - `backend/app/lessons/content/course-42052/lesson-04.json`
   - `backend/tests/unit/test_lesson_4_content.py`
@@ -1051,6 +1096,8 @@ graph TD
 > Done when: the e2e sees the message box, with node check.js, before frame
 > 1; a test fails if any step before E names AGENTS.md; backend (SQLite +
 > PG), tsc and the full Playwright suite are green.
+>
+> SHIPPED: #53, merged as 6027080.
 
 </details>
 

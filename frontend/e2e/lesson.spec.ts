@@ -103,6 +103,18 @@ async function waitSaved(page: Page) {
   await expect(saveStatus(page)).toHaveText('✓ נשמר');
 }
 
+/** Follow a "כניסה לחשבון" link to /login?next=… and wait until that login
+ * page has finished its own "already signed in?" check (a 401). Only then may
+ * the test set the session cookie: set earlier, that first check succeeds and
+ * the page sends itself on to ?next= while the test reloads it, and the two
+ * navigations race (page.reload: net::ERR_ABORTED). */
+async function openLoginSignedOut(page: Page, link: Locator) {
+  const checked = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/student-auth/me' && r.status() === 401);
+  await link.click();
+  await expect(page).toHaveURL(/\/login\?next=/);
+  await checked;
+}
+
 /** One question: pick an option (by part of its text) and send it. */
 async function answer(card: Locator, option: RegExp, button: RegExp = /^(שליחת תשובה|שליחה מחדש)$/) {
   await card.getByRole('radio', { name: option }).check();
@@ -168,12 +180,11 @@ test('signed out: the lesson asks to sign in, and signing in returns to the same
   // Nothing of the lesson is shown to a signed-out visitor.
   await expect(stepHeading(page)).toHaveCount(0);
 
-  await login.click();
-  await expect(page).toHaveURL(/\/login\?next=/);
+  await openLoginSignedOut(page, login);
   // Signing in (the session cookie the login sets) sends the student back.
   await signIn(context, student);
-  // The login page sends a signed-in student on by itself, possibly before the
-  // reloaded page's "load" event: wait for the reload to start, then the URL.
+  // The reloaded login page sends a signed-in student on by itself, possibly
+  // before its "load" event: wait for the reload to start, then the URL.
   await page.reload({ waitUntil: 'commit' });
   await expect(page).toHaveURL(new RegExp(`${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
   await expect(stepHeading(page)).toContainText('בודקים את הנתונים עם הצ׳טבוט');
@@ -754,25 +765,31 @@ test('a classmate’s lesson link sends the student to their own course, and a l
   await page.goto(`/login?next=${encodeURIComponent(lessonPath(student, 'data'))}`);
   await expect(page).toHaveURL(new RegExp(`${escaped(lessonPath(student, 'data'))}$`));
   await expect(stepHeading(page)).toContainText('בודקים את הנתונים עם הצ׳טבוט');
-  await waitSaved(page);
+  // Nothing of the visit itself is still unsent when the session ends: the
+  // server has the step, and the bar is not mid-save. (On a first visit this
+  // ends at "✓ נשמר"; when the step was already saved, e.g. by an earlier
+  // --repeat-each run of this test as the same student, nothing is sent at all.)
+  const url = `/api/r/${student.token}/lessons/${seed.lesson.slug}`;
+  await expect.poll(async () => (await (await page.request.get(url)).json()).progress?.current_step_key).toBe('data');
+  await expect(saveStatus(page)).toHaveText(/^(✓ נשמר|שמירה אוטומטית)$/);
 
   // The session ends mid-lesson: the sticky bar says so and offers the sign-in
   // right there; the text typed meanwhile survives the sign-in and is then saved.
   await context.clearCookies();
-  const draft = 'כתבתי את זה אחרי שהחיבור לחשבון נגמר.';
+  // Unique per run, so the checks below can only pass on this run's draft.
+  const draft = `כתבתי את זה אחרי שהחיבור לחשבון נגמר. (${randomUUID().slice(0, 8)})`;
   const finding = questionCard(page, 'q_data_finding');
   await finding.getByRole('textbox').fill(draft);
   const barLogin = saveStatus(page).getByRole('link', { name: 'כניסה לחשבון' });
   await expect(barLogin).toBeVisible();
   await expect(saveStatus(page)).toContainText('⚠ לא נשמר');
-  await barLogin.click();
-  await expect(page).toHaveURL(/\/login\?next=/);
+  await openLoginSignedOut(page, barLogin);
   await signIn(context, student);
   await page.reload({ waitUntil: 'commit' });
   await expect(page).toHaveURL(new RegExp(`${escaped(lessonPath(student, 'data'))}$`));
   await expect(finding.getByRole('textbox')).toHaveValue(draft);
   await waitSaved(page);
-  const saved = await (await page.request.get(`/api/r/${student.token}/lessons/${seed.lesson.slug}`)).json();
+  const saved = await (await page.request.get(url)).json();
   expect(saved.progress.drafts['q:q_data_finding']).toBe(draft);
   expect(problems).toEqual([]);
 });

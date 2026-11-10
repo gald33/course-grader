@@ -25,6 +25,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `colab-block-collapse` — A Colab lesson block shows only its step line and one open action; the how-to and alternatives fold into "עזרה וחלופות"
 - `course-42052-whole-syllabus` — The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository
 - `courses-and-submissions-cannot-be-deleted` — Courses, assignments and submissions can't be deleted or archived
+- `e2e-lost-session-flake` — The lesson e2e "lost session keeps the draft" fails at page.reload with net::ERR_ABORTED, racing the login page's own ?next= redirect
 - `exit-check-no-chatbot` — Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason
 - `exit-checks-concrete` — Every lesson's exit check asks the same generic "explain what you tried, saw and still don't know", and students don't know what it wants
 - `feedback-everywhere` — Nobody can report a problem with the site from the page they hit it on

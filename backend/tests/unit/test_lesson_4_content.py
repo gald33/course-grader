@@ -403,3 +403,20 @@ def test_the_context_step_defines_secrets_and_ties_back_to_the_harness(lesson):
         assert flow[max(0, m.start() - 15):m.start()].endswith("קובץ ההוראות ("), flow[m.start() - 40:m.end()]
     template = (STARTER_SRC / "instructions-template.md").read_text(encoding="utf-8")
     assert "`N of N checks passed` (בלי FAIL)" in template and "אם `node` לא מותקן – לא מתקינים; אומרים לי." in template
+
+
+WINDOWS_SANDBOX = (
+    "ארגז החול ב-[[Windows]] דורש [[Windows 11]] בגרסה [[24H2]] ומעלה, וגם את עדכון אוגוסט 2026 ומעלה. "
+    "בכל [[Windows]] אחר – כולל [[Windows 10]] – אין ארגז חול: ההגדרה עוברת ל-[[Request Review]], "
+    "והסוכן מבקש אישור לפני כל פקודה. גם אז – קוראים לפני שמאשרים."
+)
+
+
+def test_the_windows_sandbox_needs_both_conditions_wherever_it_is_mentioned(lesson):
+    """Per antigravity.google/docs/sandbox: Windows 11 24H2+ AND the August
+    2026 update+. Any other Windows has no sandbox (Request Review)."""
+    text = json.dumps(lesson, ensure_ascii=False)
+    assert text.count(WINDOWS_SANDBOX) == 2  # the harness step and the prep callout
+    for step in ("harness", "agent"):
+        assert WINDOWS_SANDBOX in json.dumps(next(s for s in lesson["steps"] if s["key"] == step), ensure_ascii=False)
+    assert "שלפני [[24H2]]" not in text and "ישן יותר" not in text

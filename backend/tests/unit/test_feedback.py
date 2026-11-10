@@ -316,7 +316,8 @@ def test_a_link_typed_into_the_text_never_reaches_the_ticket(env, anonymous):
         "page broke: https://course-grader-pi.vercel.app/r/…/lessons/lesson-04#step=s2 "
         "(my token is …; a friend's page https://x.example/r/… too; encoded %2Fr%2F…%2Flessons)"
     )
-    assert row["metadata"]["note"] == "https://x/r/…/x"
+    # a named ticket keeps the page's facts (scrubbed); an anonymous one keeps none of the device's
+    assert row["metadata"] == ({"anonymous": True} if anonymous else {"note": "https://x/r/…/x", "anonymous": False})
     # and through the API the roles read
     listed = json.dumps(_ok(env.client.get("/api/admin/feedback")))
     assert a.token not in listed and b.token not in listed
@@ -347,3 +348,69 @@ def test_only_the_ticket_api_is_exempt_from_the_instructor_middleware(env, monke
     assert auth.requires_instructor("/api/admin", "GET")
     monkeypatch.setattr(env.settings, "instructor_token", "s3cret-token")
     assert env.client.get("/api/admin/other").status_code == 401
+
+
+FULL_CONTEXT = {
+    "path": "/r/…/lessons/lesson-02?tab=x&step=s3#step=s3",
+    "lesson": "lesson-02",
+    "step": "s3",
+    "tab": "x",
+    "viewport": "390x844",
+    "browser": "Mozilla/5.0 (iPhone)",
+    "language": "he-IL",
+    "timezone": "Asia/Jerusalem",
+    "build": "abc123def456",
+}
+
+
+def test_an_anonymous_ticket_keeps_only_the_day_the_page_and_the_lesson(env, monkeypatch):
+    """The operator on Reed's N2 (#52): "Coarsen it". Nothing finer than the day, and no step or device, is ever
+    stored for an anonymous ticket, nor returned by the API — including after a role writes a note or a status."""
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "abc123")
+    monkeypatch.setenv("VERCEL_DEPLOYMENT_ID", "dpl_42")
+    filed = _ok(_student_post(env, anonymous=True, context=FULL_CONTEXT))
+    tid = filed["id"]
+
+    stored = _ticket(env, tid)  # the row as persisted
+    assert (stored.created_at.hour, stored.created_at.minute, stored.created_at.second, stored.created_at.microsecond) == (0, 0, 0, 0)
+    assert stored.updated_at == stored.created_at
+    assert json.loads(stored.metadata_json) == {"anonymous": True}
+    assert json.loads(stored.refs_json) == {
+        "category": "broken", "path": "/r/…/lessons/lesson-02?tab=x", "lesson": "lesson-02", "tab": "x", "course_id": env.course_id,
+    }
+    day = stored.created_at.date().isoformat()
+    assert json.loads(stored.deployed_version_json) == {"captured_at": day}
+
+    _ok(env.client.post(f"/api/admin/feedback/{tid}/notes", json={"author": "Link", "note": "looking"}))
+    _ok(env.client.patch(f"/api/admin/feedback/{tid}", json={"status": "needs_attention"}))
+    api = _ok(env.client.get(f"/api/admin/feedback/{tid}"))
+    assert api["created_at"] == day and api["updated_at"] == day  # a bare date: no time of day at all
+    assert api["metadata"] == {"anonymous": True}
+    assert "step" not in api["refs"] and "s3" not in json.dumps(api)
+    for device in ("390x844", "iPhone", "he-IL", "Asia/Jerusalem", "abc123", "dpl_42"):
+        assert device not in json.dumps(api), device
+    listed = next(t for t in _ok(env.client.get("/api/admin/feedback")) if t["id"] == tid)
+    assert listed == api
+    stored = _ticket(env, tid)
+    assert (stored.updated_at.hour, stored.updated_at.minute, stored.updated_at.second) == (0, 0, 0)
+
+
+def test_a_named_ticket_keeps_full_detail(env, monkeypatch):
+    monkeypatch.setenv("VERCEL_GIT_COMMIT_SHA", "abc123")
+    row = _ok(env.client.get(f"/api/admin/feedback/{_ok(_student_post(env, context=FULL_CONTEXT))['id']}"))
+    assert row["created_at"].endswith("Z") and "T" in row["created_at"]
+    assert row["refs"]["step"] == "s3" and row["refs"]["path"] == FULL_CONTEXT["path"]
+    assert row["metadata"] == {
+        "viewport": "390x844", "browser": "Mozilla/5.0 (iPhone)", "language": "he-IL", "timezone": "Asia/Jerusalem",
+        "build": "abc123def456", "anonymous": False,
+    }
+    assert row["deployed_version"]["git_sha"] == "abc123"
+
+
+def test_org_tickets_reads_an_anonymous_tickets_bare_date_as_that_day(env):
+    """org-core's parse_moment is datetime.fromisoformat after a Z fix-up; a bare date must parse, not drop out."""
+    from datetime import datetime, timezone
+
+    api = _ok(env.client.get(f"/api/admin/feedback/{_ok(_student_post(env, anonymous=True))['id']}"))
+    parsed = datetime.fromisoformat(api["created_at"].replace("Z", "+00:00")).replace(tzinfo=timezone.utc)
+    assert parsed.date().isoformat() == api["created_at"]

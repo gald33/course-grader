@@ -48,11 +48,14 @@ const TEXT = {
     label: 'ספרו לנו במה מדובר',
     placeholder: 'מה ניסיתם לעשות, ומה קרה?',
     anonymous: 'לשלוח בלי השם שלי',
-    anonymousHint: 'השם שלכם לא יצורף. העמוד שממנו שלחתם, השעה ופרטי המכשיר כן יצורפו.',
+    anonymousHint: 'יצורפו רק העמוד, השיעור והתאריך — בלי השם שלכם, בלי השעה, בלי השלב ובלי פרטי המכשיר.',
     attached: 'מה מצורף אוטומטית',
     name: 'השם שלך',
     nameYes: 'מצורף',
     nameNo: 'לא מצורף',
+    when: 'מתי',
+    whenFull: 'התאריך והשעה',
+    whenDay: 'התאריך בלבד',
     send: 'שליחה',
     sending: 'שולח…',
     cancel: 'ביטול',
@@ -92,6 +95,9 @@ const TEXT = {
     name: 'Your name',
     nameYes: 'attached',
     nameNo: 'not attached',
+    when: 'When',
+    whenFull: 'the date and time',
+    whenDay: 'the date only',
     send: 'Send',
     sending: 'Sending…',
     cancel: 'Cancel',
@@ -129,6 +135,21 @@ export function modeFor(pathname: string): Mode | null {
 export function safePath(pathname: string, search: string, hash: string): string {
   const path = pathname.replace(STUDENT_PATH, (_m, _t, rest) => `/r/…${rest ?? ''}`);
   return `${path}${search}${hash}`.slice(0, 400);
+}
+
+// What an anonymous report keeps (the backend enforces the same, app/services/feedback.py ANONYMOUS_FACTS): where in
+// the site, never the step, and nothing about the device. The operator's ruling on Reed's N2 (#52): "Coarsen it".
+const ANONYMOUS_FACTS = ['path', 'section', 'tab', 'lesson', 'assignment'];
+
+export function anonymousFacts(facts: Facts): Facts {
+  const kept: Facts = {};
+  for (const k of ANONYMOUS_FACTS) if (facts[k]) kept[k] = facts[k];
+  if (kept.path) {
+    const [base, query] = kept.path.split('#')[0].split('?');
+    const params = (query ?? '').split('&').filter((p) => p && !p.startsWith('step='));
+    kept.path = params.length ? `${base}?${params.join('&')}` : base;
+  }
+  return kept;
 }
 
 function gatherFacts(mode: Mode): Facts {
@@ -251,6 +272,11 @@ function FeedbackDialog({ mode, lang, onClose }: { mode: Mode; lang: 'he' | 'en'
     return () => document.removeEventListener('keydown', onKey);
   }, [onKey]);
 
+  // Exactly what this send attaches, and what the list below shows: everything for a named report, the coarse set
+  // for an anonymous one.
+  const coarse = mode.kind === 'student' && anonymous;
+  const sent = coarse ? anonymousFacts(facts) : facts;
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (text.trim().length < 3) {
@@ -260,7 +286,7 @@ function FeedbackDialog({ mode, lang, onClose }: { mode: Mode; lang: 'he' | 'en'
     }
     setState('sending');
     setError(null);
-    const body = { category, text: text.trim(), context: facts };
+    const body = { category, text: text.trim(), context: sent };
     try {
       const res =
         mode.kind === 'student'
@@ -285,7 +311,8 @@ function FeedbackDialog({ mode, lang, onClose }: { mode: Mode; lang: 'he' | 'en'
     }
   }
 
-  const shown: [string, string][] = Object.entries(facts).map(([k, v]) => [t.facts[k === 'path' ? 'page' : k] ?? k, v]);
+  const shown: [string, string][] = Object.entries(sent).map(([k, v]) => [t.facts[k === 'path' ? 'page' : k] ?? k, v]);
+  shown.unshift([t.when, coarse ? t.whenDay : t.whenFull]);
   if (mode.kind === 'student') shown.unshift([t.name, anonymous ? t.nameNo : t.nameYes]);
 
   return (

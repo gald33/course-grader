@@ -332,6 +332,9 @@ lesson, step, assignment, section and tab, and the screen, browser, language and
 
 - `source` is `student` or `instructor`; `reporter_ref` is `enrollment:<id>`, `instructor`, or null when a student sent
   it without their name, and then nothing stored names them.
+- An anonymous ticket keeps only the day, the page and the lesson: no time of day (its timestamps are stored at
+  midnight and returned as a bare date), no step, and nothing about the device or the build. A named ticket keeps all of
+  it. The dialog lists exactly what each attaches.
 - "Something's broken" is kind `bug`, "an idea" `feature_request`; "this is confusing" is left unclassified for a person.
 - org-core's roles read and annotate the queue through `/api/admin/feedback` (list with `limit`/`offset`/`status`, one
   ticket, `PATCH` its `status`/`kinds`, its notes, `POST` a note) with `Authorization: Bearer $ORG_TICKETS_TOKEN`, or as

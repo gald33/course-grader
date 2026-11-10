@@ -24,6 +24,7 @@ type Ticket = {
   kinds: string[];
   refs: Record<string, unknown>;
   metadata: Record<string, unknown>;
+  created_at: string;
 };
 
 async function noFonts(page: Page) {
@@ -62,13 +63,20 @@ test('a student sends feedback without their name, and the ticket shows the page
   const text = `לא ברור איפה רואים את הציון הסופי ${stamp} ${page.url()}`;
   const stored = `לא ברור איפה רואים את הציון הסופי ${stamp} ${page.url().replace(seed.student.token, '…')}`;
   await dialog.getByLabel('ספרו לנו במה מדובר').fill(text);
+  // Named, the list shows the device and the time; anonymous, only the page, the lesson and the date.
+  await dialog.getByText('מה מצורף אוטומטית').click();
+  await expect(dialog.getByText('התאריך והשעה')).toBeVisible();
+  await expect(dialog.getByText('דפדפן:')).toBeVisible();
+  await dialog.getByText('מה מצורף אוטומטית').click();
   await dialog.getByLabel('לשלוח בלי השם שלי').check();
-  await expect(dialog.getByText('השם שלכם לא יצורף')).toBeVisible();
+  await expect(dialog.getByText('יצורפו רק העמוד, השיעור והתאריך')).toBeVisible();
 
   // What is attached is shown in full before Send: the page without the token, and no name.
   await dialog.getByText('מה מצורף אוטומטית').click();
   const attached = dialog.getByRole('definition');
   await expect(dialog.getByText('לא מצורף')).toBeVisible();
+  await expect(dialog.getByText('התאריך בלבד')).toBeVisible();
+  for (const device of ['דפדפן:', 'גודל מסך:', 'שפה:', 'אזור זמן:']) await expect(dialog.getByText(device)).toHaveCount(0);
   await expect(attached.filter({ hasText: '/r/…?tab=grades' })).toHaveCount(1);
   expect(await dialog.innerText()).not.toContain(seed.student.token);
 
@@ -89,7 +97,10 @@ test('a student sends feedback without their name, and the ticket shows the page
     path: '/r/…?tab=grades',
     tab: 'grades'
   });
-  expect(ticket.metadata).toMatchObject({ anonymous: true });
+  // Coarsened (the operator on Reed's N2): the day, the page and the tab — no time of day, step or device.
+  expect(ticket.metadata).toEqual({ anonymous: true });
+  expect(ticket.created_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  expect(ticket.refs).not.toHaveProperty('step');
   expect(JSON.stringify(ticket)).not.toContain(seed.student.token);
   expect(JSON.stringify(ticket)).not.toContain(seed.student.name);
 });

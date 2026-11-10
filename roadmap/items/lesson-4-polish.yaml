@@ -1,0 +1,47 @@
+id: lesson-4-polish
+title: Lesson 4's turn stepper drops keyboard focus, its "walked the turn" mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length
+status: ready
+priority: now
+claim:
+  by: claude/lesson-4-coding-agent
+  at: '2026-11-10T19:50:00Z'
+blocked_on:
+- lesson-4-harness-and-fixes
+refs:
+- 'frontend/components/lessons/widgets.tsx'
+- 'frontend/components/lessons/lesson-player.tsx'
+- 'frontend/components/lessons/preview-backend.ts'
+- 'backend/app/lessons/schema.py'
+- 'backend/app/services/lessons.py'
+- 'backend/app/lessons/content/course-42052/lesson-04.json'
+- 'frontend/e2e/lesson-4.spec.ts'
+evidence: |
+  Reed's non-blocking notes on #50 (lesson-4-harness-and-fixes, merged as
+  8106cbb); the Lesson Planner asked for them before class.
+
+  VERIFIED at 2fbb4c2:
+  - N1: in agent_turn_stepper, "הבא" disables itself and "גלו מה קורה"
+    unmounts, leaving keyboard focus on <body>. The e2e masked this by
+    refocusing the button before each key press.
+  - N3: step D (loop) lists several required actions, against the operator
+    rule of one required action per step.
+  - N4: the turn_walked ack is a free checkbox, so it can be ticked before
+    the stepper's last frame.
+  - N2: wrong options padded to avoid longest-is-right now signal by length
+    the other way.
+
+  This item:
+  - Focus moves to the new frame heading or the first prediction choice,
+    never to <body>. The e2e runs the stepper by keyboard only.
+  - The loop's action is one flow sentence (expected result → change →
+    diff → check), with the commit as the single closing line.
+  - The stepper records its own done_ack on the last frame. It declares the
+    ack for validation, the progress API and the step checklist; there is
+    no hand-ticked checkbox.
+  - Option lengths are evened out (same ids, same right answers, feedback
+    unchanged).
+
+  Done when: the e2e never sees focus on <body> after a stepper action; the
+  ack appears only on the last frame; the loop has one required action
+  (tested); backend (SQLite + PG), tsc and the full Playwright suite are
+  green.

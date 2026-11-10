@@ -97,7 +97,7 @@ export type Block =
   | { type: 'embedding_map'; asset: string; caption?: Inline; start?: string }
   | { type: 'image'; asset: string; alt: string; caption?: Inline }
   | { type: 'architecture_map'; caption?: Inline; parts: ArchitecturePart[]; items: ArchitectureItem[] }
-  | { type: 'agent_turn_stepper'; caption?: Inline; frames: TurnFrame[] };
+  | { type: 'agent_turn_stepper'; caption?: Inline; frames: TurnFrame[]; done_ack?: string; done_label?: Inline };
 
 /** One step of an illustrated agent turn. Frames after the first open with a
  * prediction (question, 2-3 options, reveal): not keyed, recorded or graded. */

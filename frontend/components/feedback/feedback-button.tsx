@@ -48,7 +48,7 @@ const TEXT = {
     label: 'ספרו לנו במה מדובר',
     placeholder: 'מה ניסיתם לעשות, ומה קרה?',
     anonymous: 'לשלוח בלי השם שלי',
-    anonymousHint: 'השם שלכם לא יצורף. העמוד שממנו שלחתם כן יצורף.',
+    anonymousHint: 'השם שלכם לא יצורף. העמוד שממנו שלחתם, השעה ופרטי המכשיר כן יצורפו.',
     attached: 'מה מצורף אוטומטית',
     name: 'השם שלך',
     nameYes: 'מצורף',
@@ -314,7 +314,7 @@ function FeedbackDialog({ mode, lang, onClose }: { mode: Mode; lang: 'he' | 'en'
             type="button"
             onClick={onClose}
             aria-label={t.close}
-            className="rounded-md p-1 text-ink-3 hover:bg-paper-2 hover:text-ink"
+            className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-3 hover:bg-paper-2 hover:text-ink"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>

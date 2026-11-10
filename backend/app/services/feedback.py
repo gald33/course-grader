@@ -5,8 +5,10 @@ org_core/tickets/schema.sql, the tables are migration 0027).
 Two sources, both people: `student` (from a student's own pages, under their
 course link) and `instructor` (from the instructor pages). A student may send
 without their name: then `reporter_ref` is null and nothing stored names them.
-The student's course link token is a credential, so it is cut out of
-everything the page sends, named or not.
+A course link token is a student's credential, so no ticket or note keeps
+one, named or anonymous, whoever pasted it: every course link (/r/<token>) is
+cut to /r/… in the text, the page's facts and notes, and a student's own token
+is cut wherever it appears (scrub()).
 
 The reporter picks one of three categories. "Something's broken" files as
 kind `bug` and "an idea" as `feature_request`; "this is confusing" is left
@@ -49,6 +51,17 @@ MAX_NOTE = 8000
 # (viewport, browser, language, time zone, the page's build) describe the device and go to `metadata`.
 REF_FACTS = ("path", "title", "section", "tab", "lesson", "step", "assignment", "presentation")
 _FACT_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
+# A course link: /r/<token>, the slashes plain or percent-encoded. Tokens are secrets.token_urlsafe(24), 32 URL-safe
+# characters; the frontend treats 16 or more as one (feedback-button.tsx STUDENT_PATH), and so does this.
+_COURSE_LINK = re.compile(r"(/|%2[fF])r(/|%2[fF])[A-Za-z0-9_-]{16,}")
+
+
+def scrub(text: str, secrets: tuple[str, ...] = ()) -> str:
+    """`text` with every course link's token cut out, and each of `secrets` (a student's own token) too."""
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, "…")
+    return _COURSE_LINK.sub(lambda m: f"{m.group(1)}r{m.group(2)}…", text)
 
 
 class FeedbackError(Exception):
@@ -68,7 +81,7 @@ def _iso(dt: datetime | None) -> str | None:
 
 
 def bounded_context(raw: Any, redact: tuple[str, ...] = ()) -> dict[str, str]:
-    """The page's facts, bounded: named one-line strings only, each cut, the whole capped, `redact` cut out."""
+    """The page's facts, bounded: named one-line strings only, each cut, the whole capped, scrubbed (`redact` too)."""
     if not isinstance(raw, dict):
         return {}
     out: dict[str, str] = {}
@@ -80,11 +93,7 @@ def bounded_context(raw: Any, redact: tuple[str, ...] = ()) -> dict[str, str]:
             continue
         if isinstance(value, bool) or not isinstance(value, (str, int, float)):
             continue
-        text = " ".join(str(value).split())
-        for secret in redact:
-            if secret:
-                text = text.replace(secret, "…")
-        text = text[:MAX_FACT_CHARS]
+        text = scrub(" ".join(str(value).split()), redact)[:MAX_FACT_CHARS]
         if not text:
             continue
         if total + len(text) > MAX_CONTEXT_CHARS:
@@ -125,7 +134,9 @@ def file_ticket(
         raise FeedbackError(422, "invalid_source", f"source must be one of {', '.join(SOURCES)}")
     if category not in CATEGORIES:
         raise FeedbackError(422, "invalid_category", f"category must be one of {', '.join(CATEGORIES)}")
-    body = (text or "").strip()
+    redact = (enrollment.review_token,) if enrollment is not None and enrollment.review_token else ()
+    # Scrubbed before it is measured or stored: pasting the page's address is the natural thing to type here.
+    body = scrub((text or "").strip(), redact)
     if len(body) < MIN_TEXT:
         raise FeedbackError(422, "text_too_short", "Write a few words about what happened")
     if len(body) > MAX_TEXT:
@@ -133,7 +144,6 @@ def file_ticket(
     if course_id is not None and db.get(Course, course_id) is None:
         raise FeedbackError(404, "unknown_course", "Unknown course")
 
-    redact = (enrollment.review_token,) if enrollment is not None and enrollment.review_token else ()
     facts = bounded_context(context, redact=redact)
     refs: dict[str, Any] = {"category": category}
     meta: dict[str, Any] = {}
@@ -234,7 +244,7 @@ def list_notes(db: Session, ticket_id: str) -> list[dict[str, Any]]:
 def add_note(db: Session, ticket_id: str, *, author: str, note: str, meta: Any = None) -> dict[str, Any]:
     ticket = _ticket(db, ticket_id)
     author = (author or "").strip()
-    body = (note or "").strip()
+    body = scrub((note or "").strip())
     if not author or len(author) > 128:
         raise FeedbackError(422, "invalid_author", "author is a role or a person's name, up to 128 characters")
     if not body or len(body) > MAX_NOTE:

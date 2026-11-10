@@ -296,3 +296,54 @@ def test_migration_0027_round_trips(tmp_path):
         assert tables() == before
         alembic("upgrade", "0027_feedback_tickets")
         assert "0027_feedback_tickets" in alembic("current")
+
+
+@pytest.mark.parametrize("anonymous", [False, True])
+def test_a_link_typed_into_the_text_never_reaches_the_ticket(env, anonymous):
+    """Reed's B1 on #52: pasting the page's address into the box is the natural thing to do, and the token in it
+    is the student's credential. Named or not, it is cut from the text as it is from the page's facts."""
+    a, b = env.students["a"], env.students["b"]
+    text = (
+        f"page broke: https://course-grader-pi.vercel.app/r/{a.token}/lessons/lesson-04#step=s2 "
+        f"(my token is {a.token}; a friend's page https://x.example/r/{b.token} too; "
+        f"encoded %2Fr%2F{b.token}%2Flessons)"
+    )
+    filed = _ok(_student_post(env, text=text, anonymous=anonymous, context={"note": f"https://x/r/{b.token}/x"}))
+    row = svc.ticket_row(_ticket(env, filed["id"]))
+    dumped = json.dumps(row)
+    assert a.token not in dumped and b.token not in dumped
+    assert row["feedback_text"] == (
+        "page broke: https://course-grader-pi.vercel.app/r/…/lessons/lesson-04#step=s2 "
+        "(my token is …; a friend's page https://x.example/r/… too; encoded %2Fr%2F…%2Flessons)"
+    )
+    assert row["metadata"]["note"] == "https://x/r/…/x"
+    # and through the API the roles read
+    listed = json.dumps(_ok(env.client.get("/api/admin/feedback")))
+    assert a.token not in listed and b.token not in listed
+
+
+def test_the_instructor_pasting_a_students_link_does_not_store_it_either(env):
+    b = env.students["b"]
+    filed = _ok(env.client.post("/api/feedback", json={"category": "broken", "text": f"Ido's page /r/{b.token} is blank"}))
+    row = svc.ticket_row(_ticket(env, filed["id"]))
+    assert row["feedback_text"] == "Ido's page /r/… is blank"
+    note = _ok(env.client.post(f"/api/admin/feedback/{filed['id']}/notes", json={"author": "Link", "note": f"see /r/{b.token}"}))
+    assert note["note"] == "see /r/…"
+    assert b.token not in json.dumps(_ok(env.client.get(f"/api/admin/feedback/{filed['id']}/notes")))
+
+
+def test_a_text_that_is_only_a_link_is_too_short_once_scrubbed(env):
+    assert _student_post(env, text=env.students["a"].token).status_code == 422
+
+
+def test_only_the_ticket_api_is_exempt_from_the_instructor_middleware(env, monkeypatch):
+    """Reed's N1 on #52: the exemption is /api/admin/feedback and what is under it, not all of /api/admin."""
+    from app.api import auth
+
+    assert not auth.requires_instructor("/api/admin/feedback", "GET")
+    assert not auth.requires_instructor("/api/admin/feedback/abc/notes", "POST")
+    assert auth.requires_instructor("/api/admin/feedbackx", "GET")
+    assert auth.requires_instructor("/api/admin/other", "GET")
+    assert auth.requires_instructor("/api/admin", "GET")
+    monkeypatch.setattr(env.settings, "instructor_token", "s3cret-token")
+    assert env.client.get("/api/admin/other").status_code == 401

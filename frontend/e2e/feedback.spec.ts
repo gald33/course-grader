@@ -57,7 +57,10 @@ test('a student sends feedback without their name, and the ticket shows the page
   await dialog.getByRole('button', { name: 'שליחה' }).click();
   await expect(dialog.getByRole('alert')).toHaveText('כתבו כמה מילים');
 
-  const text = `לא ברור איפה רואים את הציון הסופי ${Date.now()}`;
+  // Pasting the page's address is the natural thing to do; the token in it is cut before it is stored.
+  const stamp = Date.now();
+  const text = `לא ברור איפה רואים את הציון הסופי ${stamp} ${page.url()}`;
+  const stored = `לא ברור איפה רואים את הציון הסופי ${stamp} ${page.url().replace(seed.student.token, '…')}`;
   await dialog.getByLabel('ספרו לנו במה מדובר').fill(text);
   await dialog.getByLabel('לשלוח בלי השם שלי').check();
   await expect(dialog.getByText('השם שלכם לא יצורף')).toBeVisible();
@@ -75,7 +78,7 @@ test('a student sends feedback without their name, and the ticket shows the page
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('button', { name: 'משוב' })).toBeFocused();
 
-  const ticket = await ticketWithText(page, text);
+  const ticket = await ticketWithText(page, stored);
   expect(ticket.source).toBe('student');
   expect(ticket.reporter_ref).toBeNull();
   expect(ticket.status).toBe('open');
@@ -150,6 +153,11 @@ test('the button fits a phone-width student page without pushing it sideways, an
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   const box = await button.boundingBox();
   expect(box && box.x >= 0 && box.x + box.width <= 375).toBe(true);
+  // The dialog's close button is a full touch target (Reed's N4 on #52).
+  await button.click();
+  const close = await page.getByRole('dialog').getByRole('button', { name: 'סגירה' }).boundingBox();
+  expect(close && close.width >= 44 && close.height >= 44).toBe(true);
+  await page.keyboard.press('Escape');
 
   await page.goto('/login');
   await expect(page.getByRole('button', { name: 'משוב' })).toHaveCount(0);

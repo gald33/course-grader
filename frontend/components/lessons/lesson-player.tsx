@@ -20,6 +20,7 @@ import {
   type ExperimentInput,
   type ExperimentsResult,
   type FinalInput,
+  type Inline,
   type LessonBackend,
   type LessonContent,
   type LessonPayload,
@@ -454,9 +455,11 @@ function writeHashStep(key: string) {
   window.history.replaceState(window.history.state, '', url);
 }
 
-function findAck(blocks: Block[], key: string): Extract<Block, { type: 'ack' }> | null {
+/** The block that declares an ack: an ack block, or a stepper's done_ack. */
+function findAck(blocks: Block[], key: string): { label: Inline } | null {
   for (const b of blocks) {
     if (b.type === 'ack' && b.key === key) return b;
+    if (b.type === 'agent_turn_stepper' && b.done_ack === key && b.done_label) return { label: b.done_label };
     if (b.type === 'section' || b.type === 'expander') {
       const inner = findAck(b.blocks, key);
       if (inner) return inner;

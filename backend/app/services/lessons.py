@@ -186,8 +186,10 @@ def ack_keys(content: dict) -> list[str]:
     keys: list[str] = []
     for step in content["steps"]:
         for block, _ in iter_blocks(step["blocks"]):
-            if block["type"] == "ack" and block["key"] not in keys:
-                keys.append(block["key"])
+            # A stepper's done_ack is an ack it records itself on its last frame.
+            key = block.get("key") if block["type"] == "ack" else block.get("done_ack") if block["type"] == "agent_turn_stepper" else None
+            if key and key not in keys:
+                keys.append(key)
     return keys
 
 

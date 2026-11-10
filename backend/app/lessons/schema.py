@@ -387,6 +387,10 @@ class AgentTurnStepperBlock(_Model):
     type: Literal["agent_turn_stepper"]
     caption: Inline | None = None
     frames: Annotated[list[TurnFrame], Field(min_length=3, max_length=10)]
+    # An ack the stepper records itself when the student reaches the last
+    # frame (it can't be ticked by hand). Declares the ack like an ack block.
+    done_ack: Key | None = None
+    done_label: Inline | None = None  # how the step's checklist names it; required with done_ack
 
 
 class ImageBlock(_Model):
@@ -974,6 +978,8 @@ def _check_widget(where: str, content: LessonContent, block: Any, assets_root: P
         if len({p.label for p in block.points}) < 2:
             errors.append(f"{where}: the points need both labels")
     elif isinstance(block, AgentTurnStepperBlock):
+        if (block.done_ack is None) != (block.done_label is None):
+            errors.append(f"{where}: done_ack and done_label go together")
         ids = [f.id for f in block.frames]
         for dup in dict.fromkeys(i for i in ids if ids.count(i) > 1):
             errors.append(f"{where}: duplicate frame id '{dup}'")
@@ -1057,6 +1063,11 @@ def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[s
     for step in steps:
         types_here: set[str] = set()
         for block, where in iter_blocks(step.blocks, f"steps.{step.key}"):
+            if isinstance(block, AgentTurnStepperBlock) and block.done_ack:
+                # The stepper records this ack itself on its last frame: it declares it.
+                if block.done_ack in ack_steps:
+                    errors.append(f"{where}: ack key '{block.done_ack}' is declared more than once")
+                ack_steps.setdefault(block.done_ack, step.key)
             types_here.add(block.type)
             if isinstance(block, QuestionBlock):
                 q = content.questions.get(block.question)

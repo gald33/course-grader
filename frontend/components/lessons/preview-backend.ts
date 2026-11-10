@@ -124,6 +124,8 @@ function ackKeys(content: LessonContent): string[] {
   const walk = (blocks: Block[]) => {
     for (const block of blocks) {
       if (block.type === 'ack' && !keys.includes(block.key)) keys.push(block.key);
+      // A stepper records its done_ack itself on its last frame.
+      if (block.type === 'agent_turn_stepper' && block.done_ack && !keys.includes(block.done_ack)) keys.push(block.done_ack);
       if (block.type === 'section' || block.type === 'expander') walk(block.blocks);
     }
   };

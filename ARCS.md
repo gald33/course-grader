@@ -40,6 +40,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `lesson-4-polish` — Lesson 4's turn stepper drops keyboard focus, its "walked the turn" mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length
 - `lesson-5-product-definition` — Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice
 - `lesson-6-skeleton` — Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run
+- `lesson-7-ai-api` — Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario
 - `lesson-complete-celebration` — Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page
 - `lesson-title-sync-on-install` — Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles
 - `lessons-one-page-per-lesson` — The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page

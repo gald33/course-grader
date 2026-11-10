@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>מאפייה – חילוץ הזמנה</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 1rem auto; padding: 0 1rem; line-height: 1.5; }
+    textarea { width: 100%; box-sizing: border-box; min-height: 5rem; font: inherit; }
+    button { font: inherit; padding: .4rem 1rem; }
+    button:disabled { opacity: .6; }
+    .badge { display: inline-block; background: #fff3cd; border: 1px solid #c9a227; padding: .1rem .5rem; border-radius: .3rem; }
+    .error { color: #a00; }
+    table { border-collapse: collapse; margin-top: .5rem; }
+    td, th { border: 1px solid #ccc; padding: .2rem .5rem; }
+    bdi { unicode-bidi: isolate; }
+  </style>
+</head>
+<body>
+  <h1>מאפייה – חילוץ הזמנה</h1>
+  <form id="form">
+    <label for="message">הודעת לקוח/ה (נתונים בדויים בלבד):</label>
+    <textarea id="message" required>מיכל: שלוש עוגיות למחר; שעת האיסוף עדיין לא סוכמה.</textarea>
+    <button id="send" type="submit">סכם</button>
+  </form>
+  <p id="status" role="status" aria-live="polite"></p>
+  <div id="result"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

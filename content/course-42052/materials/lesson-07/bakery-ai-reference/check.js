@@ -67,6 +67,10 @@ async function main() {
     check(`AI_FORCE_ERROR=${kind}: ${MAX_RETRIES} retries (waits ${waits.join(", ")} ms), then a clear error`,
       !failed.ok && failed.attempts === MAX_RETRIES + 1 && same(waits, [1000, 2000]) && !failed.order && failed.error.message.length > 0);
   }
+  process.env.AI_FORCE_ERROR = "quota";
+  const quotaWaits = [];
+  const quota = await extractOrder(M1, { sleep: async (ms) => quotaWaits.push(ms) });
+  check("AI_FORCE_ERROR=quota: a daily-quota 429 is not retried", !quota.ok && quota.attempts === 1 && quotaWaits.length === 0 && quota.error.kind === "quota_daily");
   delete process.env.AI_FORCE_ERROR;
 
   console.log(`${passed} of ${total} checks passed`);

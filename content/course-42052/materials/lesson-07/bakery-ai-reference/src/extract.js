@@ -35,6 +35,7 @@ class ServiceError extends Error {
 
 const MESSAGES = {
   rate_limit: "השירות עמוס או שהגעתם למגבלת הבקשות (429). חכו דקה ונסו שוב.",
+  quota_daily: "נגמרה המכסה היומית של הפרויקט (429). ניסיון חוזר לא יעזור היום – נסו מחר, או עבדו עם ההדגמה.",
   unavailable: "שירות ה-AI לא זמין כרגע. נסו שוב בעוד כמה דקות.",
   timeout: "שירות ה-AI לא ענה בזמן. נסו שוב.",
   config: "הבקשה נדחתה (מפתח, הרשאה או שם מודל). בדקו את ההגדרות ב-.env.",
@@ -45,9 +46,19 @@ const MESSAGES = {
 
 // מתג כשל מסומן (AI_FORCE_ERROR) – לבדיקה בלבד, עובד גם בהדגמה.
 function forcedError(kind) {
+  if (kind === "quota") return new ServiceError("quota_daily", 429, MESSAGES.quota_daily, false);
   if (kind === "429") return new ServiceError("rate_limit", 429, MESSAGES.rate_limit, true);
   if (kind === "503") return new ServiceError("unavailable", 503, MESSAGES.unavailable, true);
   return new ServiceError("timeout", null, MESSAGES.timeout, true);
+}
+
+// 429 של מכסה יומית: ניסיון חוזר בעוד שנייה לא יעזור, אז לא מנסים שוב.
+function isDailyQuota(err) {
+  let body = "";
+  try {
+    body = JSON.stringify(err.error ?? "");
+  } catch {}
+  return /per[_ ]?day|perday|daily|quota_exceeded/i.test(`${err.message} ${body}`);
 }
 
 function toServiceError(err) {
@@ -55,6 +66,7 @@ function toServiceError(err) {
   if (err && err.code === "ERR_MODULE_NOT_FOUND") return new ServiceError("no_sdk", null, MESSAGES.no_sdk, false);
   if (err instanceof SyntaxError) return new ServiceError("bad_output", null, MESSAGES.bad_output, false);
   const status = err && err.status;
+  if (status === 429 && isDailyQuota(err)) return new ServiceError("quota_daily", 429, MESSAGES.quota_daily, false);
   if (status === 429) return new ServiceError("rate_limit", 429, MESSAGES.rate_limit, true);
   if (status >= 500) return new ServiceError("unavailable", status, MESSAGES.unavailable, true);
   if (status >= 400) return new ServiceError("config", status, MESSAGES.config, false);
@@ -68,16 +80,35 @@ async function callOnce(s, message) {
   if (s.forceError) throw forcedError(s.forceError);
   if (s.mode === "mock") return mockExtract(message);
   const { GoogleGenAI } = await import("@google/genai"); // נטען רק במצב live
-  const client = new GoogleGenAI({ apiKey: s.key });
-  const interaction = await client.interactions.create(
-    {
-      model: s.model,
-      system_instruction: INSTRUCTIONS,
-      input: message,
-      response_format: { type: "text", mime_type: "application/json", schema: ORDER_SCHEMA },
-    },
-    { timeout: TIMEOUT_MS, maxRetries: 0 } // את הניסיונות החוזרים אנחנו סופרים כאן
-  );
+  // הגבול על מספר הבקשות נאכף כאן, בקוד שלנו: בכל ניסיון מותרת בקשת רשת אחת בלבד.
+  // אם הספרייה תנסה לשלוח בקשה שנייה בעצמה (ניסיון חוזר פנימי), היא תיעצר.
+  // אם זה קורה, מחזירים את הסטטוס של התשובה הראשונה, כדי שהקוד שלנו יחליט אם לנסות שוב.
+  let first = null;
+  let blocked = false;
+  const oneRequestOnly = async (url, init) => {
+    if (first) {
+      blocked = true;
+      throw new Error("blocked: one request per attempt");
+    }
+    const res = await fetch(url, init);
+    first = { status: res.status, text: res.ok ? "" : await res.clone().text() };
+    return res;
+  };
+  const client = new GoogleGenAI({ apiKey: s.key, httpOptions: { fetch: oneRequestOnly } });
+  const interaction = await client.interactions
+    .create(
+      {
+        model: s.model,
+        system_instruction: INSTRUCTIONS,
+        input: message,
+        response_format: { type: "text", mime_type: "application/json", schema: ORDER_SCHEMA },
+      },
+      { timeout: TIMEOUT_MS, maxRetries: 0 } // בלי ניסיונות חוזרים של הספרייה; את שלנו סופרים למטה
+    )
+    .catch((err) => {
+      if (blocked) throw Object.assign(new Error(first.text), { status: first.status, error: first.text });
+      throw err;
+    });
   return JSON.parse(interaction.output_text);
 }
 
@@ -107,4 +138,4 @@ async function extractOrder(message, { sleep = wait } = {}) {
   }
 }
 
-module.exports = { extractOrder, settings, MAX_RETRIES, INSTRUCTIONS };
+module.exports = { extractOrder, settings, MAX_RETRIES, INSTRUCTIONS, isDailyQuota };

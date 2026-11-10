@@ -254,6 +254,7 @@ def test_agent_prompts_plan_first_keep_the_key_out_and_ask_for_evidence(lesson):
         assert rule in check, rule
     fail = prompts["בקשה לסוכן: מתג כשל, ניסיון חוזר מוגבל ומצבי מסך"]["text"]
     for rule in ("AI_FORCE_ERROR", "לכל היותר 2 ניסיונות חוזרים", "על 400 ו-403 – בלי ניסיון חוזר", "כפתור השליחה נעול",
+                 "המכסה היומית – בלי ניסיון חוזר", "את מספר הניסיונות סופר הקוד שלנו",
                  "אף פעם לא תוצאה מזויפת", "אל תכתוב מספרי מגבלות בקוד"):
         assert rule in fail, rule
 
@@ -316,7 +317,11 @@ def test_the_reference_implementation_keeps_the_key_server_side():
         text = path.read_text(encoding="utf-8")
         for word in ("GEMINI", "genai", "API_KEY", "googleapis"):
             assert word not in text, (path.name, word)
-    assert "process.env.GEMINI_API_KEY" in (REFERENCE_SRC / "src" / "extract.js").read_text(encoding="utf-8")
+    extract = (REFERENCE_SRC / "src" / "extract.js").read_text(encoding="utf-8")
+    assert "process.env.GEMINI_API_KEY" in extract
+    # The retry cap is ours: one HTTP request per attempt, enforced by our own fetch, and no SDK retries.
+    assert "httpOptions: { fetch: oneRequestOnly }" in extract and "maxRetries: 0" in extract
+    assert '"@google/genai": "2.32.0"' in (REFERENCE_SRC / "package.json").read_text(encoding="utf-8")  # pinned: the version tested
     server = (REFERENCE_SRC / "server.js").read_text(encoding="utf-8")
     assert "s.key" not in server  # the start-up line names the mode and model, never the key
     app = (REFERENCE_SRC / "public" / "app.js").read_text(encoding="utf-8")
@@ -350,7 +355,7 @@ def test_the_reference_check_runs_offline_with_the_mock_and_prints_the_documente
     run = _run_check(folder)
     assert run.returncode == 0, run.stdout + run.stderr
     assert run.stdout.startswith("mode: mock (no network, no key)\n")
-    assert run.stdout.rstrip("\n").endswith("14 of 14 checks passed")
+    assert run.stdout.rstrip("\n").endswith("15 of 15 checks passed")
     assert f"```\n{run.stdout}```" in (folder / "README.md").read_text(encoding="utf-8")
 
     validate = folder / "src" / "validate.js"
@@ -358,4 +363,4 @@ def test_the_reference_check_runs_offline_with_the_mock_and_prints_the_documente
     broken = _run_check(folder)
     assert broken.returncode == 1
     assert "FAIL invalid-quantity: valid JSON with quantity -2 is rejected" in broken.stdout
-    assert "13 of 14 checks passed" in broken.stdout
+    assert "14 of 15 checks passed" in broken.stdout

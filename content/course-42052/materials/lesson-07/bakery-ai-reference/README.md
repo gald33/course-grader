@@ -54,13 +54,14 @@ PASS every mock answer is labelled
 PASS unknown message in mock: a clear error, no made-up order
 PASS AI_FORCE_ERROR=429: 2 retries (waits 1000, 2000 ms), then a clear error
 PASS AI_FORCE_ERROR=timeout: 2 retries (waits 1000, 2000 ms), then a clear error
-14 of 14 checks passed
+PASS AI_FORCE_ERROR=quota: a daily-quota 429 is not retried
+15 of 15 checks passed
 ```
 
 ## Structure
 
 - `server.js` – השרת: מגיש את הממשק ומקבל הודעה ב-`POST /api/order`.
-- `src/extract.js` – הקריאה האחת לשירות (רק בצד השרת), ניסיון חוזר מוגבל ומתג הכשל.
+- `src/extract.js` – הקריאה האחת לשירות (רק בצד השרת), ניסיון חוזר מוגבל ומתג הכשל. הקוד שלנו סופר את הניסיונות: בכל ניסיון מותרת בקשת רשת אחת, והספרייה לא מנסה שוב בעצמה.
 - `src/schema.js` – החוזה: הסכימה של הזמנה (`customer`, `items`, `quantity`, `pickup_time`, `needs_clarification`).
 - `src/validate.js` – בדיקת מה שחזר: מבנה וכללי עסק.
 - `src/mock.js` – הדגמה ללא מודל חי: תשובות קבועות להודעות הדוגמה בלבד.
@@ -71,7 +72,7 @@ PASS AI_FORCE_ERROR=timeout: 2 retries (waits 1000, 2000 ms), then a clear error
 ## Switches (.env)
 
 - `AI_MODE=mock` – תמיד הדגמה, גם כשיש מפתח.
-- `AI_FORCE_ERROR=429` (או `503`, `timeout`) – כשל מדומה, לבדיקה בלבד. מוחקים אחרי הבדיקה.
+- `AI_FORCE_ERROR=429` (או `503`, `timeout`, `quota`) – כשל מדומה, לבדיקה בלבד. `quota` מדמה מכסה יומית שנגמרה: בלי ניסיון חוזר. מוחקים אחרי הבדיקה.
 - `GEMINI_MODEL` – שם המודל. בדקו את הרשימה העדכנית בתיעוד של Google.
 
 ## Known limits

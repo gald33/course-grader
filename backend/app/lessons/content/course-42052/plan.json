@@ -370,7 +370,7 @@
         "text": "תכונת AI אחת מקצה לקצה + בדיקת פלט + תרחיש כשל"
       },
       "authored": {
-        "runnable": "Reference implementation (zip, sha256 in the lesson's assets) whose mock check (node check.js: 14 checks, no network, no key) runs in CI, and a .env.example download, built and tested here. The live Gemini API call follows Google's docs (checked 2026-11-04) and reached the API only with an invalid key, which it rejected as expected; it was not run with a real key, here or by the instructor. The agent steps in Google Antigravity were not run"
+        "runnable": "Reference implementation (zip, sha256 in the lesson's assets) whose mock check (node check.js: 15 checks, no network, no key) runs in CI, and a .env.example download, built and tested here. The live Gemini API call follows Google's docs (checked 2026-11-04) and reached the API only with an invalid key, which it rejected as expected; it was not run with a real key, here or by the instructor. The agent steps in Google Antigravity were not run"
       }
     },
     "lesson-08": {

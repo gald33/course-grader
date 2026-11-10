@@ -1,10 +1,8 @@
 id: lesson-4-stepper-prompt-shown
 title: Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it
-status: ready
+status: done
 priority: now
-claim:
-  by: claude/lesson-4-coding-agent
-  at: '2026-11-10T20:40:00Z'
+claim: null
 refs:
 - 'backend/app/lessons/content/course-42052/lesson-04.json'
 - 'backend/tests/unit/test_lesson_4_content.py'
@@ -33,3 +31,5 @@ evidence: |
   Done when: the e2e sees the message box, with node check.js, before frame
   1; a test fails if any step before E names AGENTS.md; backend (SQLite +
   PG), tsc and the full Playwright suite are green.
+
+  SHIPPED: #53, merged as 6027080.

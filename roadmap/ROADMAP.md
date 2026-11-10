@@ -35,8 +35,6 @@ _Nothing deferred._
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
-| `lesson-4-polish` | claude/lesson-4-coding-agent | 2026-11-10T19:50:00Z |
-| `lesson-4-stepper-prompt-shown` | claude/lesson-4-coding-agent | 2026-11-10T20:40:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
 | `notebooks-per-step` | claude/notebooks-per-step | 2026-11-03T19:35:00Z |
 | `lesson-complete-celebration` | claude/lesson-complete-celebration | 2026-11-03T00:00:00Z |
@@ -76,8 +74,8 @@ graph TD
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_4_harness_and_fixes["✓ Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order"]:::done
-  lesson_4_polish["Lesson 4's turn stepper drops keyboard focus, its 'walked the turn' mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length"]:::claimed
-  lesson_4_stepper_prompt_shown["Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it"]:::claimed
+  lesson_4_polish["✓ Lesson 4's turn stepper drops keyboard focus, its 'walked the turn' mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length"]:::done
+  lesson_4_stepper_prompt_shown["✓ Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
   lesson_6_skeleton["Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run"]:::verifying
   lesson_7_ai_api["Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario"]:::verifying
@@ -963,9 +961,8 @@ graph TD
 ### `lesson-4-polish`
 
 - **title:** Lesson 4's turn stepper drops keyboard focus, its "walked the turn" mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T19:50:00Z)
 - **blocked on:** `lesson-4-harness-and-fixes`
 - **refs:**
   - `frontend/components/lessons/widgets.tsx`
@@ -1007,15 +1004,16 @@ graph TD
 > ack appears only on the last frame; the loop has one required action
 > (tested); backend (SQLite + PG), tsc and the full Playwright suite are
 > green.
+>
+> SHIPPED: #51, merged as ab079da.
 
 </details>
 
 ### `lesson-4-stepper-prompt-shown`
 
 - **title:** Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it
-- **status:** claimed
+- **status:** done
 - **priority:** now
-- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T20:40:00Z)
 - **refs:**
   - `backend/app/lessons/content/course-42052/lesson-04.json`
   - `backend/tests/unit/test_lesson_4_content.py`
@@ -1046,6 +1044,8 @@ graph TD
 > Done when: the e2e sees the message box, with node check.js, before frame
 > 1; a test fails if any step before E names AGENTS.md; backend (SQLite +
 > PG), tsc and the full Playwright suite are green.
+>
+> SHIPPED: #53, merged as 6027080.
 
 </details>
 

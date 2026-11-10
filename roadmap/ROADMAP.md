@@ -28,6 +28,7 @@ _Nothing deferred._
 
 | item | held by | since |
 |---|---|---|
+| `class-insights-update-live` | claude/practical-ride-d2lxpj | 2026-11-04T00:00:00Z |
 | `exit-check-no-chatbot` | claude/exit-check-no-chatbot | 2026-11-03T19:00:00Z |
 | `exit-checks-concrete` | claude/exit-checks-concrete | 2026-11-03T21:00:00Z |
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
@@ -55,6 +56,7 @@ graph TD
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
   assignments_need_custom_rubrics["✓ Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::done
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
+  class_insights_update_live["Class insights only refresh by hand or on an opt-in 30-second timer"]:::claimed
   colab_block_collapse["A Colab lesson block shows only its step line and one open action; the how-to and alternatives fold into 'עזרה וחלופות'"]:::ready
   course_42052_whole_syllabus["✓ The 42052 course exists only as one guided lesson; the other 12 sessions, the schedule and readiness are missing, and lesson 2's answer keys sit in a public repository"]:::done
   courses_and_submissions_cannot_be_deleted["✓ Courses, assignments and submissions can't be deleted or archived"]:::done
@@ -189,6 +191,48 @@ graph TD
 > SUPERSEDED 2026-10-21: the operator asked for the rebuild now. Phase 1 is
 > assignments-need-custom-rubrics (#26); phase 2 is
 > suggest-rubrics-per-assignment-from-clusters (deferred).
+
+</details>
+
+### `class-insights-update-live`
+
+- **title:** Class insights only refresh by hand or on an opt-in 30-second timer
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/practical-ride-d2lxpj (since 2026-11-04T00:00:00Z)
+- **refs:**
+  - `frontend/components/lessons/instructor-lessons.tsx`
+  - `backend/app/services/lessons.py`
+  - `backend/app/api/lessons.py`
+  - `backend/tests/unit/test_lessons.py`
+  - `frontend/e2e/insights-live.spec.ts`
+
+<details><summary>evidence</summary>
+
+> The operator, 2026-11-04: "I want the insights to update live".
+>
+> VERIFIED at defbde8. InsightsPanel (frontend/components/lessons/
+> instructor-lessons.tsx) loads once, and refreshes only on "↻ Refresh" or
+> an opt-in "Refresh every 30 s" checkbox, off by default
+> (AUTO_REFRESH_MS = 30_000). The insights endpoint recomputes everything on
+> each call (services/lessons.py insights(): every enrollment's progress,
+> attempts, experiments and commitments, plus every free-text answer in the
+> payload), so polling it every few seconds would cost a full computation
+> per tick for each instructor tab, busy or not. The student drawer fetches
+> once when opened and never again.
+>
+> Done when: the insights update on their own while the page is open and
+> visible, on by default, with a Live / Paused toggle; the page asks a
+> cheap stamp (GET …/lessons/{id}/insights/stamp, aggregates only) every few
+> seconds and refetches the insights only when it moves, at most every 10 s
+> while the class is busy; a hidden tab asks nothing and checks again when
+> shown; a failing check backs off and says so; an open student drawer
+> refreshes in place; the stamp moves on every write the insights show
+> (progress and drafts, answers, review flags, experiments, commitments,
+> withdrawals, answer keys) and not on reads or on another course's
+> activity (backend test); and a browser test shows a student's step
+> reaching an open insights page without a reload, and a paused page
+> asking nothing.
 
 </details>
 

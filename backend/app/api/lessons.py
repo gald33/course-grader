@@ -137,6 +137,12 @@ def insights(course_id: int, lesson_id: int, include_test: bool = False, db: Ses
     return svc.insights(db, _lesson(db, course_id, lesson_id), include_test)
 
 
+@router.get("/{lesson_id}/insights/stamp")
+def insights_stamp(course_id: int, lesson_id: int, db: Session = Depends(get_db)) -> dict:
+    """Cheap to ask every few seconds: changes only when the insights would."""
+    return {"stamp": svc.insights_stamp(db, _lesson(db, course_id, lesson_id))}
+
+
 @router.get("/{lesson_id}/students/{student_id}")
 def student_detail(course_id: int, lesson_id: int, student_id: int, db: Session = Depends(get_db)) -> dict:
     lesson = _lesson(db, course_id, lesson_id)

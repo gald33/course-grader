@@ -34,6 +34,8 @@ _Nothing deferred._
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
+| `notebooks-per-step` | claude/notebooks-per-step | 2026-11-03T19:35:00Z |
+| `lesson-complete-celebration` | claude/lesson-complete-celebration | 2026-11-03T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
 
@@ -68,10 +70,13 @@ graph TD
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
+  lesson_6_skeleton["Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run"]:::verifying
   lesson_7_ai_api["Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario"]:::verifying
+  lesson_complete_celebration["Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page"]:::claimed
   lesson_title_sync_on_install["Re-importing a lesson fixture never updates the lesson's title, so live course 3 still shows the old titles"]:::claimed
   lessons_one_page_per_lesson["The instructor's Lessons section stacks every lesson's full card, the course plan's readiness table and the answer keys on one page"]:::verifying
   no_button_to_recheck_site_links["✓ Add a 're-check all links' button for a round"]:::done
+  notebooks_per_step["Each lesson-3 part sends every Colab step to one long notebook, and a Colab step has no one-click link to its notebook"]:::claimed
   onboarding_guide_has_todo_sections["✓ ONBOARDING.md still has _TODO_ under Team Tips and Get Started"]:::done
   peer_round_scores_never_reach_the_gradebook["✓ Peer-review round scores have to be copied into the gradebook by hand"]:::done
   project_bonus_has_no_editor["✓ The per-student project bonus can't be edited directly"]:::done
@@ -90,7 +95,10 @@ graph TD
   lesson_3_how_language_models_work --> lesson_3_part_b_deeper
   course_42052_whole_syllabus --> lesson_4_coding_agent
   lesson_4_coding_agent --> lesson_5_product_definition
+  lesson_5_product_definition --> lesson_6_skeleton
   lesson_5_product_definition --> lesson_7_ai_api
+  lesson_6_skeleton --> lesson_7_ai_api
+  exit_check_no_chatbot --> notebooks_per_step
   assignments_need_custom_rubrics --> suggest_rubrics_per_assignment_from_clusters
   peer_round_scores_never_reach_the_gradebook -.- project_bonus_has_no_editor
   roster_cannot_be_edited_per_student -.- team_formation_closes_at_a_deadline
@@ -305,6 +313,7 @@ graph TD
 - **status:** claimed
 - **priority:** now
 - **claimed by:** claude/exit-check-no-chatbot (since 2026-11-03T19:00:00Z)
+- **blocks:** `notebooks-per-step`
 - **refs:**
   - `content/course-42052/lessons/`
   - `backend/app/lessons/content/course-42052/`
@@ -795,7 +804,7 @@ graph TD
 - **priority:** next
 - **claimed by:** claude/lesson-5-product-definition (since 2026-11-03T18:00:00Z)
 - **blocked on:** `lesson-4-coding-agent`
-- **blocks:** `lesson-7-ai-api`
+- **blocks:** `lesson-6-skeleton`, `lesson-7-ai-api`
 - **refs:**
   - `content/course-42052/lessons/lesson-05.json`
   - `content/course-42052/sources/syllabus-2.txt`
@@ -856,13 +865,80 @@ graph TD
 
 </details>
 
+### `lesson-6-skeleton`
+
+- **title:** Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run
+- **status:** verifying
+- **priority:** next
+- **claimed by:** claude/lesson-6-skeleton (since 2026-11-03T20:00:00Z)
+- **blocked on:** `lesson-5-product-definition`
+- **blocks:** `lesson-7-ai-api`
+- **refs:**
+  - `content/course-42052/lessons/lesson-06.json`
+  - `content/course-42052/sources/syllabus-2.txt`
+  - `content/course-42052/materials/lesson-06/`
+  - `backend/app/lessons/course_plan.py`
+  - `backend/app/lessons/content/course-42052/lesson-06.json`
+  - `frontend/public/lessons/lesson-06/v1/`
+
+<details><summary>evidence</summary>
+
+> Dispatch (Marshal), 2026-11-03: build lesson 6 from its seed like lessons
+> 4 and 5, as a team activity, on top of lesson 4 (Antigravity, AGENTS.md,
+> commits) and lesson 5 (SPEC.md, MVP, architecture map). Operator rules of
+> the day apply: no chatbot task without a stated purpose, teach on the
+> page, no concept before it is explained, one required action per step,
+> no Colab. No migration.
+>
+> VERIFIED at c5ca5c5. The plan generates lesson-06 from its seed: four
+> steps (slice / version / run / wrap-up), one paragraph each of
+> explanation and action and one check. The syllabus (lesson 6, Sprint 1)
+> asks for scaffolding with the agent, project structure, running locally,
+> and version control (git/GitHub) through the agent.
+>
+> This item: lesson 6 authored in the repository (the plan build leaves an
+> authored fixture alone). There are five steps:
+> (A) skeleton, vertical slice and stub defined; the agent reads SPEC.md
+> and AGENTS.md, plans first and scaffolds the one MVP action end to end,
+> with the AI step a stub labelled "הדגמה ללא מודל חי" (no live API until
+> lesson 7); the team compares the output with SPEC.md's expected answer.
+> (B) folders, entry file, dependency file and run command, explained on
+> the page; each member writes one line per folder into README.
+> (C) GitHub, remote, push, pull and clone; pull before push; a conflict
+> example and an agent prompt that resolves it together, reading the diff;
+> GitHub sign-in by `gh auth login` (HTTPS), with GitHub Desktop as the
+> alternative; every GitHub/Antigravity step cites the docs checked on
+> 2026-11-03 (Antigravity's docs have no GitHub page; its sandbox and
+> permissions pages say git push runs outside the sandbox with approval);
+> GitHub Education is mentioned only as an option.
+> (D) README sections (prerequisites, install, run, test, known limits);
+> a teammate who did not set it up runs it from a fresh clone using only
+> the README.
+> (E) the seed's worked example, exit check and work product.
+> There are two downloads with their sha256 in the assets: a README template
+> and a one-page team git routine. There is no chatbot task; every prompt is
+> a request to the agent. The seed's checks l06-q1..q3 and the exit check are
+> kept verbatim (tested), and five formative checks are added. Answer keys
+> are not in the repository (tested). The homework stays a proposal in the
+> readiness table ("שלד עובד + README + קישור למאגר"; no deadline, weight
+> or route).
+>
+> Done when: lesson 6 previews end to end at 390 and 1280 by keyboard; the
+> templates download (sha256 tested); seed checks are verbatim and no keys
+> are in the repository (tested); backend SQLite+PG, tsc and the full
+> Playwright suite are green. Not in this item: a real Antigravity
+> scaffold, a GitHub round with real accounts, the instructor's review,
+> and a homework brief or route.
+
+</details>
+
 ### `lesson-7-ai-api`
 
 - **title:** Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario
 - **status:** verifying
 - **priority:** next
 - **claimed by:** claude/lesson-7-ai-api (since 2026-11-04T12:00:00Z)
-- **blocked on:** `lesson-5-product-definition`
+- **blocked on:** `lesson-5-product-definition`, `lesson-6-skeleton`
 - **refs:**
   - `content/course-42052/lessons/lesson-07.json`
   - `content/course-42052/sources/syllabus-2.txt`
@@ -928,6 +1004,51 @@ graph TD
 > Postgres; tsc and the full Playwright suite are green. Not in this item: a
 > live call with a real key, the Antigravity steps run for real, the
 > instructor's review and live check, and a homework brief or route.
+
+</details>
+
+### `lesson-complete-celebration`
+
+- **title:** Finishing a lesson gets a short celebration and a clear way back to the lessons and the course page
+- **status:** claimed
+- **priority:** next
+- **claimed by:** claude/lesson-complete-celebration (since 2026-11-03T00:00:00Z)
+- **refs:**
+  - `frontend/components/lessons/celebration.tsx`
+  - `frontend/components/lessons/lesson-player.tsx`
+  - `frontend/app/r/[token]/lessons/[slug]/page.tsx`
+  - `frontend/app/course/[id]/lessons/[lessonId]/preview/page.tsx`
+  - `frontend/app/globals.css`
+  - `frontend/e2e/lesson.spec.ts`
+  - `frontend/e2e/lesson-complete.spec.ts`
+
+<details><summary>evidence</summary>
+
+> The operator, 2026-11-03: "give some kind of visual prize when clicking
+> to complete the lesson and go back to the main lesson page or main page".
+>
+> Before: completing the last required step only showed a one-line text
+> banner in the lesson header (lesson-player.tsx, "✓ השלמת את כל שלבי
+> החובה"); the only way back was the small links at the top of the page.
+> `completed_at` is set by the server (or the preview backend) the first
+> time every required step is done, and is never unset.
+>
+> Done when:
+>   1. The first time completed_at goes from unset to set during a visit,
+>      a dialog shows: "כל הכבוד! סיימתם את שיעור N – <title>", steps done
+>      and questions answered (no grade, no points), a CSS-only confetti
+>      burst (≤ 2 s, no sound, no library), and links to the lesson list,
+>      the course page, and the next published lesson when there is one.
+>      Opening an already-completed lesson shows no dialog.
+>   2. × or Esc closes it and leaves the student on the lesson; focus moves
+>      into it and is trapped; role=dialog with aria-labelledby.
+>   3. prefers-reduced-motion: no confetti element, a static badge.
+>   4. The lesson header keeps a "✓ השיעור הושלם" badge, and the completion
+>      banner carries the two return links. The lessons list already marks
+>      completed lessons ("✓ כל שלבי החובה הושלמו").
+>   5. The instructor preview shows it too (next = next lesson in course
+>      order with a version), saving nothing.
+>   6. No backend change; what counts as completed is unchanged.
 
 </details>
 
@@ -1035,6 +1156,50 @@ graph TD
 > status updates.
 >
 > SHIPPED: #10, merged as d0d18fa and deployed 2026-10-20 (Vercel green, health 200).
+
+</details>
+
+### `notebooks-per-step`
+
+- **title:** Each lesson-3 part sends every Colab step to one long notebook, and a Colab step has no one-click link to its notebook
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/notebooks-per-step (since 2026-11-03T19:35:00Z)
+- **blocked on:** `exit-check-no-chatbot`
+- **refs:**
+  - `backend/scripts/build_step_notebooks.py`
+  - `frontend/public/lessons/lesson-03/v3/`
+  - `frontend/public/lessons/lesson-03-deeper/v3/`
+  - `frontend/components/lessons/blocks.tsx`
+  - `backend/app/lessons/schema.py`
+  - `backend/app/lessons/course_plan.py`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-03: "each note book should only cover what we show in
+> that part of the lesson, not the whole lesson, unless it's necessary, and
+> then mark clearly on the notebook from where to where is relevant for our
+> part". VERIFIED at 68e45be: lesson-03 and lesson-03-deeper each point all
+> their Colab steps at one notebook (v2), the "open in Colab" button appears
+> only when an instructor link is set, and lesson 1's notebook is a bare
+> download.
+>
+> This item: one small notebook per Colab step (Part 1: neuron, network,
+> embeddings; Part 2: tokens, next-token, attention, grounding), sliced from
+> v2 by a committed script, each with its own setup, executed clean on CPU
+> at v3/. Every step needed its own notebook; no combined notebook, so no
+> banner markers. Lesson 1's handoff notebook spans the whole lesson (Reed's
+> #46 B1), so step B gets its own notebook at v2/ with only the calculator
+> sections (3-6 and the optional check, 8), and a Colab block. Each Colab button opens the step's own
+> notebook from the public repository (main), unless the instructor set a
+> lesson-level link (which overrides, and the instructor page says so); a
+> test checks every such path exists; that button is the primary action of
+> colab-block-collapse's layout. Add-on (Reed's #43 N1): an optional `lead`
+> on colab blocks, shown above the button, says what to do in this notebook
+> for this step; every colab block in lessons 1, 2 and 3 has one, and
+> step-specific lines moved out of the collapsed help into it. Lesson 2's
+> content changes only by its two leads (a new draft when installed; the
+> published version is untouched).
 
 </details>
 

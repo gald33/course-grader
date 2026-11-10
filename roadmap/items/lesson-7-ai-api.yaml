@@ -7,6 +7,7 @@ claim:
   at: '2026-11-04T12:00:00Z'
 blocked_on:
 - lesson-5-product-definition
+- lesson-6-skeleton
 refs:
 - 'content/course-42052/lessons/lesson-07.json'
 - 'content/course-42052/sources/syllabus-2.txt'

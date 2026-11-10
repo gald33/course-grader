@@ -10,10 +10,10 @@ import { loadSeed, type Seed } from './seed';
  * private: last option "right", first "wrong", texts say FAKE; see fake_keys
  * in backend/scripts/seed_e2e.py). Here: the instructor's readiness table
  * keeps its five states apart, a draft lesson previews in Hebrew RTL on a
- * desktop and a phone, and students can't reach any of the drafts. Lessons 3,
- * 4, 5 and 7 are authored in the repository and have their own walkthroughs
- * (lesson-3.spec.ts, lesson-4.spec.ts, lesson-5.spec.ts, lesson-7.spec.ts); the
- * generated drafts are represented here by lesson 8. */
+ * desktop and a phone, and students can't reach any of the drafts. Lessons 3
+ * to 7 are authored in the repository and have their own walkthroughs
+ * (lesson-3.spec.ts ... lesson-7.spec.ts); the generated drafts are
+ * represented here by lesson 8. */
 
 let seed: Seed;
 test.beforeAll(() => {
@@ -72,7 +72,7 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await expect(row(2)).toContainText(`also the existing lesson ${seed.lesson.slug}`);
 
   // Drafted, but not published or verified; the seed's FAKE keys are loaded.
-  // Lessons 3, 4, 5 and 7 were built here (notebook, starter check, SPEC template, reference check); a generated lesson was not.
+  // Lessons 3 to 7 were built here (notebook, starter check, templates, reference check); a generated lesson was not.
   const three = row(3);
   await expect(three).toContainText('✓ v1');
   await expect(three).toContainText('built here, not reviewed');
@@ -81,20 +81,21 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await expect(row(4)).toContainText('8/8 loaded');
   await expect(row(5)).toContainText('built here, not reviewed');
   await expect(row(5)).toContainText('7/7 loaded');
-  await expect(row(6)).toContainText('not built');
-  await expect(row(6)).toContainText('3/3 loaded');
+  await expect(row(6)).toContainText('built here, not reviewed');
+  await expect(row(6)).toContainText('8/8 loaded');
   await expect(row(7)).toContainText('built here, not reviewed');
   await expect(row(7)).toContainText('9/9 loaded');
   await expect(row(8)).toContainText('not built');
   await expect(row(8)).toContainText('3/3 loaded');
   // Their homework stays a proposal, visible to the instructor only.
-  for (const session of [3, 4, 5, 7]) {
+  for (const session of [3, 4, 5, 6, 7]) {
     const proposal = page.getByTestId(`homework-proposal-${session}`);
     await expect(proposal).toContainText('proposal not yet assigned');
     await expect(proposal).toContainText('no deadline or weight');
   }
   await expect(page.getByTestId('homework-proposal-4')).toContainText('Antigravity');
   await expect(page.getByTestId('homework-proposal-5')).toContainText('הצעת פרויקט + SPEC.md (לפי התבנית)');
+  await expect(page.getByTestId('homework-proposal-6')).toContainText('שלד עובד + README + קישור למאגר');
   await expect(page.getByTestId('homework-proposal-7')).toContainText('תכונת AI אחת מקצה לקצה + בדיקת פלט + תרחיש כשל');
   await expect(three.getByRole('checkbox', { name: 'Session 3 reviewed' })).not.toBeChecked();
   await expect(three.getByRole('checkbox', { name: 'Session 3 live verified' })).not.toBeChecked();

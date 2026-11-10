@@ -43,12 +43,13 @@ def _choice_keys(fixture_key: str) -> list[str]:
     return [k for k, q in load_fixture(fixture_key)["questions"].items() if q["type"] == "single_choice"]
 
 
-# Lessons 3, 4, 5 and 7 are authored in the repository (more checks than their seeds' three).
+# Lessons 3, 4, 5, 6 and 7 are authored in the repository (more checks than their seeds' three).
 L03_CHECKS = _choice_keys("42052-lesson-03")
 # Session 3 part 2 holds the seed's l03-q1 (the example question several tests use).
 D03_CHECKS = _choice_keys("42052-lesson-03-deeper")
 L04_CHECKS = _choice_keys("42052-lesson-04")
 L05_CHECKS = _choice_keys("42052-lesson-05")
+L06_CHECKS = _choice_keys("42052-lesson-06")
 L07_CHECKS = _choice_keys("42052-lesson-07")
 
 
@@ -207,7 +208,8 @@ def test_import_plan_installs_13_drafts_and_publishes_nothing(penv):
     assert four["state"] == "built_not_reviewed" and "not run in Antigravity" in four["note"]
     five = sessions[4]["readiness"]["runnable"]  # lesson 5: authored here (template + self-check)
     assert five["state"] == "built_not_reviewed" and "not run" in five["note"]
-    assert sessions[5]["readiness"]["runnable"]["state"] == "not_built"
+    six = sessions[5]["readiness"]["runnable"]  # lesson 6: authored here (templates)
+    assert six["state"] == "built_not_reviewed" and "not run" in six["note"]
     seven = sessions[6]["readiness"]["runnable"]  # lesson 7: authored here (reference implementation, mock check)
     assert seven["state"] == "built_not_reviewed" and "not run with a real key" in seven["note"]
     assert sessions[7]["readiness"]["runnable"]["state"] == "not_built"
@@ -322,7 +324,7 @@ def test_the_whole_plan_file_loads_13_lessons_and_every_check(penv):
     _import(env, course)
     data = fake_key_file(INSTALLED_KEYS)
     total = sum(len(_choice_keys(k)) for k in INSTALLED_KEYS)  # three per generated lesson, more in an authored one
-    assert total == 27 + len(L03_CHECKS) + len(_choice_keys("42052-lesson-03-deeper")) + len(L04_CHECKS) + len(L05_CHECKS) + len(L07_CHECKS)
+    assert total == 24 + len(L03_CHECKS) + len(_choice_keys("42052-lesson-03-deeper")) + len(L04_CHECKS) + len(L05_CHECKS) + len(L06_CHECKS) + len(L07_CHECKS)
     assert sum(len(v) for v in data["lessons"].values()) == total and len(data["lessons"]) == 14
     result = _ok(_upload(env, course, data))
     assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (total, total, [], "set")

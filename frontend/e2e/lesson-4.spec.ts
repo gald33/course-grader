@@ -154,6 +154,14 @@ for (const device of [
     const live = stepper.getByTestId('turn-live');
     await expect(live).toHaveAttribute('aria-live', 'polite');
     await expect(live).toContainText('צעד 1 מתוך 5');
+    // The full message the turn answers is on screen before frame 1, above the stepper.
+    const message = page.getByRole('note', { name: 'ההודעה שנשלחת לסוכן בהמחשה:' });
+    await expect(message).toBeVisible();
+    await expect(message).toContainText('node check.js');
+    await expect(message).toContainText('קודם הצג תוכנית ועצור');
+    const [boxTop, stepperTop] = await Promise.all([message.boundingBox(), stepper.boundingBox()]);
+    expect(boxTop!.y).toBeLessThan(stepperTop!.y);
+    await expect(player).not.toContainText('AGENTS.md'); // taught in step E, not here
     const nextBtn = stepper.getByRole('button', { name: /^הבא/ });
     const frameTitle = stepper.getByTestId('turn-frame-title');
     const walked = stepper.getByTestId('turn-walked');

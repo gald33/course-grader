@@ -1,0 +1,35 @@
+id: lesson-4-stepper-prompt-shown
+title: Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it
+status: ready
+priority: now
+claim:
+  by: claude/lesson-4-coding-agent
+  at: '2026-11-10T20:40:00Z'
+refs:
+- 'backend/app/lessons/content/course-42052/lesson-04.json'
+- 'backend/tests/unit/test_lesson_4_content.py'
+- 'frontend/e2e/lesson-4.spec.ts'
+evidence: |
+  Operator, 2026-11-10 (verbatim): "בהדגמה הראשונה, התשובות מתייחסות
+  לפרומפט שכולל את ההנחיות של המשתמש לאיך לעבוד (למשל להריץ בדיקה),
+  אבל עדיין לא הוצג הפרומפט בשלב הזה".
+
+  VERIFIED at 5d6fd29 (main, with #50 and #51):
+  - Frame f1 of step A's agent_turn_stepper shows the user's message as
+    «הוסף הודעת אישור… קודם הצג תוכנית.».
+  - f4's reveal says «בהודעה ביקשתם להריץ את הבדיקה», an instruction the
+    student never saw.
+  - f1 and f2's context list «קובץ ההוראות (AGENTS.md), אם יש בתיקייה», and
+    step A's context-assembly item defines AGENTS.md, although the file is
+    taught in step E.
+
+  This item:
+  - The full message is in a labelled box above the stepper («ההודעה שנשלחת
+    לסוכן בהמחשה:»), and f1's context quotes it word for word.
+  - f2's and f4's reveals quote the part of the message they rely on.
+  - Step A no longer names AGENTS.md; the instructions file is defined in
+    step E.
+
+  Done when: the e2e sees the message box, with node check.js, before frame
+  1; a test fails if any step before E names AGENTS.md; backend (SQLite +
+  PG), tsc and the full Playwright suite are green.

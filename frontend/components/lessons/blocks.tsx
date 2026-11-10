@@ -117,7 +117,7 @@ function BlockView({ block, api }: { block: Block; api: LessonApi }) {
     case 'architecture_map':
       return <ArchitectureMap block={block} />;
     case 'agent_turn_stepper':
-      return <AgentTurnStepper block={block} />;
+      return <AgentTurnStepper block={block} api={api} />;
     default:
       return null;
   }

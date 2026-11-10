@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from app.lessons import ASSETS_ROOT, assets_root, course_plan, load_fixture, load_plan, validate_content
+from app.lessons.schema import ContentError
 
 BACKEND = Path(__file__).resolve().parents[2]
 REPO = BACKEND.parent
@@ -420,3 +421,48 @@ def test_the_windows_sandbox_needs_both_conditions_wherever_it_is_mentioned(less
     for step in ("harness", "agent"):
         assert WINDOWS_SANDBOX in json.dumps(next(s for s in lesson["steps"] if s["key"] == step), ensure_ascii=False)
     assert "שלפני [[24H2]]" not in text and "ישן יותר" not in text
+
+
+def test_the_stepper_records_its_ack_on_the_last_frame_only(lesson):
+    """Review N4: "walked the whole turn" isn't a checkbox a student can tick
+    early; the stepper declares the ack and records it on its last frame."""
+    from app.services.lessons import ack_keys
+
+    harness = lesson["steps"][0]
+    stepper = next(b for b in _all_blocks(harness["blocks"]) if b["type"] == "agent_turn_stepper")
+    assert stepper["done_ack"] == "turn_walked" and stepper["done_label"]  # the checklist names it
+    assert not [b for b in _all_blocks(harness["blocks"]) if b["type"] == "ack" and b["key"] == "turn_walked"]
+    assert {"type": "ack", "key": "turn_walked"} in harness["completion"]
+    assert "turn_walked" in ack_keys(lesson)  # the progress API accepts it
+
+
+def test_a_stepper_ack_is_declared_once(lesson):
+    bad = json.loads(json.dumps(lesson))
+    try_blocks = next(b for b in bad["steps"][0]["blocks"] if b.get("label") == "try")["blocks"]
+    try_blocks.append({"type": "ack", "key": "turn_walked", "label": "שוב"})
+    with pytest.raises(ContentError) as err:
+        validate_content(bad, assets_root())
+    assert "ack key 'turn_walked' is declared more than once" in str(err.value)
+
+
+def test_the_loop_has_one_required_action_and_a_closing_commit(lesson):
+    """Review N3: one flow sentence (expected result → change → diff → check),
+    then the commit as the single closing line; nothing else is required."""
+    loop = next(s for s in lesson["steps"] if s["key"] == "loop")
+    action = next(b for b in loop["blocks"] if b.get("label") == "try")["blocks"][0]["body"]
+    assert len(action) == 2
+    flow, closing = action
+    assert flow.startswith("**הפעולה:** כתבו את התוצאה הצפויה ←") and flow.count("←") == 3
+    assert "[[diff]]" in flow and flow.rstrip(".").endswith("הריצו את הבדיקה")
+    assert closing.startswith("**ולסיום (חובה):**") and "[[commit]]" in closing
+    text = json.dumps(loop, ensure_ascii=False)
+    assert text.count("(חובה)") == 1 and text.count("**הפעולה:**") == 1
+
+
+def test_a_stepper_ack_needs_its_checklist_label(lesson):
+    bad = json.loads(json.dumps(lesson))
+    stepper = next(b for b in _all_blocks(bad["steps"][0]["blocks"]) if b["type"] == "agent_turn_stepper")
+    del stepper["done_label"]
+    with pytest.raises(ContentError) as err:
+        validate_content(bad, assets_root())
+    assert "done_ack and done_label go together" in str(err.value)

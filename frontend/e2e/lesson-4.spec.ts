@@ -155,37 +155,53 @@ for (const device of [
     await expect(live).toHaveAttribute('aria-live', 'polite');
     await expect(live).toContainText('צעד 1 מתוך 5');
     const nextBtn = stepper.getByRole('button', { name: /^הבא/ });
+    const frameTitle = stepper.getByTestId('turn-frame-title');
+    const walked = stepper.getByTestId('turn-walked');
+    // Focus is never dropped to <body> when a control disables itself or unmounts.
+    const notOnBody = async (when: string) =>
+      expect(await page.evaluate(() => document.activeElement?.tagName), when).not.toBe('BODY');
+    // Enter the widget once; from here on, the keyboard only.
+    await nextBtn.focus();
     for (let frame = 2; frame <= 5; frame++) {
-      // Next by keyboard: Tab-reached button + Enter (frame 2), the arrow key after.
-      if (frame === 2) {
-        await nextBtn.focus();
-        await page.keyboard.press('Enter');
-      } else {
-        await nextBtn.focus();
-        await page.keyboard.press('ArrowLeft'); // RTL: left is forward
-      }
+      // Next: Enter on «הבא» for the first, then the arrow key from the frame heading (RTL: left is next).
+      await page.keyboard.press(frame === 2 ? 'Enter' : 'ArrowLeft');
       const predict = stepper.getByTestId('turn-predict');
       await expect(predict).toBeVisible();
       await expect(live).toContainText(`לפני צעד ${frame}`);
+      const first = predict.getByRole('radio').first();
+      await expect(first).toBeFocused(); // «הבא» disabled itself: focus moved to the first choice
       const reveal = stepper.getByRole('button', { name: 'גלו מה קורה' });
       await expect(reveal).toBeDisabled(); // a prediction first
-      await predict.getByRole('radio').first().focus();
       await page.keyboard.press('Space');
-      await reveal.focus();
+      await expect(first).toBeChecked();
+      await page.keyboard.press('Tab');
+      await expect(reveal).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(live).toContainText(`צעד ${frame} מתוך 5`);
+      await expect(frameTitle).toBeFocused(); // the reveal button unmounted: focus is on the new frame's heading
+      await notOnBody(`after the reveal of frame ${frame}`);
       await expect(stepper.getByTestId('turn-reveal')).toContainText('מה קורה בפועל');
+      // The step's "walked the turn" mark comes only from the last frame.
+      if (frame < 5) await expect(walked).not.toContainText('✓');
     }
     await expect(stepper.getByTestId('turn-done')).toBeVisible();
     await expect(nextBtn).toBeDisabled();
-    // Back with the other arrow, and the context list opens.
-    await stepper.getByRole('button', { name: /הקודם$/ }).focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(live).toContainText('צעד 4 מתוך 5');
+    await expect(walked).toContainText('✓ עברתם על כל ההמחשה');
+    await expect(checklist(page)).toContainText('לסמן: לעבור על כל ההמחשה, עד הצעד האחרון');
+    // Back with the other arrow, all the way to the first frame: «הקודם» disables itself there.
+    for (const frame of [4, 3, 2, 1]) {
+      await page.keyboard.press('ArrowRight');
+      await expect(live).toContainText(`צעד ${frame} מתוך 5`);
+      await notOnBody(`after going back to frame ${frame}`);
+    }
+    await expect(stepper.getByRole('button', { name: /הקודם$/ })).toBeDisabled();
+    await expect(frameTitle).toBeFocused();
+    await expect(walked).toContainText('✓'); // going back keeps the mark
     await stepper.getByText(/^מה בהקשר/).click();
     await expect(stepper.getByTestId('turn-frame').locator('li').first()).toBeVisible();
     await expectNoSidewaysScroll(page, 'step A');
-    await page.getByRole('checkbox', { name: /עברתי על כל ההמחשה/ }).check();
+    // No hand-ticked checkbox for it.
+    await expect(page.getByRole('checkbox', { name: /עברתי על כל ההמחשה/ })).toHaveCount(0);
     await answerCheckByKeyboard(page, 'l04-harness-runs');
     await answerCheck(page, 'l04-harness-evidence');
     await shot(page, `${device.name}-lesson-04-A-harness`);
@@ -231,7 +247,7 @@ for (const device of [
     expect((await output.innerText()).replace(/^\s*\d+\s?/gm, '')).toContain('PASS total rolls = 10');
     await expect(player.getByText(/^ולסיום \(חובה\):/)).toBeVisible();
     await expectNoSidewaysScroll(page, 'step D');
-    await page.getByRole('checkbox', { name: /פתחתי בעצמי את האפליקציה/ }).check();
+    await page.getByRole('checkbox', { name: /עברתי על כל הפעולה/ }).check();
     await page.getByRole('checkbox', { name: /שמרתי commit של השינוי/ }).check();
     await answerText(page, 'l04-loop-log', 'קבצים: app.js. פלט: 5 of 5 checks passed. בדפדפן ראיתי את ההודעה. לא נבדק: טלפון.');
     await answerCheck(page, 'l04-q2');

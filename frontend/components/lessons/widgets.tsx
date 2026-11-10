@@ -14,9 +14,10 @@
  * screen-reader operable); token and word lists also move with the arrow
  * keys. Pages are RTL; tokens, numbers and English words sit in LTR islands. */
 
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 
 import { InlineText, Ltr, plainInline } from '@/components/lessons/inline';
+import type { LessonApi } from '@/components/lessons/lesson-player';
 import type { AttentionSentence, Block, EmbeddingMapData, NeuronInput, NextWordData } from '@/components/lessons/types';
 
 type BlockOf<T extends Block['type']> = Extract<Block, { type: T }>;
@@ -935,39 +936,70 @@ export function ArchitectureMap({ block }: { block: BlockOf<'architecture_map'> 
 
 /** One illustrative coding-agent turn, frame by frame: context, model
  * output, the harness's action and the tool result. Before each next frame
- * the student predicts what happens; the reveal follows. Nothing is keyed or
- * saved. Arrow keys move between frames (RTL: left is next) unless focus is
- * in the prediction choices, which use the arrows themselves. */
-export function AgentTurnStepper({ block }: { block: BlockOf<'agent_turn_stepper'> }) {
+ * the student predicts what happens; the reveal follows. Predictions are not
+ * keyed or saved. Reaching the last frame records `done_ack` (the step's
+ * "walked the whole turn" ack), which can't be ticked by hand.
+ *
+ * Keyboard: native buttons and radios; arrow keys move between frames (RTL:
+ * left is next) unless focus is in the prediction choices. Whenever the
+ * focused control disables itself or unmounts, focus moves to the new
+ * frame's heading or to the first prediction choice, never to <body>. */
+export function AgentTurnStepper({ block, api }: { block: BlockOf<'agent_turn_stepper'>; api: LessonApi }) {
   const id = useId();
   const frames = block.frames;
   const [at, setAt] = useState(0);
   const [predicting, setPredicting] = useState(false);
   const [choice, setChoice] = useState('');
   const [picks, setPicks] = useState<Record<string, string>>({});
+  // Where focus goes after the next render: the frame heading or the first choice.
+  const [focusTo, setFocusTo] = useState<'frame' | 'predict' | null>(null);
+  const frameHeading = useRef<HTMLHeadingElement>(null);
+  const firstChoice = useRef<HTMLInputElement>(null);
   const frame = frames[at];
   const next = frames[at + 1];
   const last = at === frames.length - 1;
+  const doneAck = block.done_ack;
+  const done = !!doneAck && api.acked(doneAck);
+
+  useEffect(() => {
+    if (focusTo === 'frame') frameHeading.current?.focus();
+    if (focusTo === 'predict') firstChoice.current?.focus();
+    if (focusTo) setFocusTo(null);
+  }, [focusTo, at, predicting]);
+
+  useEffect(() => {
+    if (last && doneAck && !api.acked(doneAck)) api.setAck(doneAck, true);
+  }, [last, doneAck, api]);
 
   const forward = () => {
     if (last) return;
     if (next.question && next.options?.length && !picks[next.id]) {
       setChoice('');
       setPredicting(true);
+      setFocusTo('predict');
       return;
     }
     setPredicting(false);
     setAt(at + 1);
+    if (at + 1 === frames.length - 1) setFocusTo('frame'); // "next" is about to disable itself
   };
   const back = () => {
-    if (predicting) return setPredicting(false);
-    if (at > 0) setAt(at - 1);
+    if (predicting) {
+      setPredicting(false);
+      setFocusTo('frame');
+      return;
+    }
+    if (at > 0) {
+      setAt(at - 1);
+      if (at - 1 === 0) setFocusTo('frame'); // "back" is about to disable itself
+    }
   };
   const reveal = () => {
     if (!choice || !next) return;
     setPicks({ ...picks, [next.id]: choice });
     setPredicting(false);
     setAt(at + 1);
+    setFocusTo('frame'); // the reveal button unmounts
   };
   const onKey = (e: React.KeyboardEvent<HTMLElement>) => {
     if ((e.target as HTMLElement).closest('input, textarea, select, summary')) return;
@@ -1012,9 +1044,10 @@ export function AgentTurnStepper({ block }: { block: BlockOf<'agent_turn_stepper
           <legend className="mb-1 text-[15px] font-semibold">
             <InlineText text={next.question ?? ''} />
           </legend>
-          {next.options?.map((o) => (
+          {next.options?.map((o, i) => (
             <label key={o.id} className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-[15px]">
               <input
+                ref={i === 0 ? firstChoice : undefined}
                 type="radio"
                 name={`${id}-predict-${next.id}`}
                 value={o.id}
@@ -1036,6 +1069,9 @@ export function AgentTurnStepper({ block }: { block: BlockOf<'agent_turn_stepper
         </fieldset>
       ) : (
         <article className="grid grid-cols-1 gap-2 rounded-md bg-paper-2 p-3" data-testid="turn-frame" data-frame={frame.id}>
+          <h5 ref={frameHeading} tabIndex={-1} className={`text-[15px] font-semibold ${FOCUS}`} data-testid="turn-frame-title">
+            <InlineText text={frame.title} />
+          </h5>
           {frame.reveal && picked ? (
             <div className="rounded-md border border-info-soft bg-card p-2 text-[14px]" data-testid="turn-reveal">
               <p>
@@ -1096,6 +1132,15 @@ export function AgentTurnStepper({ block }: { block: BlockOf<'agent_turn_stepper
           </span>
         ) : null}
       </div>
+      {doneAck ? (
+        <p aria-live="polite" className="text-[14px]" data-testid="turn-walked">
+          {done ? (
+            <span className="text-ok">✓ עברתם על כל ההמחשה – זה נרשם בשלב.</span>
+          ) : (
+            <span className="text-ink-2">הסימון «עברתי על ההמחשה» נרשם לבד, כשמגיעים לצעד האחרון.</span>
+          )}
+        </p>
+      ) : null}
     </section>
   );
 }

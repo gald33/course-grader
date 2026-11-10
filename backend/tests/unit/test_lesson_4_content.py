@@ -8,6 +8,7 @@ own check with the output the lesson documents.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -26,7 +27,10 @@ REPO = BACKEND.parent
 SEED = REPO / "content" / "course-42052" / "lessons" / "lesson-04.json"
 ORDERS = REPO / "content" / "course-42052" / "fixtures" / "bakery-orders.json"
 STARTER_SRC = REPO / "content" / "course-42052" / "materials" / "lesson-04" / "bakery-orders-starter"
-STARTER_ZIP = ASSETS_ROOT / "lessons" / "lesson-04" / "v1" / "bakery-orders-starter.zip"
+STARTER_ZIP = ASSETS_ROOT / "lessons" / "lesson-04" / "v2" / "bakery-orders-starter.zip"
+# The first starter, kept for lesson versions that still link to it.
+STARTER_ZIP_V1 = ASSETS_ROOT / "lessons" / "lesson-04" / "v1" / "bakery-orders-starter.zip"
+STARTER_V1_SHA256 = "df0e561fe275ba0e621ae4f45f2b02b099d8cfcfbd4f43cd2d74c0c40be81d74"
 STARTER_FILES = {
     "README.md", "index.html", "app.js", "orders.js", "data.js", "checks.js", "check.js", "check.html",
     "instructions-template.md",
@@ -34,6 +38,11 @@ STARTER_FILES = {
 
 # Field names an answer key or private feedback would use, in any shape the
 # app accepts (the instructor's file, the stored key, the seed's private copy).
+WORKED_EXAMPLE = (
+    "בקשה טובה: «הוסף הודעת אישור אחרי לחיצה מוצלחת על «סימון כמוכנה». קודם הצג תוכנית: אילו קבצים תשנה ואיפה; "
+    "אל תשנה את חישוב סך הכול. בדוק גם סימון של הזמנה שלא קיימת, והצג את ה-[[diff]]»."
+)
+
 PRIVATE_FIELDS = {"answer", "correct_choice_id", "feedback_he", "correct", "correct_options", "misconceptions",
                   "explanation", "sample_reasoning", "rubric", "instructor_email", "email"}
 
@@ -73,8 +82,10 @@ def test_lesson_4_is_authored_valid_and_its_starter_matches(lesson):
     assert "lesson-04" in course_plan.AUTHORED
     content = validate_content(lesson, assets_root())  # the zip exists with the declared sha256
     assert (content.slug, content.course_code) == ("lesson-04", "42052")
-    assert [s.key for s in content.steps] == ["agent", "save", "loop", "context", "wrap-up"]
-    assert lesson["assets"]["starter"]["path"] == "/lessons/lesson-04/v1/bakery-orders-starter.zip"
+    assert [s.key for s in content.steps] == ["harness", "agent", "save", "loop", "context", "wrap-up"]
+    assert [s.letter for s in content.steps] == list("ABCDEF")
+    assert lesson["assets"]["starter"]["path"] == "/lessons/lesson-04/v2/bakery-orders-starter.zip"
+    assert hashlib.sha256(STARTER_ZIP_V1.read_bytes()).hexdigest() == STARTER_V1_SHA256  # v1 is untouched
     # The zip is the build of the committed source folder, byte for byte.
     assert STARTER_ZIP.read_bytes() == _builder().build(), "run: python scripts/build_lesson_4_starter.py"
     with zipfile.ZipFile(STARTER_ZIP) as archive:
@@ -111,8 +122,12 @@ def test_the_seed_checks_and_texts_survive_unchanged(lesson):
         assert lesson["questions"][key] == question, key
     text = json.dumps(lesson, ensure_ascii=False)
     plain = text.replace("**", "")
-    for field in ("worked_example_he", "work_product_he"):
-        assert course_plan.ltr(seed[field]) in plain, field
+    assert course_plan.ltr(seed["work_product_he"]) in plain
+    # The worked example is the planner's revision of the seed's (review N5):
+    # it names this lesson's button, file and edge case.
+    wrap = next(s for s in lesson["steps"] if s["key"] == "wrap-up")
+    worked = next(b for b in _all_blocks(wrap["blocks"]) if b.get("title") == "דוגמה פתורה")
+    assert worked["body"] == [WORKED_EXAMPLE]
     assert seed["optional_extension_he"] is None
     # The homework is a proposal, adapted to the lesson's tool: kept in the
     # instructor's plan, never in the lesson.
@@ -143,7 +158,8 @@ def test_every_step_has_one_goal_an_explanation_an_action_a_check_and_a_next_ste
         assert step["completion"], step["key"]
     # Words a student without programming background meets are explained in
     # the step that first uses them, before any action.
-    first = {"agent": ["**קובץ**", "**תיקיית פרויקט**", "**טרמינל**"], "save": ["**[[commit]]**"], "loop": ["**[[diff]]**"]}
+    first = {"harness": ["**קובץ**", "**תיקיית פרויקט**", "**טרמינל**", "**[[harness]]**"], "save": ["**[[commit]]**"],
+             "loop": ["**[[diff]]**"], "context": ["**מפתח [[API]]**", "**סוד**"]}
     for step in lesson["steps"]:
         understand = json.dumps(step["blocks"][0 if step["blocks"][0]["type"] == "section" else 1], ensure_ascii=False)
         for word in first.get(step["key"], []):
@@ -177,14 +193,17 @@ def test_agent_prompts_are_complete_and_ask_for_a_plan_first_and_evidence(lesson
 def test_antigravity_is_cited_with_no_pricing_claims_and_a_labeled_fallback(lesson):
     text = json.dumps(lesson, ensure_ascii=False)
     assert "http" not in text  # site names only, as plain text
-    assert "[[antigravity.google/docs]]" in text and "3 בנובמבר 2026" in text
+    assert "[[antigravity.google/docs]]" in text and "10 בנובמבר 2026" in text  # rechecked on the build date
+    assert "[[antigravity.google/docs/sandbox]]" in text
     assert "[[antigravity.google/download]]" in text and "[[antigravity.google/docs/rules]]" in text
     assert "`AGENTS.md`" in text and "`GEMINI.md`" in text
     # Sign-in prerequisites as Google states them, cited; nothing about institutional accounts.
-    prereq = json.dumps(lesson["steps"][0]["blocks"][0], ensure_ascii=False)
+    prereq = json.dumps(next(s for s in lesson["steps"] if s["key"] == "agent")["blocks"][0], ensure_ascii=False)
+    assert "הכנה (לפני השיעור)" in prereq and "[[Software Engineering]]" in prereq and "[[Interface Layout]]" in prereq
+    assert "חשבון Google אישי – לא חשבון של המכללה" in prereq and "[[Ubuntu 20]]" in prereq
     assert "חשבון Google אישי" in prereq and "מגיל 18" in prereq and "[[antigravity.google/docs/faq]]" in prereq
     assert "מסלול חלופי" in prereq
-    for word in ("מוסד", "של עבודה", "Workspace"):
+    for word in ("מוסד", "של עבודה", "Workspace"):  # "not the college's account" only
         assert word not in text, word
     # Limits: a pointer to the current ones, never a price or quota.
     assert "[[antigravity.google/docs/plans]]" in text
@@ -195,10 +214,12 @@ def test_antigravity_is_cited_with_no_pricing_claims_and_a_labeled_fallback(less
     for key in ("agent", "save"):
         step = json.dumps(next(s for s in lesson["steps"] if s["key"] == key), ensure_ascii=False)
         assert "מסלול חלופי" in step, key
-    # Claude Code and Codex: a short comparison, nothing to install.
+    # Claude Code and Codex: named in the harness step as the same pattern, and
+    # a short comparison at the end; nothing to install.
     wrap = json.dumps(lesson["steps"][-1], ensure_ascii=False)
-    assert "Claude Code" in wrap and "Codex" in wrap and "לא נדרש להתקין" in wrap
-    assert "Claude Code" not in json.dumps(lesson["steps"][:-1], ensure_ascii=False)
+    assert "Claude Code" in wrap and "Codex" in wrap and "לא נדרש להתקין" in wrap and "אותו דפוס" in wrap
+    middle = json.dumps(lesson["steps"][1:-1], ensure_ascii=False)
+    assert "Claude Code" not in middle and "Codex" not in middle
 
 
 def test_starter_data_is_the_course_example(lesson):
@@ -269,6 +290,116 @@ def test_git_install_and_going_back_are_spelled_out(lesson):
     for os_name in ("[[Windows]]", "[[macOS]]", "[[Linux]]"):
         assert f"**{os_name}:**" in save, os_name
     assert save.count("ברירות המחדל") >= 3 and "[[Command Line Tools]]" in save
-    loop = json.dumps(next(s for s in lesson["steps"] if s["key"] == "loop"), ensure_ascii=False)
-    assert "[[Staged Changes]]" in loop
-    assert loop.index("[[Unstage change]]") < loop.index("[[Discard unstaged changes]]")
+    loop = next(s for s in lesson["steps"] if s["key"] == "loop")
+    back = next(b for b in _all_blocks(loop["blocks"]) if b.get("title") == "השינוי מקלקל משהו? חוזרים לנקודת השמירה")
+    items = back["blocks"][0]["items"]
+    assert items[0].startswith("**קודם כול, דרך הסוכן:**")  # review B5: the agent revert first
+    assert items[1].startswith("**[[Staged Changes]]** הם שינויים שסומנו כבר לשמירה")
+    review = next(i for i in items if i.startswith("**בחלונית [[Review]]:**"))
+    assert review.index("[[Unstage change]]") < review.index("[[Discard unstaged changes]]")
+    # The commit is a required, separate last line of the action (step E depends on it).
+    action = next(b for b in loop["blocks"] if b.get("label") == "try")["blocks"][0]["body"]
+    assert action[-1].startswith("**ולסיום (חובה):**") and "[[commit]]" in action[-1]
+    assert {"type": "ack", "key": "committed"} in loop["completion"]
+    assert "[[Include unstaged changes]]" in json.dumps(loop, ensure_ascii=False)
+    # Git asks for a name: kept to this repository, never --global.
+    save_prompt = next(b for b in _all_blocks(next(s for s in lesson["steps"] if s["key"] == "save")["blocks"])
+                       if b.get("type") == "prompt")
+    assert "git config user.name" in save_prompt["text"] and "בלי --global" in save_prompt["text"]
+
+
+def _flow(lesson: dict) -> str:
+    """The student-facing text in the order the page shows it: the intro, then
+    each step's blocks, with each question's text where its block stands."""
+    def walk(blocks):
+        for block in blocks:
+            if block.get("type") == "question":
+                yield json.dumps(lesson["questions"][block["question"]], ensure_ascii=False)
+            else:
+                yield json.dumps({k: v for k, v in block.items() if k != "blocks"}, ensure_ascii=False)
+                yield from walk(block.get("blocks", []))
+    parts = [lesson["intro"]]
+    for step in lesson["steps"]:
+        parts += [step["title"], step.get("goal", ""), *walk(step["blocks"]), step.get("next_hint", "")]
+    return "\n".join(parts)
+
+
+# Each term a student without programming background meets: how it appears,
+# and the definition it must not come before (review: no concept before its definition).
+CONCEPTS = {
+    "turn": (r"(?<![א-ת])[הבלמו]?תור(?![א-ת])", "**תור** – מהרגע"),
+    "harness": (r"harness", "**[[harness]]** (רתמה)"),
+    "tool request": (r"בקשת כלי|בקשות כלי|תוצאת הכלי|תוצאות כלי", "**בקשת כלי** – הפלט"),
+    "sandbox": (r"ארגז ה?חול|sandbox", "**ארגז חול** ([[sandbox]])"),
+    "Git": (r"(?<![A-Za-z])Git(?![A-Za-z])", "**[[Git]]** הוא כלי"),
+    "repository": (r"מאגר", "**מאגר [[Git]]** הוא"),
+    "commit": (r"(?i)commit", "**[[commit]]** הוא נקודת שמירה"),
+    "diff": (r"(?i)diff", "**[[diff]]** הוא תצוגת"),
+    "staged": (r"(?i)staged", "**[[Staged Changes]]** הם"),
+    "AGENTS.md": (r"AGENTS\.md", "**קובץ ההוראות** (`AGENTS.md`, קובץ"),
+    "API key": (r"מפתח (\[\[)?API|מפתחות", "**מפתח [[API]]** הוא"),
+    "secret": (r"(?<![א-ת])[הבלו]?סוד(ות)?(?![א-ת])", "**סוד** הוא"),
+    "node": (r"(?<![A-Za-z])node(?![A-Za-z])", "`node` – תוכנה שמריצה"),
+}
+
+
+@pytest.mark.parametrize("term", list(CONCEPTS))
+def test_every_concept_is_defined_before_its_first_use(lesson, term):
+    flow = _flow(lesson)
+    pattern, definition = CONCEPTS[term]
+    assert flow.count(definition) == 1, f"{term}: its definition appears {flow.count(definition)} times"
+    first = re.search(pattern, flow)
+    assert first, term
+    at = flow.index(definition)
+    assert first.start() >= at, f"{term} is used before it is defined: …{flow[max(0, first.start() - 60):first.start() + 30]}…"
+
+
+def test_the_harness_step_comes_first_with_a_labeled_stepper(lesson):
+    harness = lesson["steps"][0]
+    assert harness["key"] == "harness" and harness["title"] == "איך סוכן קוד עובד מבפנים"
+    text = json.dumps(harness, ensure_ascii=False)
+    # Taught in order: turn, harness, context assembly, tool request, permission check, loop, so what.
+    order = ["**תור**", "**[[harness]]**", "**הרכבת ההקשר**", "**בקשת כלי**", "**בדיקת הרשאות**", "**הלולאה**", "אז מה?"]
+    at = [text.index(o) for o in order]
+    assert at == sorted(at), order
+    assert "חלון ההקשר" in text and "[[Claude Code]]" in text
+    # The Windows sandbox fact, cited to the sandbox page.
+    assert "[[24H2]]" in text and "[[Request Review]]" in text and "[[antigravity.google/docs/sandbox]]" in text
+    stepper = next(b for b in _all_blocks(harness["blocks"]) if b["type"] == "agent_turn_stepper")
+    frames = stepper["frames"]
+    assert 3 <= len(frames) <= 10 and "question" not in frames[0]
+    kinds = [f["model_output_kind"] for f in frames]
+    assert "tool_request" in kinds and kinds[-1] == "text"  # the loop stops at a text answer
+    for frame in frames[1:]:
+        assert frame["question"] and frame["reveal"] and 2 <= len(frame["options"]) <= 3, frame["id"]
+    # A tool request is run by the harness after a permission check, never by the model.
+    runs = next(f for f in frames if "`node check.js`" in f["model_output"])
+    assert runs["model_output_kind"] == "tool_request" and "ארגז חול" in runs["harness"] and runs["tool_result"]
+    # The required action: walk the stepper; then the harness checks.
+    assert harness["completion"][0] == {"type": "ack", "key": "turn_walked"}
+    checks = [c["question"] for c in harness["completion"] if c["type"] == "answered"]
+    assert checks == ["l04-harness-runs", "l04-harness-evidence"]
+    for key in checks:
+        assert lesson["questions"][key]["step"] == "harness"
+
+
+def test_reworded_and_new_checks(lesson):
+    qs = lesson["questions"]
+    single = [k for k, q in qs.items() if q["type"] == "single_choice"]
+    assert single == ["l04-harness-runs", "l04-harness-evidence", "l04-q1", "l04-permission", "l04-commit",
+                      "l04-q2", "l04-diff", "l04-q3", "l04-secret", "l04-claim"]
+    assert qs["l04-permission"]["prompt"] == "הסוכן מבקש אישור להריץ פקודה (מחוץ לארגז החול, או בלי ארגז חול). מה עושים?"
+    assert [o["id"] for o in qs["l04-permission"]["options"]] == ["a", "b", "c"]
+    assert qs["l04-commit"]["options"][0]["text"] == "תמונת מצב של הפרויקט שאפשר לחזור אליה"
+
+
+def test_the_context_step_defines_secrets_and_ties_back_to_the_harness(lesson):
+    context = next(s for s in lesson["steps"] if s["key"] == "context")
+    text = json.dumps(context, ensure_ascii=False)
+    assert "הרכבת ההקשר" in text and "[[harness]]" in text and "(אם שמרתם [[commit]] בסוף שלב D)" in text
+    # Always "the instructions file (AGENTS.md)" in the student's text, never the bare file name.
+    flow = _flow(lesson).replace("`AGENTS.md`, קובץ בתיקיית", "")
+    for m in re.finditer(r"`AGENTS\.md`", flow):
+        assert flow[max(0, m.start() - 15):m.start()].endswith("קובץ ההוראות ("), flow[m.start() - 40:m.end()]
+    template = (STARTER_SRC / "instructions-template.md").read_text(encoding="utf-8")
+    assert "`N of N checks passed` (בלי FAIL)" in template and "אם `node` לא מותקן – לא מתקינים; אומרים לי." in template

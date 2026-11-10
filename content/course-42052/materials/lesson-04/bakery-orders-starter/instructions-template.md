@@ -13,7 +13,8 @@
 
 ## איך בודקים
 
-`node check.js` (או `check.html` בדפדפן). הפלט התקין מסתיים בשורה `5 of 5 checks passed`.
+`node check.js` (או `check.html` בדפדפן). הפלט התקין מסתיים ב-`N of N checks passed` (בלי FAIL); היום `5 of 5 checks passed`.
+אם `node` לא מותקן – לא מתקינים; אומרים לי.
 
 ## מה לא משנים
 

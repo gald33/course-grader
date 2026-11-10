@@ -5,7 +5,7 @@ open in Google Antigravity) from its source folder.
     python scripts/build_lesson_4_starter.py --check    # exit 1 if it is stale
 
 Source: content/course-42052/materials/lesson-04/bakery-orders-starter/.
-Output: frontend/public/lessons/lesson-04/v1/bakery-orders-starter.zip, with
+Output: frontend/public/lessons/lesson-04/v2/bakery-orders-starter.zip, with
 fixed timestamps, order and no compression so the same files always give the same bytes (the
 lesson fixture records its sha256).
 """
@@ -21,7 +21,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
 SOURCE = REPO / "content" / "course-42052" / "materials" / "lesson-04" / "bakery-orders-starter"
-OUTPUT = REPO / "frontend" / "public" / "lessons" / "lesson-04" / "v1" / "bakery-orders-starter.zip"
+# v2: the instructions template says what a passing check looks like and not
+# to install node. v1 stays as committed, for lesson versions that link to it.
+OUTPUT = REPO / "frontend" / "public" / "lessons" / "lesson-04" / "v2" / "bakery-orders-starter.zip"
 FOLDER = "bakery-orders-starter"
 
 

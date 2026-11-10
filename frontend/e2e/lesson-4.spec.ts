@@ -146,36 +146,82 @@ for (const device of [
     const player = page.locator('div[dir="rtl"][lang="he"]').first();
     await expect(player).toBeVisible();
 
-    // A: chatbot vs coding agent. Words first, then install, open, describe.
-    await expectStepContract(page, 'מה נוסף לסוכן קוד?', 'במה סוכן קוד שונה מצ׳טבוט, ומה מותר לו לעשות במחשב שלכם?', player);
-    await expect(player.getByText('מה צריך לפני שמתחילים')).toBeVisible();
+    // A: how a coding agent works inside, before any install. The stepper, by keyboard.
+    await expectStepContract(page, 'איך סוכן קוד עובד מבפנים', 'מה קורה בין ההודעה שלכם לבין התשובה של סוכן קוד?', player);
+    await expect(ltr(player, 'harness').first()).toBeVisible();
+    const stepper = page.getByTestId('agent-turn-stepper');
+    await expect(stepper.getByTestId('turn-illustration-label')).toHaveText('המחשה של הדפוס, לא הקלטה של Antigravity');
+    const live = stepper.getByTestId('turn-live');
+    await expect(live).toHaveAttribute('aria-live', 'polite');
+    await expect(live).toContainText('צעד 1 מתוך 5');
+    const nextBtn = stepper.getByRole('button', { name: /^הבא/ });
+    for (let frame = 2; frame <= 5; frame++) {
+      // Next by keyboard: Tab-reached button + Enter (frame 2), the arrow key after.
+      if (frame === 2) {
+        await nextBtn.focus();
+        await page.keyboard.press('Enter');
+      } else {
+        await nextBtn.focus();
+        await page.keyboard.press('ArrowLeft'); // RTL: left is forward
+      }
+      const predict = stepper.getByTestId('turn-predict');
+      await expect(predict).toBeVisible();
+      await expect(live).toContainText(`לפני צעד ${frame}`);
+      const reveal = stepper.getByRole('button', { name: 'גלו מה קורה' });
+      await expect(reveal).toBeDisabled(); // a prediction first
+      await predict.getByRole('radio').first().focus();
+      await page.keyboard.press('Space');
+      await reveal.focus();
+      await page.keyboard.press('Enter');
+      await expect(live).toContainText(`צעד ${frame} מתוך 5`);
+      await expect(stepper.getByTestId('turn-reveal')).toContainText('מה קורה בפועל');
+    }
+    await expect(stepper.getByTestId('turn-done')).toBeVisible();
+    await expect(nextBtn).toBeDisabled();
+    // Back with the other arrow, and the context list opens.
+    await stepper.getByRole('button', { name: /הקודם$/ }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(live).toContainText('צעד 4 מתוך 5');
+    await stepper.getByText(/^מה בהקשר/).click();
+    await expect(stepper.getByTestId('turn-frame').locator('li').first()).toBeVisible();
+    await expectNoSidewaysScroll(page, 'step A');
+    await page.getByRole('checkbox', { name: /עברתי על כל ההמחשה/ }).check();
+    await answerCheckByKeyboard(page, 'l04-harness-runs');
+    await answerCheck(page, 'l04-harness-evidence');
+    await shot(page, `${device.name}-lesson-04-A-harness`);
+    await completeAndContinue(page);
+
+    // B: install before class (a prep callout), then one action: describe without editing.
+    await expectStepContract(page, 'מה נוסף לסוכן קוד?', 'איך הסוכן רואה את הפרויקט שלנו – בלי לשנות בו כלום?', player);
+    await expect(player.getByText('הכנה (לפני השיעור)')).toBeVisible();
+    await expect(ltr(player, 'Software Engineering').first()).toBeVisible();
     await expect(page.getByRole('table', { name: 'צ׳טבוט לעומת סוכן קוד' })).toBeVisible();
     await expect(ltr(player, 'antigravity.google/download')).toBeVisible();
-    await expect(ltr(player, 'node check.js')).toBeVisible();
     const download = player.getByRole('link', { name: /פרויקט הפתיחה/ });
     await expect(download).toHaveAttribute('href', FIXTURE.assets.starter.path);
     await download.focus();
     await expect(download).toBeFocused(); // reachable by keyboard
     await expect(page.getByRole('button', { name: 'העתקת הבקשה' }).first()).toBeVisible();
+    await expect(player.getByText(/^לחשוב \(רשות\):/)).toBeVisible();
     await expect(player.getByText('מסלול חלופי: אין אפשרות להתקין')).toBeVisible();
-    await expectNoSidewaysScroll(page, 'step A');
+    await expectNoSidewaysScroll(page, 'step B');
     await page.getByRole('checkbox', { name: /הסוכן תיאר את הפרויקט/ }).check();
     await answerCheckByKeyboard(page, 'l04-q1');
     await answerCheck(page, 'l04-permission');
-    await shot(page, `${device.name}-lesson-04-A-agent`);
+    await shot(page, `${device.name}-lesson-04-B-agent`);
     await completeAndContinue(page);
 
-    // B: a save point before any change.
+    // C: a save point before any change.
     await expectStepContract(page, 'נקודת שמירה לפני שינוי', 'איך חוזרים למצב שעבד, אם שינוי מקלקל משהו?', player);
     await expect(ltr(player, 'commit').first()).toBeVisible();
     await expect(player.getByText('מסלול חלופי: אי אפשר להתקין Git')).toBeVisible();
-    await expectNoSidewaysScroll(page, 'step B');
+    await expectNoSidewaysScroll(page, 'step C');
     await page.getByRole('checkbox', { name: /יש לי נקודת שמירה/ }).check();
     await answerCheck(page, 'l04-commit');
-    await shot(page, `${device.name}-lesson-04-B-save`);
+    await shot(page, `${device.name}-lesson-04-C-save`);
     await completeAndContinue(page);
 
-    // C: the loop. Expected result before the change; the documented output.
+    // D: the loop. Expected result before the change; the documented output; a required commit.
     await expectStepContract(page, 'שינוי קטן עם תשובה צפויה', 'איך יודעים שהשינוי עשה בדיוק את מה שרציתם – ולא יותר?', player);
     await answerText(page, 'l04-expected', 'לוחצים סימון כמוכנה אצל דנה; מופיעה הודעת אישור; סך הכול נשאר 10 ו-5.');
     await expect(player.getByText('בקשה לסוכן: שינוי קטן, תוכנית קודם')).toBeVisible();
@@ -183,36 +229,38 @@ for (const device of [
     await expect(output).toBeVisible();
     await expect(output).toHaveAttribute('dir', 'ltr');
     expect((await output.innerText()).replace(/^\s*\d+\s?/gm, '')).toContain('PASS total rolls = 10');
-    await expectNoSidewaysScroll(page, 'step C');
+    await expect(player.getByText(/^ולסיום \(חובה\):/)).toBeVisible();
+    await expectNoSidewaysScroll(page, 'step D');
     await page.getByRole('checkbox', { name: /פתחתי בעצמי את האפליקציה/ }).check();
+    await page.getByRole('checkbox', { name: /שמרתי commit של השינוי/ }).check();
     await answerText(page, 'l04-loop-log', 'קבצים: app.js. פלט: 5 of 5 checks passed. בדפדפן ראיתי את ההודעה. לא נבדק: טלפון.');
     await answerCheck(page, 'l04-q2');
     await answerCheck(page, 'l04-diff');
-    await shot(page, `${device.name}-lesson-04-C-loop`);
+    await shot(page, `${device.name}-lesson-04-D-loop`);
     await completeAndContinue(page);
 
-    // D: the instructions file, no secrets.
+    // E: the instructions file, no secrets.
     await expectStepContract(page, 'נותנים הקשר ואילוצים', 'איך הסוכן יודע את כללי הפרויקט בלי שתחזרו עליהם בכל בקשה?', player);
-    await expect(ltr(player, 'AGENTS.md')).toBeVisible();
-    await expectNoSidewaysScroll(page, 'step D');
-    await page.getByRole('checkbox', { name: /יצרתי AGENTS.md/ }).check();
+    await expect(ltr(player, 'AGENTS.md').first()).toBeVisible();
+    await expectNoSidewaysScroll(page, 'step E');
+    await page.getByRole('checkbox', { name: /יצרתי את קובץ ההוראות/ }).check();
     await answerCheck(page, 'l04-q3');
     await answerCheck(page, 'l04-secret');
-    await shot(page, `${device.name}-lesson-04-D-context`);
+    await shot(page, `${device.name}-lesson-04-E-context`);
     await completeAndContinue(page);
 
-    // E: wrap-up. When the agent is wrong; the worked example; exit check.
+    // F: wrap-up. When the agent is wrong; the worked example; exit check.
     await expectStepContract(page, 'מסכמים', 'מה תוכלו להראות ולהסביר על השינוי שעשיתם?', player);
     await expect(player.getByText('כשהסוכן טועה')).toBeVisible();
     await expect(player.getByText('דוגמה פתורה')).toBeVisible();
     await expect(player.getByText('התוצר של השיעור')).toBeVisible();
-    await expect(player.getByText('אותה לולאה בסוכנים אחרים')).toBeVisible();
-    await expectNoSidewaysScroll(page, 'step E');
+    await expect(player.getByText('אותו דפוס בסוכנים אחרים')).toBeVisible();
+    await expectNoSidewaysScroll(page, 'step F');
     await answerCheck(page, 'l04-claim');
     await answerText(page, 'lesson-04-exit', 'ביקשתי תוכנית, שמרתי commit, הוספתי הודעה וקראתי את ה-diff; לא בדקתי בטלפון.');
     await expect(checklist(page)).toContainText('✓ השלב הושלם.');
     await expect(player).not.toContainText('יישמו שינוי קטן'); // the homework proposal is not shown
-    await shot(page, `${device.name}-lesson-04-E-wrap-up`);
+    await shot(page, `${device.name}-lesson-04-F-wrap-up`);
     expect(problems).toEqual([]);
   });
 }

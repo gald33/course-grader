@@ -13,6 +13,7 @@ from app.api import (
     courses,
     curves,
     exports,
+    feedback,
     grade_releases,
     gradebook,
     imports,
@@ -80,6 +81,9 @@ app.include_router(roster.router)
 app.include_router(lessons.router)
 app.include_router(student_lessons.router)
 app.include_router(course_plan.router)
+app.include_router(feedback.student_router)
+app.include_router(feedback.router)
+app.include_router(feedback.admin_router)
 
 
 @app.on_event("startup")

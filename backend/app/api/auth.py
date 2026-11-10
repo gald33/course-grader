@@ -24,6 +24,13 @@ HEADER_NAME = "x-instructor-token"
 # Reachable without the instructor token.
 PUBLIC_PATHS = {"/api/health", "/api/oauth/google/callback", "/api/auth/status", "/api/auth/instructor-session"}
 STUDENT_PREFIXES = ("/api/r/", "/api/student-auth/")
+# tickets-core's API (app/api/feedback.py) checks its own credential: the service token, or the instructor. Exactly
+# this path and what is under it: any other /api/admin route stays behind the instructor token (fails closed).
+SELF_AUTHENTICATED_PATHS = ("/api/admin/feedback",)
+
+
+def _self_authenticated(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in SELF_AUTHENTICATED_PATHS)
 
 
 def token_matches(supplied: str | None) -> bool:
@@ -40,7 +47,7 @@ def is_instructor_request(request: Request) -> bool:
 def requires_instructor(path: str, method: str) -> bool:
     if method == "OPTIONS" or not path.startswith("/api/"):
         return False
-    return path not in PUBLIC_PATHS and not path.startswith(STUDENT_PREFIXES)
+    return path not in PUBLIC_PATHS and not path.startswith(STUDENT_PREFIXES) and not _self_authenticated(path)
 
 
 @router.get("/status")

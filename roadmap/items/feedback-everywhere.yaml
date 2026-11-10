@@ -1,0 +1,47 @@
+id: feedback-everywhere
+title: Nobody can report a problem with the site from the page they hit it on
+status: claimed
+priority: now
+claim:
+  by: claude/practical-ride-d2lxpj
+  at: '2026-11-10'
+blocked_on: []
+refs:
+- 'frontend/components/feedback/feedback-button.tsx'
+- 'frontend/app/layout.tsx'
+- 'backend/app/services/feedback.py'
+- 'backend/app/api/feedback.py'
+- 'backend/alembic/versions/0027_feedback_tickets.py'
+- 'backend/tests/unit/test_feedback.py'
+- 'frontend/e2e/feedback.spec.ts'
+- 'org.yaml'
+evidence: |
+  The operator, 2026-11-10: "add a feedback feature everywhere". Asked who
+  sends it: students and instructors. Asked where it goes: "org-core should be
+  installed for course-grader, and include tickets-core". Asked about names:
+  named by default, a student can choose anonymous. Asked what the form asks:
+  a type (broken / confusing / idea), free text, and the page attached
+  automatically.
+
+  VERIFIED at 8106cbb (main, 2026-11-10): no page has a way to report a
+  problem with the site; every "feedback" in the frontend is grading feedback
+  on an assignment. org.yaml declared `ports.tickets: absent` (0 issues ever,
+  measured 2026-11-03), so org-core's roles had no ticket queue, and
+  account-manager (Ruth) was left off for that reason. tickets-core (org-core
+  SPEC §17) is a schema, lifecycle and read tool over an org's own store; the
+  table, the intake and the service token are the org's to build.
+
+  Done when: a Feedback button on every student page (Hebrew, RTL) and every
+  instructor page opens a dialog with the three types, a text box, a "send
+  without my name" option for students, and the context it attaches shown in
+  full; a report files a tickets-core ticket in the app's database (migration
+  0027) with the route (the student's link token cut out), lesson, step,
+  assignment, section and tab, and the device; an anonymous ticket names
+  nobody; `ports.tickets` is `in-app` with `read: api` / `write: api`, and
+  `org tickets --source api` reads the queue, a ticket's stage and its notes
+  through /api/admin/feedback with the ORG_TICKETS_TOKEN service token (and
+  refuses without it); backend and browser tests show each of these.
+
+  Before merge (the operator's): `make migrate-hosted` (0027), and
+  ORG_TICKETS_TOKEN set on the course-grader-api Vercel project and in the
+  sessions' environment.

@@ -319,8 +319,26 @@ Frontend and API are two Vercel projects deployed from `frontend/` and `backend/
 - `make worker-hosted` starts the notebook worker in the background on this machine (Docker Desktop running),
   against the hosted database and storage; `make worker-hosted-logs` / `make worker-hosted-stop`. Notebook
   runs, snapshot fetches, and report exports queued in the hosted app wait until it runs.
-- API settings (database URL via the transaction pooler, storage, keys, instructor token, session secret)
-  are Vercel environment variables of the `course-grader-api` project.
+- API settings (database URL via the transaction pooler, storage, keys, instructor token, session secret,
+  `ORG_TICKETS_TOKEN`) are Vercel environment variables of the `course-grader-api` project.
+
+## Feedback tickets
+
+Every student and instructor page has a **Feedback** button (bottom corner; on a grading page, in the toolbar). It asks
+for a type (something's broken, this is confusing, an idea), a few words, and, for a student, whether to send without
+their name, and it shows everything it attaches before Send: the page (with the student's link token cut out), the
+lesson, step, assignment, section and tab, and the screen, browser, language and time zone. A report becomes a ticket in
+`feedback_tickets` (migration `0027`), in org-core's tickets-core shape (`ports.tickets` in `org.yaml`):
+
+- `source` is `student` or `instructor`; `reporter_ref` is `enrollment:<id>`, `instructor`, or null when a student sent
+  it without their name, and then nothing stored names them.
+- An anonymous ticket keeps only the day, the page and the lesson: no time of day (its timestamps are stored at
+  midnight and returned as a bare date), no step, and nothing about the device or the build. A named ticket keeps all of
+  it. The dialog lists exactly what each attaches.
+- "Something's broken" is kind `bug`, "an idea" `feature_request`; "this is confusing" is left unclassified for a person.
+- org-core's roles read and annotate the queue through `/api/admin/feedback` (list with `limit`/`offset`/`status`, one
+  ticket, `PATCH` its `status`/`kinds`, its notes, `POST` a note) with `Authorization: Bearer $ORG_TICKETS_TOKEN`, or as
+  the instructor: `org tickets --repo . report --source api --items roadmap/items` (the port names the API and the token).
 
 ## Supabase (database, files, job queue)
 
@@ -449,6 +467,8 @@ environment variable of `course-grader-api`), the backend middleware (`backend/a
 
 - `/api/health`, `/api/oauth/google/callback`, `/api/auth/status`, `/api/auth/instructor-session`
 - student routes under `/api/r/` and `/api/student-auth/`
+- the feedback ticket API under `/api/admin/`, which checks its own credential: the `ORG_TICKETS_TOKEN` service token
+  as a Bearer header, or the instructor token (the service token opens nothing else)
 
 The instructor UI asks for the token once (`POST /api/auth/instructor-session`) and keeps it in an HTTP-only
 `cg_instructor` cookie for 30 days; API clients can send the `X-Instructor-Token` header instead.

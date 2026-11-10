@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CustomRubricCard, type CustomRubricView } from '@/components/custom-rubric-card';
+import { openFeedback } from '@/components/feedback/feedback-button';
 import { SubmissionAdmin } from '@/components/submission-admin';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -887,6 +888,9 @@ function ReviewHeader({
         </div>
         <SaveStatus saving={rubricSaving} savedAt={rubricSavedAt} dirty={rubricDirty} />
         {manage}
+        <Button size="sm" variant="ghost" onClick={openFeedback} title="Feedback about the site">
+          Feedback
+        </Button>
         <Button size="sm" variant="ghost" onClick={autoGrade} disabled={autoGrading} title={tooltip}>
           {autoGrading ? 'Auto-grading…' : '✦ Auto grade'}
         </Button>

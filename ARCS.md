@@ -28,6 +28,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `e2e-lost-session-flake` — The lesson e2e "lost session keeps the draft" fails at page.reload with net::ERR_ABORTED, racing the login page's own ?next= redirect
 - `exit-check-no-chatbot` — Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason
 - `exit-checks-concrete` — Every lesson's exit check asks the same generic "explain what you tried, saw and still don't know", and students don't know what it wants
+- `feedback-everywhere` — Nobody can report a problem with the site from the page they hit it on
 - `frontend-has-no-tests` — The frontend has no tests; CI only type-checks it
 - `hebrew-report-pdfs-cannot-be-downloaded` — Hebrew student report PDFs are queued but can never be retrieved from the hosted site
 - `instructor-course-page-is-organized-as-fake-steps` — The instructor course page is eight numbered "steps" that aren't steps, with student tools in three places

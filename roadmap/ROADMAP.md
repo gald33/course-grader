@@ -32,6 +32,7 @@ _Nothing deferred._
 | `e2e-lost-session-flake` | claude/e2e-lost-session-flake | 2026-11-10T21:30:00Z |
 | `exit-check-no-chatbot` | claude/exit-check-no-chatbot | 2026-11-03T19:00:00Z |
 | `exit-checks-concrete` | claude/exit-checks-concrete | 2026-11-03T21:00:00Z |
+| `feedback-everywhere` | claude/practical-ride-d2lxpj | 2026-11-10T00:00:00Z |
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
@@ -64,6 +65,7 @@ graph TD
   e2e_lost_session_flake["The lesson e2e 'lost session keeps the draft' fails at page.reload with net::ERR_ABORTED, racing the login page's own ?next= redirect"]:::claimed
   exit_check_no_chatbot["Every lesson's exit check ends by sending students to a chatbot to challenge their explanation, a chatbot task with no reason"]:::claimed
   exit_checks_concrete["Every lesson's exit check asks the same generic 'explain what you tried, saw and still don't know', and students don't know what it wants"]:::claimed
+  feedback_everywhere["Nobody can report a problem with the site from the page they hit it on"]:::claimed
   frontend_has_no_tests["✓ The frontend has no tests; CI only type-checks it"]:::done
   hebrew_report_pdfs_cannot_be_downloaded["✓ Hebrew student report PDFs are queued but can never be retrieved from the hosted site"]:::done
   instructor_course_page_is_organized_as_fake_steps["The instructor course page is eight numbered 'steps' that aren't steps, with student tools in three places"]:::claimed
@@ -456,6 +458,56 @@ graph TD
 > line saying the answer is short and ungraded, question ids unchanged; the
 > rule recorded in START-HERE.txt; a whole-course test that pins every prompt
 > and that no seed or built lesson keeps the generic prompt or the old title.
+
+</details>
+
+### `feedback-everywhere`
+
+- **title:** Nobody can report a problem with the site from the page they hit it on
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/practical-ride-d2lxpj (since 2026-11-10T00:00:00Z)
+- **refs:**
+  - `frontend/components/feedback/feedback-button.tsx`
+  - `frontend/app/layout.tsx`
+  - `backend/app/services/feedback.py`
+  - `backend/app/api/feedback.py`
+  - `backend/alembic/versions/0027_feedback_tickets.py`
+  - `backend/tests/unit/test_feedback.py`
+  - `frontend/e2e/feedback.spec.ts`
+  - `org.yaml`
+
+<details><summary>evidence</summary>
+
+> The operator, 2026-11-10: "add a feedback feature everywhere". Asked who
+> sends it: students and instructors. Asked where it goes: "org-core should be
+> installed for course-grader, and include tickets-core". Asked about names:
+> named by default, a student can choose anonymous. Asked what the form asks:
+> a type (broken / confusing / idea), free text, and the page attached
+> automatically.
+>
+> VERIFIED at 8106cbb (main, 2026-11-10): no page has a way to report a
+> problem with the site; every "feedback" in the frontend is grading feedback
+> on an assignment. org.yaml declared `ports.tickets: absent` (0 issues ever,
+> measured 2026-11-03), so org-core's roles had no ticket queue, and
+> account-manager (Ruth) was left off for that reason. tickets-core (org-core
+> SPEC §17) is a schema, lifecycle and read tool over an org's own store; the
+> table, the intake and the service token are the org's to build.
+>
+> Done when: a Feedback button on every student page (Hebrew, RTL) and every
+> instructor page opens a dialog with the three types, a text box, a "send
+> without my name" option for students, and the context it attaches shown in
+> full; a report files a tickets-core ticket in the app's database (migration
+> 0027) with the route (the student's link token cut out), lesson, step,
+> assignment, section and tab, and the device; an anonymous ticket names
+> nobody; `ports.tickets` is `in-app` with `read: api` / `write: api`, and
+> `org tickets --source api` reads the queue, a ticket's stage and its notes
+> through /api/admin/feedback with the ORG_TICKETS_TOKEN service token (and
+> refuses without it); backend and browser tests show each of these.
+>
+> Before merge (the operator's): `make migrate-hosted` (0027), and
+> ORG_TICKETS_TOKEN set on the course-grader-api Vercel project and in the
+> sessions' environment.
 
 </details>
 

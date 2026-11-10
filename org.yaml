@@ -34,8 +34,22 @@ ports:
     # absent: no checks registry, no checks/ directory, no in-app runner (org init, 2026-11-03)
     tool: absent
   tickets:
-    # absent: measured 2026-11-03, gald33/course-grader has 0 issues ever and no `ticket` label
-    tool: absent
+    # tickets-core (SPEC §17) in the app's own database, from 2026-11-10 (the operator: "org-core should be installed for
+    # course-grader, and include tickets-core"). Migration 0027 adds feedback_tickets and feedback_ticket_notes; the
+    # Feedback button on every student and instructor page files into them; the roles read and annotate them through
+    # the API below with the service token (Bearer). The hosted database is not readable from a session (prod_read), so
+    # `read: api`: `org tickets --repo . open-loops --source api --items roadmap/items` (the items are files here; without
+    # --items the tool reads them from a roadmap server).
+    tool: in-app
+    table: feedback_tickets
+    notes_table: feedback_ticket_notes
+    read: api
+    write: api
+    api: https://course-grader-api.vercel.app/api
+    token_env: ORG_TICKETS_TOKEN
+    version_source: vercel-deployment
+    # both reach a person: a student (named, or anonymous with reporter_ref null) and the instructor
+    person_sources: [student, instructor]
   # course-grader is deployed: every push to main deploys the frontend (course-grader-pi.vercel.app) and the API
   # (course-grader-api.vercel.app) on Vercel, so the code in production is main's. The hosted Supabase database has no
   # read-only path from a session (SUPABASE_POOL_URL lives in the operator's local .env; ONBOARDING.md), so data in
@@ -72,7 +86,8 @@ roles:
   # LEFT OFF: no checks registry (ports.checks is absent), so nothing for it to read.
   checks-watch:    { name: Gus,  enabled: false }
   registrar:       { name: Nora, enabled: false }
-  # LEFT OFF: no ticket port (0 issues ever, measured 2026-11-03), so no loop to own.
+  # LEFT OFF: the ticket port exists from 2026-11-10, so there is a loop to own; enabling Ruth (a daily routine) is the
+  # operator's call, and until then Link reads the queue.
   account-manager: { name: Ruth, enabled: false }
   methods:         { name: Ida,  enabled: false }
   doctor:          { name: Hale, enabled: false }

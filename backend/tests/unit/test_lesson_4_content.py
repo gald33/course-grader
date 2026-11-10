@@ -466,3 +466,38 @@ def test_a_stepper_ack_needs_its_checklist_label(lesson):
     with pytest.raises(ContentError) as err:
         validate_content(bad, assets_root())
     assert "done_ack and done_label go together" in str(err.value)
+
+
+TURN_MESSAGE = (
+    "הוסף הודעת אישור אחרי לחיצה מוצלחת על «סימון כמוכנה». קודם הצג תוכנית ועצור. "
+    "אחרי שאאשר – בצע את השינוי, הרץ `node check.js` והצג את הפלט."
+)
+
+
+def test_the_stepper_s_message_is_shown_before_frame_1_and_every_reveal_points_at_it(lesson):
+    """Operator: the turn's answers referred to instructions (run the check)
+    the student had not been shown. The full message stands above the
+    stepper, frame 1 quotes it, and later reveals quote what it asked."""
+    try_blocks = next(b for b in lesson["steps"][0]["blocks"] if b.get("label") == "try")["blocks"]
+    kinds = [b["type"] for b in try_blocks]
+    box = try_blocks[kinds.index("agent_turn_stepper") - 1]
+    assert box["type"] == "callout" and box["title"] == "ההודעה שנשלחת לסוכן בהמחשה:"
+    assert box["body"] == [f"«{TURN_MESSAGE}»"]
+    frames = try_blocks[kinds.index("agent_turn_stepper")]["frames"]
+    assert f"ההודעה שלכם: «{TURN_MESSAGE}»" in frames[0]["context"]
+    by_id = {f["id"]: f for f in frames}
+    assert "«קודם הצג תוכנית ועצור»" in by_id["f2"]["reveal"]
+    assert "«הרץ `node check.js` והצג את הפלט»" in by_id["f4"]["reveal"]
+
+
+def test_the_instructions_file_is_not_mentioned_before_step_e(lesson):
+    """AGENTS.md is taught in step E (context); nothing before it names the
+    file, including the harness step's context lists."""
+    keys = [s["key"] for s in lesson["steps"]]
+    before = lesson["steps"][: keys.index("context")]
+    for step in before:
+        text = json.dumps(step, ensure_ascii=False)
+        assert "AGENTS.md" not in text and "GEMINI.md" not in text, step["key"]
+    questions = [q for q in lesson["questions"].values() if q["step"] in {s["key"] for s in before}]
+    assert all("AGENTS.md" not in json.dumps(q, ensure_ascii=False) for q in questions)
+    assert lesson["intro"].count("AGENTS.md") == 0

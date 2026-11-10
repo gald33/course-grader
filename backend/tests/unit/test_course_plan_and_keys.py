@@ -729,12 +729,12 @@ def test_migration_0026_round_trips(tmp_path):
 
         alembic("upgrade", "0025_custom_rubrics")
         before_tables, before_columns = tables()
-        alembic("upgrade", "head")
-        assert "0026_course_plan_answer_keys (head)" in alembic("current")
+        alembic("upgrade", "0026_course_plan_answer_keys")
+        assert "0026_course_plan_answer_keys" in alembic("current")
         after_tables, after_columns = tables()
         assert after_tables - before_tables == {"lesson_answer_keys", "course_plan_sessions"}
         assert after_columns - before_columns == {"instructor_email"} and before_columns <= after_columns
         alembic("downgrade", "0025_custom_rubrics")
         assert tables() == (before_tables, before_columns)
-        alembic("upgrade", "head")
-        assert "0026_course_plan_answer_keys (head)" in alembic("current")
+        alembic("upgrade", "0026_course_plan_answer_keys")
+        assert "0026_course_plan_answer_keys" in alembic("current")

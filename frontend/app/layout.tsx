@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { FeedbackButton } from '@/components/feedback/feedback-button';
 import { InstructorAuthGate } from '@/components/instructor-auth-gate';
 
 import './globals.css';
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <InstructorAuthGate />
+        <FeedbackButton />
       </body>
     </html>
   );

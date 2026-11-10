@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # X-Instructor-Token header or the cg_instructor cookie. Leave unset for a
     # localhost-only deployment.
     instructor_token: str | None = None
+    # The service token org-core's roles present to /api/admin/feedback (tickets-core's
+    # `write: api`). Unset: the admin routes answer only an instructor.
+    org_tickets_token: str | None = None
 
 
 @lru_cache(maxsize=1)

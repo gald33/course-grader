@@ -1,12 +1,12 @@
 org_core: 0.74.0
 manifest_version: 1
-generated_at: '2026-11-03T09:29:54+00:00'
+generated_at: '2026-11-10T20:14:39+00:00'
 ports:
   work_store: roadmap-core
   coordination: switchboard
   code_context: repoctx
   checks: absent
-  tickets: absent
+  tickets: in-app
   prod_read: null
   vcs: github
   sessions: claude-code-remote
@@ -30,6 +30,8 @@ suite:
     spec: repoctx-mcp>=1.6
     cli: repoctx
     mcp: repoctx
+  tickets:
+    policy: builtin
   db:
     policy: service
   gh:
@@ -69,7 +71,7 @@ files:
     kind: setup
     template_version: 0.74.0
     template_sha256: 9a9c48c7a80049a0ab9fac047bdca6b582cf82dc7c60f07190f133603d4c85b4
-    rendered_sha256: ede98c835783187f318270ab9cc5fd304986179e8b170749751bcfc1b9db98eb
+    rendered_sha256: e9a2de194c72baf4629ff5e7922e6bc04d0cb632d12d1ee12faabb1975694ca9
     base_sha256: null
   .claude/skills/builder/SKILL.md:
     role: builder

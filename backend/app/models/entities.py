@@ -839,3 +839,49 @@ class CoursePlanSession(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint("course_id", "session_number", name="uq_course_plan_session"),)
+
+
+class FeedbackTicket(Base):
+    """A report about the site itself — "something's broken", "this is
+    confusing", an idea — filed from the Feedback button on any student or
+    instructor page (app/services/feedback.py). The record is org-core's
+    tickets-core schema (SPEC §17, org_core/tickets/schema.sql), kept in the
+    app's own database like every other table: the JSON columns are Text here,
+    as everywhere in this schema, and the admin API returns them parsed under
+    tickets-core's names (kinds, refs, metadata, deployed_version).
+
+    `source` says who filed (student | instructor: both reach a person);
+    `reporter_ref` is the enrollment id, or null when a student sent it
+    without their name — and then nothing else that names them is stored."""
+
+    __tablename__ = "feedback_tickets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    source: Mapped[str] = mapped_column(String(32))
+    reporter_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    course_id: Mapped[int | None] = mapped_column(ForeignKey("courses.id", ondelete="SET NULL"), nullable=True, index=True)
+    feedback_text: Mapped[str] = mapped_column(Text)
+    # open | handled | needs_attention | needs_more_info | needs_followup | wontfix | closed
+    status: Mapped[str] = mapped_column(String(32), default="open", index=True)
+    kinds_json: Mapped[str] = mapped_column(Text, default="[]")  # a set: bug | feature_request | praise | question | unclear
+    refs_json: Mapped[str] = mapped_column(Text, default="{}")  # route, lesson, step, assignment, the category picked
+    metadata_json: Mapped[str] = mapped_column(Text, default="{}")  # the page context: viewport, browser, language, …
+    sentiment_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    deployed_version_json: Mapped[str | None] = mapped_column(Text, nullable=True)  # the build that served the page
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class FeedbackTicketNote(Base):
+    """Append-only: what a role or a person concluded about a ticket (tickets-core D4)."""
+
+    __tablename__ = "feedback_ticket_notes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    ticket_id: Mapped[str] = mapped_column(ForeignKey("feedback_tickets.id", ondelete="CASCADE"))
+    author: Mapped[str] = mapped_column(String(128))
+    note: Mapped[str] = mapped_column(Text)
+    meta_json: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (Index("ix_feedback_ticket_notes_ticket", "ticket_id", "created_at"),)

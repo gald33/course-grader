@@ -129,6 +129,10 @@ else
   note_fail repoctx "install of 'repoctx-mcp>=1.6' failed (have $BEFORE): $(tail -3 "$ERR" | tr '\n' ' ')"
 fi
 
+# ---- tickets (builtin, the tickets port) ----
+
+# builtin: inside org-core (`org tickets`) — nothing to install; enabled by the tickets port
+
 # ---- db (service, the prod_read port) ----
 
 # service: git-ref: origin/main, which Vercel deploys (frontend and API); the hosted Supabase database is not readable from a session — reached through the prod_read port, never installed here; the doctor's check 6 probes it
@@ -141,7 +145,7 @@ command -v gh >/dev/null 2>&1 || note_fail gh "not on PATH — the vcs port has 
 # ---- the report: what this container has, for `org setup status` and every role's record (doctor check 21) ----
 python3 - "$REPORT" "$INSTALLED" "$FAILED" <<'PY' || log "report not written"
 import datetime, importlib.metadata as md, json, os, re, shutil, subprocess, sys
-MODULES = json.loads(r'''[{"name": "org-core", "policy": "vendored", "dist": "org-core", "cli": "org", "mcp": null, "spec": null}, {"name": "switchboard", "policy": "tracking", "dist": "agent-switchboard", "cli": "switchboard", "mcp": "switchboard", "spec": "agent-switchboard[all]"}, {"name": "roadmap-core", "policy": "pinned", "dist": "roadmap-core", "cli": "roadmap", "mcp": "roadmap", "spec": "roadmap-core[files]>=0.5,<0.6"}, {"name": "repoctx", "policy": "pinned", "dist": "repoctx-mcp", "cli": "repoctx", "mcp": "repoctx", "spec": "repoctx-mcp>=1.6"}, {"name": "db", "policy": "service", "dist": null, "cli": null, "mcp": null, "spec": null}, {"name": "gh", "policy": "external", "dist": null, "cli": "gh", "mcp": null, "spec": null}]''')
+MODULES = json.loads(r'''[{"name": "org-core", "policy": "vendored", "dist": "org-core", "cli": "org", "mcp": null, "spec": null}, {"name": "switchboard", "policy": "tracking", "dist": "agent-switchboard", "cli": "switchboard", "mcp": "switchboard", "spec": "agent-switchboard[all]"}, {"name": "roadmap-core", "policy": "pinned", "dist": "roadmap-core", "cli": "roadmap", "mcp": "roadmap", "spec": "roadmap-core[files]>=0.5,<0.6"}, {"name": "repoctx", "policy": "pinned", "dist": "repoctx-mcp", "cli": "repoctx", "mcp": "repoctx", "spec": "repoctx-mcp>=1.6"}, {"name": "tickets", "policy": "builtin", "dist": null, "cli": null, "mcp": null, "spec": null}, {"name": "db", "policy": "service", "dist": null, "cli": null, "mcp": null, "spec": null}, {"name": "gh", "policy": "external", "dist": null, "cli": "gh", "mcp": null, "spec": null}]''')
 out, installed, failed = sys.argv[1], sys.argv[2].split(), sys.argv[3].split()
 def dist_version(d):
     try:

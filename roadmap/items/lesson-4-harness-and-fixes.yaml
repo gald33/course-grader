@@ -1,0 +1,60 @@
+id: lesson-4-harness-and-fixes
+title: Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order
+status: ready
+priority: now
+claim:
+  by: claude/lesson-4-coding-agent
+  at: '2026-11-10T19:30:00Z'
+refs:
+- 'backend/app/lessons/content/course-42052/lesson-04.json'
+- 'backend/app/lessons/schema.py'
+- 'frontend/components/lessons/widgets.tsx'
+- 'frontend/components/lessons/types.ts'
+- 'content/course-42052/materials/lesson-04/bakery-orders-starter/instructions-template.md'
+- 'frontend/public/lessons/lesson-04/v2/'
+- 'backend/tests/unit/test_lesson_4_content.py'
+- 'frontend/e2e/lesson-4.spec.ts'
+evidence: |
+  Operator, 2026-11-10: lesson 4 is being prepared for class; teach the
+  harness. Operator rules (2026-11-03): no chatbot task without a purpose,
+  explain on the page, no concept before its definition, one required
+  action per step (extras marked רשות), a concrete closing question.
+
+  VERIFIED at 19c9c70: the Lesson Planner's adversarial review of lesson-04
+  came back UNSOUND. The starter, its documented output, the sha256, the
+  live hash and the keys all checked out. Six blocking text items:
+  - The Windows sandbox fact is missing: Windows 10, and Windows 11 before
+    24H2 with the August 2026 update, have no sandbox and fall back to
+    Request Review (antigravity.google/docs/sandbox).
+  - The first-launch role question ("What best describes your work?") can
+    hide the Review pane the lesson relies on (docs/getting-started,
+    docs/settings#interface-layout).
+  - API key and secret are used before they are defined.
+  - Staged changes and Discard are used without saying what staged means.
+  - diff is used before it is defined.
+  - Step A asks for several required actions at once.
+
+  This item:
+  - A new first step, harness: turn, harness, context assembly (AGENTS.md
+    re-read every turn), tool requests, the permission check, the loop, and
+    claims vs evidence.
+  - A keyboard- and phone-friendly agent_turn_stepper block: one
+    illustrative turn with a prediction before each frame. Not keyed, and
+    labeled as an illustration of the pattern, not a recording of
+    Antigravity.
+  - Install moves to a "before class" callout.
+  - Every concept is defined before first use; a test enforces this for 13
+    terms.
+  - The revert goes through the agent first, and the required commit is the
+    step's last action.
+  - Starter v2 (an instructions template that says what a passing check
+    looks like and not to install node); v1 is kept.
+  - Seed checks are kept verbatim. Keys are private (new ids: l04-harness-runs,
+    l04-harness-evidence).
+
+  Done when: lesson-04 previews end to end at 390px and 1280px and by
+  keyboard; the stepper works by keyboard and announces frames; the
+  concept-order test passes; starter v2 passes --check and its output
+  matches the lesson; every Antigravity fact cites docs checked on the
+  build date; no keys in the repo; backend (SQLite + PG), tsc and e2e are
+  green.

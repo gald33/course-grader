@@ -34,6 +34,8 @@ _Nothing deferred._
 | `instructor-course-page-is-organized-as-fake-steps` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `instructor-pages-are-walls-of-text` | claude/practical-ride-d2lxpj | 2026-11-03T00:00:00Z |
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
+| `lesson-4-harness-and-fixes` | claude/lesson-4-coding-agent | 2026-11-10T19:30:00Z |
+| `lesson-4-polish` | claude/lesson-4-coding-agent | 2026-11-10T19:50:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
 | `notebooks-per-step` | claude/notebooks-per-step | 2026-11-03T19:35:00Z |
 | `lesson-complete-celebration` | claude/lesson-complete-celebration | 2026-11-03T00:00:00Z |
@@ -71,6 +73,8 @@ graph TD
   lesson_3_restructure_two_parts["Session 3 sends students to a chatbot to learn instead of teaching on the page, uses weights and parameters before neural networks are taught, and frames its second half as optional"]:::claimed
   lesson_3_review_fixes["✓ Lessons 3 and 3-deeper state a few things that are not true (majority probability, chatbot sizes, one repeating layer, why the embedding model pairs translations)"]:::done
   lesson_4_coding_agent["✓ Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check"]:::done
+  lesson_4_harness_and_fixes["Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order"]:::claimed
+  lesson_4_polish["Lesson 4's turn stepper drops keyboard focus, its 'walked the turn' mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length"]:::claimed
   lesson_5_product_definition["Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice"]:::verifying
   lesson_6_skeleton["Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run"]:::verifying
   lesson_7_ai_api["Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario"]:::verifying
@@ -96,6 +100,7 @@ graph TD
   course_42052_whole_syllabus --> lesson_3_how_language_models_work
   lesson_3_how_language_models_work --> lesson_3_part_b_deeper
   course_42052_whole_syllabus --> lesson_4_coding_agent
+  lesson_4_harness_and_fixes --> lesson_4_polish
   lesson_4_coding_agent --> lesson_5_product_definition
   lesson_5_product_definition --> lesson_6_skeleton
   lesson_5_product_definition --> lesson_7_ai_api
@@ -838,6 +843,121 @@ graph TD
 > and a homework brief.
 >
 > SHIPPED: #34, merged as 035c8b0.
+
+</details>
+
+### `lesson-4-harness-and-fixes`
+
+- **title:** Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T19:30:00Z)
+- **blocks:** `lesson-4-polish`
+- **refs:**
+  - `backend/app/lessons/content/course-42052/lesson-04.json`
+  - `backend/app/lessons/schema.py`
+  - `frontend/components/lessons/widgets.tsx`
+  - `frontend/components/lessons/types.ts`
+  - `content/course-42052/materials/lesson-04/bakery-orders-starter/instructions-template.md`
+  - `frontend/public/lessons/lesson-04/v2/`
+  - `backend/tests/unit/test_lesson_4_content.py`
+  - `frontend/e2e/lesson-4.spec.ts`
+
+<details><summary>evidence</summary>
+
+> Operator, 2026-11-10: lesson 4 is being prepared for class; teach the
+> harness. Operator rules (2026-11-03): no chatbot task without a purpose,
+> explain on the page, no concept before its definition, one required
+> action per step (extras marked רשות), a concrete closing question.
+>
+> VERIFIED at 19c9c70: the Lesson Planner's adversarial review of lesson-04
+> came back UNSOUND. The starter, its documented output, the sha256, the
+> live hash and the keys all checked out. Six blocking text items:
+> - The Windows sandbox fact is missing: Windows 10, and Windows 11 before
+>   24H2 with the August 2026 update, have no sandbox and fall back to
+>   Request Review (antigravity.google/docs/sandbox).
+> - The first-launch role question ("What best describes your work?") can
+>   hide the Review pane the lesson relies on (docs/getting-started,
+>   docs/settings#interface-layout).
+> - API key and secret are used before they are defined.
+> - Staged changes and Discard are used without saying what staged means.
+> - diff is used before it is defined.
+> - Step A asks for several required actions at once.
+>
+> This item:
+> - A new first step, harness: turn, harness, context assembly (AGENTS.md
+>   re-read every turn), tool requests, the permission check, the loop, and
+>   claims vs evidence.
+> - A keyboard- and phone-friendly agent_turn_stepper block: one
+>   illustrative turn with a prediction before each frame. Not keyed, and
+>   labeled as an illustration of the pattern, not a recording of
+>   Antigravity.
+> - Install moves to a "before class" callout.
+> - Every concept is defined before first use; a test enforces this for 13
+>   terms.
+> - The revert goes through the agent first, and the required commit is the
+>   step's last action.
+> - Starter v2 (an instructions template that says what a passing check
+>   looks like and not to install node); v1 is kept.
+> - Seed checks are kept verbatim. Keys are private (new ids: l04-harness-runs,
+>   l04-harness-evidence).
+>
+> Done when: lesson-04 previews end to end at 390px and 1280px and by
+> keyboard; the stepper works by keyboard and announces frames; the
+> concept-order test passes; starter v2 passes --check and its output
+> matches the lesson; every Antigravity fact cites docs checked on the
+> build date; no keys in the repo; backend (SQLite + PG), tsc and e2e are
+> green.
+
+</details>
+
+### `lesson-4-polish`
+
+- **title:** Lesson 4's turn stepper drops keyboard focus, its "walked the turn" mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/lesson-4-coding-agent (since 2026-11-10T19:50:00Z)
+- **blocked on:** `lesson-4-harness-and-fixes`
+- **refs:**
+  - `frontend/components/lessons/widgets.tsx`
+  - `frontend/components/lessons/lesson-player.tsx`
+  - `frontend/components/lessons/preview-backend.ts`
+  - `backend/app/lessons/schema.py`
+  - `backend/app/services/lessons.py`
+  - `backend/app/lessons/content/course-42052/lesson-04.json`
+  - `frontend/e2e/lesson-4.spec.ts`
+
+<details><summary>evidence</summary>
+
+> Reed's non-blocking notes on #50 (lesson-4-harness-and-fixes, merged as
+> 8106cbb); the Lesson Planner asked for them before class.
+>
+> VERIFIED at 2fbb4c2:
+> - N1: in agent_turn_stepper, "הבא" disables itself and "גלו מה קורה"
+>   unmounts, leaving keyboard focus on <body>. The e2e masked this by
+>   refocusing the button before each key press.
+> - N3: step D (loop) lists several required actions, against the operator
+>   rule of one required action per step.
+> - N4: the turn_walked ack is a free checkbox, so it can be ticked before
+>   the stepper's last frame.
+> - N2: wrong options padded to avoid longest-is-right now signal by length
+>   the other way.
+>
+> This item:
+> - Focus moves to the new frame heading or the first prediction choice,
+>   never to <body>. The e2e runs the stepper by keyboard only.
+> - The loop's action is one flow sentence (expected result → change →
+>   diff → check), with the commit as the single closing line.
+> - The stepper records its own done_ack on the last frame. It declares the
+>   ack for validation, the progress API and the step checklist; there is
+>   no hand-ticked checkbox.
+> - Option lengths are evened out (same ids, same right answers, feedback
+>   unchanged).
+>
+> Done when: the e2e never sees focus on <body> after a stepper action; the
+> ack appears only on the last frame; the loop has one required action
+> (tested); backend (SQLite + PG), tsc and the full Playwright suite are
+> green.
 
 </details>
 

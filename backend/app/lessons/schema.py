@@ -355,6 +355,44 @@ class ArchitectureMapBlock(_Model):
     items: Annotated[list[ArchitectureItem], Field(min_length=2, max_length=12)]
 
 
+class TurnPrediction(_Model):
+    id: Key
+    text: Inline
+
+
+class TurnFrame(_Model):
+    """One step of an illustrated agent turn: what the harness put in the
+    context, what the model answered (text or a tool request), what the
+    harness did with it, and the tool result that goes back into the context.
+    Every frame after the first opens with a prediction: the student picks
+    one option, then `reveal` says what actually happens. Not keyed or
+    recorded; nothing is right or wrong."""
+
+    id: Key
+    title: Inline
+    question: Inline | None = None
+    options: list[TurnPrediction] | None = None
+    reveal: Inline | None = None
+    context: Annotated[list[Inline], Field(min_length=1, max_length=8)]
+    model_output_kind: Literal["text", "tool_request"]
+    model_output: Inline
+    harness: Inline
+    tool_result: Inline | None
+
+
+class AgentTurnStepperBlock(_Model):
+    """A step-through of one illustrative coding-agent turn. The player
+    labels it as an illustration of the pattern, not a recording of any tool."""
+
+    type: Literal["agent_turn_stepper"]
+    caption: Inline | None = None
+    frames: Annotated[list[TurnFrame], Field(min_length=3, max_length=10)]
+    # An ack the stepper records itself when the student reaches the last
+    # frame (it can't be ticked by hand). Declares the ack like an ack block.
+    done_ack: Key | None = None
+    done_label: Inline | None = None  # how the step's checklist names it; required with done_ack
+
+
 class ImageBlock(_Model):
     type: Literal["image"]
     asset: str
@@ -391,6 +429,7 @@ Block = Annotated[
         EmbeddingMapBlock,
         ImageBlock,
         ArchitectureMapBlock,
+        AgentTurnStepperBlock,
     ],
     Field(discriminator="type"),
 ]
@@ -938,6 +977,27 @@ def _check_widget(where: str, content: LessonContent, block: Any, assets_root: P
     elif isinstance(block, TrainingDemoBlock):
         if len({p.label for p in block.points}) < 2:
             errors.append(f"{where}: the points need both labels")
+    elif isinstance(block, AgentTurnStepperBlock):
+        if (block.done_ack is None) != (block.done_label is None):
+            errors.append(f"{where}: done_ack and done_label go together")
+        ids = [f.id for f in block.frames]
+        for dup in dict.fromkeys(i for i in ids if ids.count(i) > 1):
+            errors.append(f"{where}: duplicate frame id '{dup}'")
+        for n, frame in enumerate(block.frames):
+            at = f"{where}.frames[{n}]"
+            predicts = (frame.question, frame.options, frame.reveal)
+            if n == 0:
+                if any(x is not None for x in predicts):
+                    errors.append(f"{at}: the first frame has no prediction")
+                continue
+            if any(x is None for x in predicts):
+                errors.append(f"{at}: a frame after the first needs a question, options and a reveal")
+                continue
+            if not 2 <= len(frame.options) <= 3:
+                errors.append(f"{at}: a prediction has 2 or 3 options")
+            opts = [o.id for o in frame.options]
+            for dup in dict.fromkeys(i for i in opts if opts.count(i) > 1):
+                errors.append(f"{at}: duplicate option id '{dup}'")
     elif isinstance(block, ArchitectureMapBlock):
         parts = [p.id for p in block.parts]
         items = [i.id for i in block.items]
@@ -956,7 +1016,7 @@ def _check_widget(where: str, content: LessonContent, block: Any, assets_root: P
 
 
 _WIDGETS = (NextWordGuessBlock, EmbeddingMapBlock, AttentionViewBlock, NeuronPlaygroundBlock, TrainingDemoBlock, ImageBlock,
-            ArchitectureMapBlock)
+            ArchitectureMapBlock, AgentTurnStepperBlock)
 
 
 def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[str]:
@@ -1003,6 +1063,11 @@ def _semantic_errors(content: LessonContent, assets_root: Path | None) -> list[s
     for step in steps:
         types_here: set[str] = set()
         for block, where in iter_blocks(step.blocks, f"steps.{step.key}"):
+            if isinstance(block, AgentTurnStepperBlock) and block.done_ack:
+                # The stepper records this ack itself on its last frame: it declares it.
+                if block.done_ack in ack_steps:
+                    errors.append(f"{where}: ack key '{block.done_ack}' is declared more than once")
+                ack_steps.setdefault(block.done_ack, step.key)
             types_here.add(block.type)
             if isinstance(block, QuestionBlock):
                 q = content.questions.get(block.question)

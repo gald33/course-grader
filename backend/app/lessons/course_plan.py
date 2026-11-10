@@ -275,8 +275,8 @@ AUTHORED: dict[str, dict] = {
     },
     "lesson-04": {
         "runnable": "Starter web app (zip) built here; its check (node check.js, and check.html in a browser) runs "
-        "in CI with the documented output. The Google Antigravity steps were checked against Google's docs on "
-        "2026-11-03 but not run in Antigravity, here or by the instructor",
+        "in CI with the documented output. The Google Antigravity steps were rechecked against Google's docs on "
+        "2026-11-10 but not run in Antigravity, here or by the instructor",
         # The seed's homework proposal adapted to the lesson's tool; still a
         # proposal (instructor's readiness table only, no deadline or weight).
         "homework_he": "הצעה: בצוות, יישמו שינוי קטן אחד בתיקייה או במאגר של הפרויקט שלכם בעזרת Google Antigravity, "

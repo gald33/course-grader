@@ -16,6 +16,7 @@ import { LessonSummary } from '@/components/lessons/summary';
 import { ActualTree, ManualTree, SplitIllustration } from '@/components/lessons/trees';
 import type { Block, SectionLabel } from '@/components/lessons/types';
 import {
+  AgentTurnStepper,
   ArchitectureMap,
   AttentionView,
   EmbeddingMap,
@@ -115,6 +116,8 @@ function BlockView({ block, api }: { block: Block; api: LessonApi }) {
       return <ImageBlockView block={block} path={api.content.assets[block.asset]?.path ?? null} />;
     case 'architecture_map':
       return <ArchitectureMap block={block} />;
+    case 'agent_turn_stepper':
+      return <AgentTurnStepper block={block} />;
     default:
       return null;
   }

@@ -930,3 +930,172 @@ export function ArchitectureMap({ block }: { block: BlockOf<'architecture_map'> 
     </section>
   );
 }
+
+/* ---------------- Agent turn stepper (lesson 4) ---------------- */
+
+/** One illustrative coding-agent turn, frame by frame: context, model
+ * output, the harness's action and the tool result. Before each next frame
+ * the student predicts what happens; the reveal follows. Nothing is keyed or
+ * saved. Arrow keys move between frames (RTL: left is next) unless focus is
+ * in the prediction choices, which use the arrows themselves. */
+export function AgentTurnStepper({ block }: { block: BlockOf<'agent_turn_stepper'> }) {
+  const id = useId();
+  const frames = block.frames;
+  const [at, setAt] = useState(0);
+  const [predicting, setPredicting] = useState(false);
+  const [choice, setChoice] = useState('');
+  const [picks, setPicks] = useState<Record<string, string>>({});
+  const frame = frames[at];
+  const next = frames[at + 1];
+  const last = at === frames.length - 1;
+
+  const forward = () => {
+    if (last) return;
+    if (next.question && next.options?.length && !picks[next.id]) {
+      setChoice('');
+      setPredicting(true);
+      return;
+    }
+    setPredicting(false);
+    setAt(at + 1);
+  };
+  const back = () => {
+    if (predicting) return setPredicting(false);
+    if (at > 0) setAt(at - 1);
+  };
+  const reveal = () => {
+    if (!choice || !next) return;
+    setPicks({ ...picks, [next.id]: choice });
+    setPredicting(false);
+    setAt(at + 1);
+  };
+  const onKey = (e: React.KeyboardEvent<HTMLElement>) => {
+    if ((e.target as HTMLElement).closest('input, textarea, select, summary')) return;
+    const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
+    const fwd = rtl ? 'ArrowLeft' : 'ArrowRight';
+    const bwd = rtl ? 'ArrowRight' : 'ArrowLeft';
+    if (e.key === fwd) {
+      e.preventDefault();
+      forward();
+    } else if (e.key === bwd) {
+      e.preventDefault();
+      back();
+    }
+  };
+  const picked = frame.options?.find((o) => o.id === picks[frame.id]);
+
+  return (
+    <section aria-labelledby={`${id}-t`} className={BOX} data-testid="agent-turn-stepper" onKeyDown={onKey}>
+      <h4 id={`${id}-t`} className="font-hebrew text-[17px]">
+        {block.caption ? <InlineText text={block.caption} /> : 'תור של סוכן קוד'}
+      </h4>
+      <span className="pill pill-warn justify-self-start" data-testid="turn-illustration-label">
+        המחשה של הדפוס, לא הקלטה של Antigravity
+      </span>
+      <p className="text-[13px] text-ink-2">
+        עוברים בכפתורים «הבא» ו«הקודם», או בחיצים. לפני כל צעד חדש בוחרים ניחוש – בלי ציון, ושום דבר לא נשמר.
+      </p>
+      <p id={`${id}-live`} aria-live="polite" className="text-[14px] font-semibold" data-testid="turn-live">
+        {predicting && next ? (
+          <>
+            לפני צעד <Ltr>{at + 2}</Ltr>: מה לדעתכם יקרה?
+          </>
+        ) : (
+          <>
+            צעד <Ltr>{at + 1}</Ltr> מתוך <Ltr>{frames.length}</Ltr>: <InlineText text={frame.title} />
+          </>
+        )}
+      </p>
+
+      {predicting && next ? (
+        <fieldset className="grid grid-cols-1 gap-2 rounded-md bg-paper-2 p-3" data-testid="turn-predict">
+          <legend className="mb-1 text-[15px] font-semibold">
+            <InlineText text={next.question ?? ''} />
+          </legend>
+          {next.options?.map((o) => (
+            <label key={o.id} className="flex min-h-[44px] items-center gap-2 rounded-md px-2 text-[15px]">
+              <input
+                type="radio"
+                name={`${id}-predict-${next.id}`}
+                value={o.id}
+                checked={choice === o.id}
+                onChange={() => setChoice(o.id)}
+                className={FOCUS}
+              />
+              <InlineText text={o.text} />
+            </label>
+          ))}
+          <button
+            type="button"
+            onClick={reveal}
+            disabled={!choice}
+            className={`min-h-[44px] justify-self-start rounded-md bg-forest px-4 font-semibold text-paper disabled:opacity-50 ${FOCUS}`}
+          >
+            גלו מה קורה
+          </button>
+        </fieldset>
+      ) : (
+        <article className="grid grid-cols-1 gap-2 rounded-md bg-paper-2 p-3" data-testid="turn-frame" data-frame={frame.id}>
+          {frame.reveal && picked ? (
+            <div className="rounded-md border border-info-soft bg-card p-2 text-[14px]" data-testid="turn-reveal">
+              <p>
+                <b>ניחשתם:</b> <InlineText text={picked.text} />
+              </p>
+              <p>
+                <b>מה קורה בפועל:</b> <InlineText text={frame.reveal} />
+              </p>
+            </div>
+          ) : null}
+          <details className="text-[14px]">
+            <summary className="min-h-[44px] cursor-pointer py-2 font-semibold">
+              מה בהקשר (<Ltr>{frame.context.length}</Ltr>)
+            </summary>
+            <ul className="list-disc ps-5">
+              {frame.context.map((c, i) => (
+                <li key={i}>
+                  <InlineText text={c} />
+                </li>
+              ))}
+            </ul>
+          </details>
+          <p className="text-[14px]">
+            <span className={`pill me-2 ${frame.model_output_kind === 'tool_request' ? 'pill-warn' : 'pill-ok'}`}>
+              {frame.model_output_kind === 'tool_request' ? 'פלט המודל: בקשת כלי' : 'פלט המודל: טקסט אליכם'}
+            </span>
+            <InlineText text={frame.model_output} />
+          </p>
+          <p className="text-[14px]">
+            <b>מה ה-harness עושה:</b> <InlineText text={frame.harness} />
+          </p>
+          <p className="text-[14px]">
+            <b>תוצאת הכלי:</b> {frame.tool_result ? <InlineText text={frame.tool_result} /> : 'אין – התור נגמר.'}
+          </p>
+        </article>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={back}
+          disabled={at === 0 && !predicting}
+          className={`min-h-[44px] rounded-md border border-forest px-4 font-semibold text-forest disabled:opacity-50 ${FOCUS}`}
+        >
+          → הקודם
+        </button>
+        <button
+          type="button"
+          onClick={forward}
+          disabled={last || predicting}
+          className={`min-h-[44px] rounded-md border border-forest px-4 font-semibold text-forest disabled:opacity-50 ${FOCUS}`}
+        >
+          הבא ←
+        </button>
+        {last ? (
+          <span className="text-[14px] text-ink-2" data-testid="turn-done">
+            ✓ התור נגמר: המודל ענה בטקסט.
+          </span>
+        ) : null}
+      </div>
+    </section>
+  );
+}

@@ -96,7 +96,23 @@ export type Block =
     }
   | { type: 'embedding_map'; asset: string; caption?: Inline; start?: string }
   | { type: 'image'; asset: string; alt: string; caption?: Inline }
-  | { type: 'architecture_map'; caption?: Inline; parts: ArchitecturePart[]; items: ArchitectureItem[] };
+  | { type: 'architecture_map'; caption?: Inline; parts: ArchitecturePart[]; items: ArchitectureItem[] }
+  | { type: 'agent_turn_stepper'; caption?: Inline; frames: TurnFrame[] };
+
+/** One step of an illustrated agent turn. Frames after the first open with a
+ * prediction (question, 2-3 options, reveal): not keyed, recorded or graded. */
+export type TurnFrame = {
+  id: string;
+  title: Inline;
+  question?: Inline;
+  options?: { id: string; text: Inline }[];
+  reveal?: Inline;
+  context: Inline[];
+  model_output_kind: 'text' | 'tool_request';
+  model_output: Inline;
+  harness: Inline;
+  tool_result: Inline | null;
+};
 
 export type ArchitecturePart = { id: string; label: Inline };
 /** model_part: the lesson's own mapping, shown only when asked (a self-check, never graded). */

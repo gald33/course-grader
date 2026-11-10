@@ -43,13 +43,14 @@ def _choice_keys(fixture_key: str) -> list[str]:
     return [k for k, q in load_fixture(fixture_key)["questions"].items() if q["type"] == "single_choice"]
 
 
-# Lessons 3, 4, 5 and 6 are authored in the repository (more checks than their seeds' three).
+# Lessons 3, 4, 5, 6 and 7 are authored in the repository (more checks than their seeds' three).
 L03_CHECKS = _choice_keys("42052-lesson-03")
 # Session 3 part 2 holds the seed's l03-q1 (the example question several tests use).
 D03_CHECKS = _choice_keys("42052-lesson-03-deeper")
 L04_CHECKS = _choice_keys("42052-lesson-04")
 L05_CHECKS = _choice_keys("42052-lesson-05")
 L06_CHECKS = _choice_keys("42052-lesson-06")
+L07_CHECKS = _choice_keys("42052-lesson-07")
 
 
 def _script(name: str):
@@ -209,7 +210,9 @@ def test_import_plan_installs_13_drafts_and_publishes_nothing(penv):
     assert five["state"] == "built_not_reviewed" and "not run" in five["note"]
     six = sessions[5]["readiness"]["runnable"]  # lesson 6: authored here (templates)
     assert six["state"] == "built_not_reviewed" and "not run" in six["note"]
-    assert sessions[6]["readiness"]["runnable"]["state"] == "not_built"
+    seven = sessions[6]["readiness"]["runnable"]  # lesson 7: authored here (reference implementation, mock check)
+    assert seven["state"] == "built_not_reviewed" and "not run with a real key" in seven["note"]
+    assert sessions[7]["readiness"]["runnable"]["state"] == "not_built"
     assert sessions[0]["readiness"]["runnable"]["state"] == "prepared_not_rerun"
 
     marked = _ok(env.client.patch(f"/api/courses/{course.id}/plan/sessions/3", json={"reviewed": True}))
@@ -321,7 +324,7 @@ def test_the_whole_plan_file_loads_13_lessons_and_every_check(penv):
     _import(env, course)
     data = fake_key_file(INSTALLED_KEYS)
     total = sum(len(_choice_keys(k)) for k in INSTALLED_KEYS)  # three per generated lesson, more in an authored one
-    assert total == 27 + len(L03_CHECKS) + len(_choice_keys("42052-lesson-03-deeper")) + len(L04_CHECKS) + len(L05_CHECKS) + len(L06_CHECKS)
+    assert total == 24 + len(L03_CHECKS) + len(_choice_keys("42052-lesson-03-deeper")) + len(L04_CHECKS) + len(L05_CHECKS) + len(L06_CHECKS) + len(L07_CHECKS)
     assert sum(len(v) for v in data["lessons"].values()) == total and len(data["lessons"]) == 14
     result = _ok(_upload(env, course, data))
     assert (result["keys"], result["added"], result["not_in_file"], result["instructor_contact"]) == (total, total, [], "set")
@@ -651,7 +654,7 @@ def test_load_script_stores_keys_in_the_chosen_course(penv, tmp_path, capsys, mo
     course = _plan_course(env)
     _import(env, course)
     keys = tmp_path / "keys.json"
-    keys.write_text(json.dumps(fake_key_file(["42052-lesson-07"])), encoding="utf-8")
+    keys.write_text(json.dumps(fake_key_file(["42052-lesson-08"])), encoding="utf-8")
     load = _script("load_answer_keys")
     assert load.main(["--course-id", str(course.id), "--file", str(keys), "--dry-run"], env.Session) == 0
     assert _stored(env) == 0
@@ -660,30 +663,30 @@ def test_load_script_stores_keys_in_the_chosen_course(penv, tmp_path, capsys, mo
     assert "Stored 3 key(s) for 1 lesson(s): 3 new" in out and FAKE not in out and FAKE_EMAIL not in out
     with env.Session() as db:
         assert {r.source for r in db.scalars(select(LessonAnswerKey))} == {"script"}
-        lesson = db.scalar(select(Lesson).where(Lesson.slug == "lesson-07"))
+        lesson = db.scalar(select(Lesson).where(Lesson.slug == "lesson-08"))
         assert lesson.status == "draft"  # loading keys publishes nothing
     assert load.main(["--course-id", "999", "--file", str(keys)], env.Session) == 2
     # A key a published version can't use: listed by path, refused without the flag.
-    lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-07")
+    lesson = next(l for l in _ok(env.client.get(f"/api/courses/{course.id}/lessons")) if l["slug"] == "lesson-08")
     _ok(env.client.post(f"/api/courses/{course.id}/lessons/{lesson['id']}/publish", json={"version_id": lesson["draft_version"]["id"]}))
-    revised = load_fixture("42052-lesson-07")
-    revised["questions"]["l07-q1"]["options"].append({"id": "9", "text": "אפשרות חדשה"})
-    fixture = tmp_path / "lesson-07.json"
+    revised = load_fixture("42052-lesson-08")
+    revised["questions"]["l08-q1"]["options"].append({"id": "9", "text": "אפשרות חדשה"})
+    fixture = tmp_path / "lesson-08.json"
     fixture.write_text(json.dumps(revised, ensure_ascii=False), encoding="utf-8")
-    monkeypatch.setitem(FIXTURES, "42052-lesson-07", fixture)
-    _ok(env.client.post(f"/api/courses/{course.id}/lessons/install", json={"fixture_key": "42052-lesson-07"}))
+    monkeypatch.setitem(FIXTURES, "42052-lesson-08", fixture)
+    _ok(env.client.post(f"/api/courses/{course.id}/lessons/install", json={"fixture_key": "42052-lesson-08"}))
     breaking = tmp_path / "breaking.json"
-    breaking.write_text(json.dumps({"lessons": {"lesson-07": {"l07-q1": {"correct_choice_id": "9", "feedback_he": FAKE}}}}), encoding="utf-8")
+    breaking.write_text(json.dumps({"lessons": {"lesson-08": {"l08-q1": {"correct_choice_id": "9", "feedback_he": FAKE}}}}), encoding="utf-8")
     capsys.readouterr()
     assert load.main(["--course-id", str(course.id), "--file", str(breaking), "--dry-run"], env.Session) == 0
     out = capsys.readouterr().out
-    assert "lesson-07/l07-q1 (version 1)" in out and "published" in out and FAKE not in out
+    assert "lesson-08/l08-q1 (version 1)" in out and "published" in out and FAKE not in out
     assert load.main(["--course-id", str(course.id), "--file", str(breaking)], env.Session) == 3
     err = capsys.readouterr().err
-    assert "lesson-07/l07-q1 (version 1)" in err and "--confirm-published-breaks" in err and FAKE not in err
+    assert "lesson-08/l08-q1 (version 1)" in err and "--confirm-published-breaks" in err and FAKE not in err
     assert load.main(["--course-id", str(course.id), "--file", str(breaking), "--confirm-published-breaks"], env.Session) == 0
     bad = tmp_path / "bad.json"
-    bad.write_text(json.dumps({"lessons": {"lesson-07": {"l07-q1": {"correct_choice_id": "99"}}}}), encoding="utf-8")
+    bad.write_text(json.dumps({"lessons": {"lesson-08": {"l08-q1": {"correct_choice_id": "99"}}}}), encoding="utf-8")
     assert load.main(["--course-id", str(course.id), "--file", str(bad)], env.Session) == 1
 
 

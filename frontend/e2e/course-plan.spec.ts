@@ -11,9 +11,9 @@ import { loadSeed, type Seed } from './seed';
  * in backend/scripts/seed_e2e.py). Here: the instructor's readiness table
  * keeps its five states apart, a draft lesson previews in Hebrew RTL on a
  * desktop and a phone, and students can't reach any of the drafts. Lessons 3
- * to 6 are authored in the repository and have their own walkthroughs
- * (lesson-3.spec.ts ... lesson-6.spec.ts); the generated drafts are
- * represented here by lesson 7. */
+ * to 7 are authored in the repository and have their own walkthroughs
+ * (lesson-3.spec.ts ... lesson-7.spec.ts); the generated drafts are
+ * represented here by lesson 8. */
 
 let seed: Seed;
 test.beforeAll(() => {
@@ -72,7 +72,7 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await expect(row(2)).toContainText(`also the existing lesson ${seed.lesson.slug}`);
 
   // Drafted, but not published or verified; the seed's FAKE keys are loaded.
-  // Lessons 3 to 6 were built here (notebook, starter check, templates); a generated lesson was not.
+  // Lessons 3 to 7 were built here (notebook, starter check, templates, reference check); a generated lesson was not.
   const three = row(3);
   await expect(three).toContainText('✓ v1');
   await expect(three).toContainText('built here, not reviewed');
@@ -83,10 +83,12 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await expect(row(5)).toContainText('7/7 loaded');
   await expect(row(6)).toContainText('built here, not reviewed');
   await expect(row(6)).toContainText('8/8 loaded');
-  await expect(row(7)).toContainText('not built');
-  await expect(row(7)).toContainText('3/3 loaded');
+  await expect(row(7)).toContainText('built here, not reviewed');
+  await expect(row(7)).toContainText('9/9 loaded');
+  await expect(row(8)).toContainText('not built');
+  await expect(row(8)).toContainText('3/3 loaded');
   // Their homework stays a proposal, visible to the instructor only.
-  for (const session of [3, 4, 5, 6]) {
+  for (const session of [3, 4, 5, 6, 7]) {
     const proposal = page.getByTestId(`homework-proposal-${session}`);
     await expect(proposal).toContainText('proposal not yet assigned');
     await expect(proposal).toContainText('no deadline or weight');
@@ -94,6 +96,7 @@ test('the readiness table keeps drafted, reviewed, runnable, published and live 
   await expect(page.getByTestId('homework-proposal-4')).toContainText('Antigravity');
   await expect(page.getByTestId('homework-proposal-5')).toContainText('הצעת פרויקט + SPEC.md (לפי התבנית)');
   await expect(page.getByTestId('homework-proposal-6')).toContainText('שלד עובד + README + קישור למאגר');
+  await expect(page.getByTestId('homework-proposal-7')).toContainText('תכונת AI אחת מקצה לקצה + בדיקת פלט + תרחיש כשל');
   await expect(three.getByRole('checkbox', { name: 'Session 3 reviewed' })).not.toBeChecked();
   await expect(three.getByRole('checkbox', { name: 'Session 3 live verified' })).not.toBeChecked();
 
@@ -119,7 +122,7 @@ for (const device of [
   test(`a draft plan lesson previews in Hebrew, right to left, on a ${device.name}`, async ({ page }) => {
     const problems = await watchForErrors(page);
     await page.setViewportSize({ width: device.width, height: device.height });
-    await page.goto(`/course/${seed.course.id}/lessons/${seed.plan_lessons['lesson-07']}/preview`);
+    await page.goto(`/course/${seed.course.id}/lessons/${seed.plan_lessons['lesson-08']}/preview`);
     await expect(page.getByText('Lesson preview — nothing is saved')).toBeVisible();
 
     const player = page.locator('div[dir="rtl"][lang="he"]').first();
@@ -127,12 +130,12 @@ for (const device of [
     await expect(stepHeading(page)).toContainText(/./);
     await expect(page.getByRole('alert').filter({ hasText: 'No answer key loaded' })).toHaveCount(0);
 
-    // Latin terms sit in left-to-right islands inside the Hebrew text (lesson 7's first step).
-    await expect(player.locator('bdi[dir="ltr"]').filter({ hasText: /^(AI|API|LLM|JSON)$/ }).first()).toBeVisible();
+    // Latin terms sit in left-to-right islands inside the Hebrew text (lesson 8's first step).
+    await expect(player.locator('bdi[dir="ltr"]').filter({ hasText: /^(AI|API)$/ }).first()).toBeVisible();
 
     // A check question: no explanation before answering; after a wrong
     // answer, the right option and the (FAKE) explanation.
-    const card = questionCard(page, 'l07-q1');
+    const card = questionCard(page, 'l08-q1');
     await expect(card).not.toContainText('התשובה הנכונה');
     await expect(card.getByRole('button', { name: 'הצג הסבר' })).toHaveCount(0);
     const radios = card.getByRole('radio');
@@ -160,7 +163,7 @@ for (const device of [
     }
     await expect(stepHeading(page)).toContainText('מסכמים');
     await expect(page.getByText('דוגמה פתורה')).toBeVisible();
-    await shot(page, `${device.name}-plan-lesson-07-wrap-up`);
+    await shot(page, `${device.name}-plan-lesson-08-wrap-up`);
     expect(problems).toEqual([]);
   });
 }

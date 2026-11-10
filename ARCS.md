@@ -38,6 +38,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `lesson-4-coding-agent` — Lesson 4 (coding agent, from plan to run and check) is only a three-step seed, with no hands-on tool steps, no starter project and no runnable check
 - `lesson-4-harness-and-fixes` — Lesson 4 never explains how a coding agent works inside (turn, harness, tool requests, permissions), and its review found six blocking text errors in Antigravity facts and concept order
 - `lesson-4-polish` — Lesson 4's turn stepper drops keyboard focus, its "walked the turn" mark can be ticked early, the loop step asks for several required actions, and padded wrong options still signal by length
+- `lesson-4-stepper-prompt-shown` — Lesson 4's turn stepper answers to instructions the student was never shown, and names AGENTS.md before the lesson teaches it
 - `lesson-5-product-definition` — Lesson 5 (defining a small business product) is only a four-step seed, with no team activity, no spec template and no architecture practice
 - `lesson-6-skeleton` — Lesson 6 (building a skeleton that works end to end) is only a four-step seed, with no agent scaffolding, no GitHub team routine and no README a stranger can run
 - `lesson-7-ai-api` — Lesson 7 (connecting an AI capability to the product) is only a four-step seed, with no real API call, no key handling, no output checks and no failure scenario

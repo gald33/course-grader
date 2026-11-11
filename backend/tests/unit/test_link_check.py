@@ -59,3 +59,12 @@ def test_local_and_private_addresses_are_never_fetched():
     for url in ("http://localhost:3000/", "http://127.0.0.1:5500/index.html", "http://192.168.1.10/", "http://169.254.169.254/latest"):
         result = check_link(url)
         assert result.status == "broken", url
+
+
+def test_private_links_do_not_initialize_networking(monkeypatch):
+    def unexpected_client(*args, **kwargs):
+        raise AssertionError("Private links must not initialize a network client")
+
+    monkeypatch.setattr(httpx, "Client", unexpected_client)
+    for url in ("http://localhost/", "http://127.0.0.1/", "http://192.168.1.10/"):
+        assert check_link(url).status == "broken"

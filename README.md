@@ -38,7 +38,7 @@ logins; see [Security and scope](#security-and-scope).
 - Presentation XLSX import (initial/final sheets, group blocks, Hebrew criteria mapping, bonus import)
 - Report/code consistency heuristic summary
 - Gradebook per course + CSV export
-- Peer review of team presentations (see below): schedule & slot selection, individual anonymous student reviews from a mobile Hebrew page, versioned rubrics, AI grader, moderation, per-round normalised scores, XLSX export
+- Peer review of team presentations (see below): schedule & slot selection, individual anonymous student reviews from a mobile Hebrew page, versioned rubrics, an AI grader that makes up a third of each team score, moderation, per-round normalised scores, XLSX export
   - Student-formed teams (join codes), with an instructor lock and maximum team size
   - Practice rounds that never count toward a grade
   - One counted score per review (default: a final score 0–100); other criteria are optional remarks
@@ -229,17 +229,27 @@ replace reviewers with random pseudonyms.
 ```text
 total[r,p]   = Σ_c w_c · score_c / Σ_c w_c   over counted c  (review r of presentation p)
 n[r,p]       = total[r,p] / Σ_q total[r,q]                  (each reviewer's scores sum to 1 over the round)
-TeamScore[p] = share of all normalised score given to p     (Σ_p TeamScore = 1)
+Class[p]     = share of all students' normalised score given to p
+TeamScore[p] = (1 − a)·Class[p] + a·AI[p]                   (a = AI share, default 1/3; Σ_p TeamScore = 1)
 Review[s]    = Σ_p TeamScore[p] · n[s,p]                    (× completion rate of required reviews, optional)
 Raw[s]       = Review[s] · TeamScore[team(s)], normalised so Σ_s Raw = 1
 Normalised   = rescaled to the round's target mean (80) and SD (10), clamped to 0–100
 Final        = Normalised + bonus (override component peer_round_<n>_bonus)
 ```
 
-The AI grader is one more reviewer (one call per round with every team's materials, using the frozen rubric; needs
-`ANTHROPIC_API_KEY`). By default a missing review is treated as missing: a team's score averages the normalised scores it
-actually received, so a larger team (fewer eligible reviewers) or an absent reviewer doesn't lower it; switch the round to
-"literal share" to count missing reviews as zero instead. Presentations with no valid reviews are "not yet scored".
+The AI grader reviews every team in one call per round, from the team's written materials and slides and with the
+frozen rubric (needs `ANTHROPIC_API_KEY`). `AI[p]` is its own normalised score for the team, and the round's **AI share**
+`a` (Scores & export; default 1/3, `llm_weight` on `PATCH /rounds/{round_id}`) is how much of each team score it makes up;
+the class's reviews make up the rest. Because a review score is measured against the team scores, the AI anchors review
+scores too: a student whose ranking agrees with it gains. A team with neither written materials nor slides is not sent
+to the AI and keeps its class score; if the AI reviewed only some teams, its scores are rescaled to the class's share of
+those teams, so the others keep theirs. The team table shows the class's and the AI's view side by side (× the average
+team), and AI share 0 takes the AI out of the scores.
+
+By default a missing review is treated as missing: a team's class score averages the normalised scores it actually
+received, so a larger team (fewer eligible reviewers) or an absent reviewer doesn't lower it; switch the round to
+"literal share" to count missing reviews as zero instead. Presentations with no valid student reviews are "not yet
+scored": the AI anchors the class's view but never replaces it.
 Round scores reach the gradebook only when applied. Each graded round names the gradebook task it grades (HW1, HW2,
 project code or presentation) and a peer share `w` (default 0.30) in **Scores & export**. Once the round is released,
 **Apply to gradebook** writes each scored student's round Final as one override with component `peer_round_<n>`

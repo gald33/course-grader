@@ -61,6 +61,7 @@ type RoundRow = {
   missing_review_policy: 'missing' | 'zero';
   participation_factor: boolean;
   llm_enabled: boolean;
+  llm_weight: number;
   counts_toward_grade: boolean;
   gradebook_task: GradebookTask | null;
   peer_weight: number;
@@ -2109,6 +2110,8 @@ type ScoresData = {
     relative: number | null;
     mean_total: number | null;
     criterion_means: Record<string, number>;
+    class_relative: number | null;
+    llm_relative: number | null;
   }[];
   students: {
     student_id: number;
@@ -2165,6 +2168,7 @@ function ScoresTab({
     missing_review_policy: round.missing_review_policy,
     participation_factor: round.participation_factor,
     llm_enabled: round.llm_enabled,
+    llm_weight: round.llm_weight,
     gradebook_task: (round.gradebook_task ?? '') as GradebookTask | '',
     peer_weight: round.peer_weight
   });
@@ -2180,11 +2184,18 @@ function ScoresTab({
     await load();
   };
   const runLlm = async () => {
-    if (!window.confirm('Run the AI grader on every presentation in this round? It replaces any earlier AI review.')) return;
+    const share = Math.round(round.llm_weight * 100);
+    if (
+      !window.confirm(
+        `Run the AI grader on every presentation in this round? Its view makes up ${share}% of each team score, and it replaces any earlier AI review.`
+      )
+    )
+      return;
     setLlmBusy(true);
     try {
-      const res = await apiPost<{ reviews: number }>(`${base}/rounds/${round.id}/llm-review`);
-      setToast(`AI grader reviewed ${res.reviews} presentations`);
+      const res = await apiPost<{ reviews: number; skipped: string[] }>(`${base}/rounds/${round.id}/llm-review`);
+      const skipped = res.skipped.length ? ` · not sent (no materials or slides): ${res.skipped.join(', ')}` : '';
+      setToast(`AI grader reviewed ${res.reviews} presentations${skipped}`);
     } catch (err) {
       setToast(errorMessage(err));
     } finally {
@@ -2248,23 +2259,24 @@ function ScoresTab({
           score (shares sum to 1; ×relative shows it against the average team). <strong className="text-ink">Review score</strong>{' '}
           = Σ team score × the student’s own normalised score for that team.{' '}
           <strong className="text-ink">Raw</strong> = review score × own team’s score, normalised to sum to 1, then rescaled
-          to the target mean and SD. <strong className="text-ink">Final</strong> = normalised + bonus. The AI grader counts
-          as one more reviewer. Missing reviews are never zeros for the presenting team; a team with no valid reviews is
-          “not yet scored”.
+          to the target mean and SD. <strong className="text-ink">Final</strong> = normalised + bonus. Once the AI grader has
+          run, a team score is (1 − AI share) × the class’s view + AI share × the AI’s, so the AI also anchors every review
+          score; teams with no materials or slides aren’t sent to it and keep the class’s view. Missing reviews are never
+          zeros for the presenting team; a team with no valid student reviews is “not yet scored”.
         </div>
       </div>
 
       <Card>
-        <form onSubmit={saveSettings} className="grid items-end gap-3 md:grid-cols-[110px_110px_1.6fr_1.2fr_1fr_140px_90px_auto]">
-          <div>
+        <form onSubmit={saveSettings} className="flex flex-wrap items-end gap-3">
+          <div className="w-[110px]">
             <Label>Target mean</Label>
             <Input type="number" step="0.5" value={settings.target_mean} onChange={(e) => setSettings({ ...settings, target_mean: Number(e.target.value) })} />
           </div>
-          <div>
+          <div className="w-[110px]">
             <Label>Target SD</Label>
             <Input type="number" step="0.5" value={settings.target_std} onChange={(e) => setSettings({ ...settings, target_std: Number(e.target.value) })} />
           </div>
-          <div>
+          <div className="w-[300px] max-w-full">
             <Label>Missing reviews</Label>
             <select
               className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
@@ -2287,7 +2299,18 @@ function ScoresTab({
             <input type="checkbox" checked={settings.llm_enabled} onChange={(e) => setSettings({ ...settings, llm_enabled: e.target.checked })} />
             AI grader
           </label>
-          <div>
+          <div className="w-[90px]">
+            <Label title="Share of each team score that comes from the AI grader; the class's reviews make up the rest">AI share</Label>
+            <Input
+              type="number"
+              min="0"
+              max="1"
+              step="any"
+              value={Number(settings.llm_weight.toFixed(4))}
+              onChange={(e) => setSettings({ ...settings, llm_weight: Number(e.target.value) })}
+            />
+          </div>
+          <div className="w-[160px]">
             <Label>Grades task</Label>
             <select
               className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
@@ -2302,7 +2325,7 @@ function ScoresTab({
               ))}
             </select>
           </div>
-          <div>
+          <div className="w-[90px]">
             <Label>Peer share</Label>
             <Input
               type="number"
@@ -2362,6 +2385,12 @@ function ScoresTab({
                 <Th className="text-right">Valid reviews</Th>
                 <Th className="text-right">Team score</Th>
                 <Th className="text-right">× avg</Th>
+                <Th className="text-right">
+                  <span title="The class's view alone, × the average team">Class</span>
+                </Th>
+                <Th className="text-right">
+                  <span title="The AI grader's view alone, × the average team it reviewed">AI</span>
+                </Th>
                 <Th className="text-right">Mean total</Th>
                 {scores.criteria.map((c) => (
                   <Th key={c.key} className="text-right">
@@ -2383,6 +2412,8 @@ function ScoresTab({
                     {t.share == null ? <span className="pill">not yet scored</span> : pct(t.share)}
                   </Td>
                   <Td className="tnum text-right">{fmt(t.relative)}</Td>
+                  <Td className="tnum text-right text-ink-3">{fmt(t.class_relative)}</Td>
+                  <Td className="tnum text-right text-ink-3">{fmt(t.llm_relative)}</Td>
                   <Td className="tnum text-right">{fmt(t.mean_total)}</Td>
                   {scores.criteria.map((c) => (
                     <Td key={c.key} className="tnum text-right">

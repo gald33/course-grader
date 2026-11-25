@@ -19,6 +19,7 @@ The narrative layer above `roadmap/ROADMAP.md`: *why* each theme is still open. 
 
 Startable and legitimate — an item does not need an arc. Listed so the narrative layer's coverage gap is visible rather than implied.
 
+- `ai-grader-is-a-third-of-each-team-score` — The AI peer grader is one vote among ~36, so it can't anchor grades to a real review
 - `assignments-need-custom-rubrics` — Assignments are graded on one fixed rubric instead of rubrics that fit the task
 - `autograder-needs-a-proper-redesign` — The notebook autograder needs a proper redesign, once there is enough graded data
 - `class-insights-update-live` — Class insights only refresh by hand or on an opt-in 30-second timer

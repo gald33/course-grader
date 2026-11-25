@@ -28,6 +28,7 @@ _Nothing deferred._
 
 | item | held by | since |
 |---|---|---|
+| `ai-grader-is-a-third-of-each-team-score` | claude/determined-curie-uj8oky | 2026-11-25T00:00:00Z |
 | `class-insights-update-live` | claude/practical-ride-d2lxpj | 2026-11-04T00:00:00Z |
 | `e2e-lost-session-flake` | claude/e2e-lost-session-flake | 2026-11-10T21:30:00Z |
 | `exit-check-no-chatbot` | claude/exit-check-no-chatbot | 2026-11-03T19:00:00Z |
@@ -56,6 +57,7 @@ graph TD
   classDef claimed stroke:#8250df,stroke-width:2px
   classDef verifying stroke:#0969da,stroke-width:2px,stroke-dasharray:6 3
   classDef done stroke:#8c959f,stroke-width:1px,stroke-dasharray:5 4
+  ai_grader_is_a_third_of_each_team_score["The AI peer grader is one vote among ~36, so it can't anchor grades to a real review"]:::claimed
   assignments_need_custom_rubrics["✓ Assignments are graded on one fixed rubric instead of rubrics that fit the task"]:::done
   autograder_needs_a_proper_redesign["✓ The notebook autograder needs a proper redesign, once there is enough graded data"]:::done
   class_insights_update_live["Class insights only refresh by hand or on an opt-in 30-second timer"]:::claimed
@@ -116,6 +118,52 @@ graph TD
 ```
 
 ## Items
+
+### `ai-grader-is-a-third-of-each-team-score`
+
+- **title:** The AI peer grader is one vote among ~36, so it can't anchor grades to a real review
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/determined-curie-uj8oky (since 2026-11-25T00:00:00Z)
+- **refs:**
+  - `backend/app/services/peer_scoring.py`
+  - `backend/app/services/llm_peer_review.py`
+  - `backend/alembic/versions/0028_peer_round_llm_weight.py`
+  - `frontend/components/peer-review/peer-review-step.tsx`
+  - `backend/tests/unit/test_peer_scoring.py`
+  - `backend/tests/unit/test_peer_review_api.py`
+
+<details><summary>evidence</summary>
+
+> The operator, 2026-11-25: "I want the AI scoring to be 1/3 of the score so
+> it would anchor grades towards a real review".
+>
+> MEASURED at 8b7b1e2 with peer_scoring.compute_round on a simulated round
+> (8 teams x 5 students, every student reviewing the 7 other teams). The AI
+> grader entered team scores as one more reviewer, about 1/36 of each team
+> score. An AI review rating the strongest team 0 moved that team's students
+> from 93.1 to 91.5; rating the weakest team 100 moved its students from 64.1
+> to 64.7. The AI also scored teams with no materials and no slides from
+> "(no written materials)", which at any real weight would mark them down
+> for not uploading rather than for their work.
+>
+> Done when: a round's team score is (1 - a)·class + a·AI with a per-round
+> AI share a (default 1/3, editable in Scores & export, 0 removes the AI);
+> the review score, measured against team scores, is anchored with it; a
+> team the AI did not review keeps its class score; the AI alone never
+> scores a team; teams with nothing for the AI to read are not sent to it
+> and lose any earlier AI review on a re-run; and the team table shows the
+> class's and the AI's view side by side.
+>
+> Before merging: `make migrate-hosted` (0028 adds review_rounds.llm_weight).
+> The API reads the column on every round, so deploying first breaks peer
+> review on the hosted app.
+>
+> Not addressed here: the AI grader runs inside the HTTP request, and the
+> hosted API stops at 300 s (backend/vercel.json). One high-effort call over
+> every team's materials and slides has not been timed against that limit.
+
+</details>
 
 ### `assignments-need-custom-rubrics`
 

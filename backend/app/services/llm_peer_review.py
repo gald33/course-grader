@@ -1,13 +1,16 @@
 """LLM grader for a peer-review round.
 
-The LLM acts as one more reviewer: it scores every presentation in the round
-with the round's frozen rubric. All teams go into a single request so the
+The LLM scores every presentation in the round with the round's frozen
+rubric, and its view makes up the round's llm_weight (default 1/3) of each
+team score (peer_scoring, step 3). All teams go into a single request so the
 model judges them side by side — like a student who sees the whole round —
 which is what the per-reviewer normalisation in peer_scoring assumes.
 
 Inputs per team: name, project title, demo link (not visited), the team's
 written materials, and their slides PDF when uploaded. The model does not
-watch the live presentation; the prompt says so.
+watch the live presentation; the prompt says so. A team with neither written
+materials nor readable slides is not sent: the model would be scoring nothing,
+so the team keeps the class's view alone.
 
 Output is constrained with structured outputs (output_config.format) and the
 request opts into server-side refusal fallbacks.
@@ -63,6 +66,17 @@ class TeamMaterials:
     demo_url: str
     materials_text: str
     slides_pdf: bytes | None
+
+    @property
+    def reviewable(self) -> bool:
+        """Whether the model has anything of the team's to judge."""
+        return bool(self.materials_text.strip() or self.slides_pdf)
+
+
+@dataclass
+class RoundReviewResult:
+    saved: list[PeerReview]
+    skipped: list[str]  # names of teams with nothing for the model to read
 
 
 def _key(presentation_id: int) -> str:
@@ -270,7 +284,7 @@ def _call_model(request: dict[str, Any], client: Any | None = None) -> tuple[str
     return text, model
 
 
-def run_llm_round_review(db: Session, rnd: ReviewRound, client: Any | None = None) -> list[PeerReview]:
+def run_llm_round_review(db: Session, rnd: ReviewRound, client: Any | None = None) -> RoundReviewResult:
     if not rnd.llm_enabled:
         raise PeerReviewError("llm_disabled", "The LLM grader is turned off for this round", 409)
     if rnd.rubric_version is None:
@@ -289,12 +303,30 @@ def run_llm_round_review(db: Session, rnd: ReviewRound, client: Any | None = Non
         "prompts": json.loads(rnd.rubric_version.prompts_json),
         "instructions": rnd.rubric_version.instructions,
     }
-    request = build_request(rnd.kind, rubric, _load_materials(db, presentations))
+    materials = _load_materials(db, presentations)
+    teams = [m for m in materials if m.reviewable]
+    if not teams:
+        raise PeerReviewError(
+            "invalid_state", "No team in this round has uploaded written materials or slides yet", 409
+        )
+    request = build_request(rnd.kind, rubric, teams)
     text, model = _call_model(request, client)
-    results = parse_result(text, rubric, [p.id for p in presentations])
+    reviewed = {t.presentation_id for t in teams}
+    results = parse_result(text, rubric, sorted(reviewed))
+
+    # A re-run replaces the earlier AI review, so a team that has nothing to
+    # read this time loses the one it had.
+    for review in db.scalars(
+        select(PeerReview).where(
+            PeerReview.round_id == rnd.id,
+            PeerReview.reviewer_kind == "llm",
+            PeerReview.presentation_id.not_in(reviewed),
+        )
+    ).all():
+        db.delete(review)
 
     saved = []
-    for p in presentations:
+    for p in (p for p in presentations if p.id in reviewed):
         r = results[p.id]
         review = db.scalar(
             select(PeerReview).where(PeerReview.presentation_id == p.id, PeerReview.reviewer_kind == "llm")
@@ -314,4 +346,4 @@ def run_llm_round_review(db: Session, rnd: ReviewRound, client: Any | None = Non
         review.updated_at = utcnow()
         saved.append(review)
     db.commit()
-    return saved
+    return RoundReviewResult(saved=saved, skipped=[m.team_name for m in materials if not m.reviewable])

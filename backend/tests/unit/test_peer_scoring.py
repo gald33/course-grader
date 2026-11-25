@@ -180,16 +180,65 @@ def test_fully_exempt_student_without_reviews_gets_class_average_review_score():
     assert s12.normalized is not None
 
 
-def test_llm_is_one_reviewer_without_a_student_score():
-    inputs = _class_inputs()
-    inputs.reviews = inputs.reviews + [_rev(None, 1, 5), _rev(None, 2, 1), _rev(None, 3, 3)]
+def _with_llm(llm_totals: dict[int, int], **overrides) -> RoundInputs:
+    """The class round plus an AI review of each presentation in llm_totals."""
+    inputs = _class_inputs(**overrides)
+    inputs.reviews = inputs.reviews + [_rev(None, p, total) for p, total in llm_totals.items()]
+    return inputs
+
+
+def _shares(result) -> dict[int, float | None]:
+    return {t.presentation_id: t.share for t in result.teams}
+
+
+def test_llm_is_a_third_of_each_team_score_and_has_no_student_score():
+    class_only = _shares(compute_round(_class_inputs()))
+    result = compute_round(_with_llm({1: 5, 2: 1, 3: 4}))
+    llm = {1: 5 / 10, 2: 1 / 10, 3: 4 / 10}
+    for team in result.teams:
+        p = team.presentation_id
+        assert team.share == pytest.approx(2 / 3 * class_only[p] + 1 / 3 * llm[p])
+        assert team.llm_relative == pytest.approx(llm[p] * 3)
+        assert team.class_relative == pytest.approx(class_only[p] * 3)
+        assert team.valid_reviews == 5  # 4 students + the AI
+    assert {s.student_id for s in result.students} == set(_class_inputs().roster)
+
+
+def test_llm_weight_zero_leaves_the_class_view_alone():
+    class_only = compute_round(_class_inputs())
+    ignored = compute_round(_with_llm({1: 5, 2: 1, 3: 4}, llm_weight=0.0))
+    assert list(_shares(ignored).values()) == pytest.approx(list(_shares(class_only).values()))
+    assert [s.final for s in ignored.students] == pytest.approx([s.final for s in class_only.students])
+
+
+def test_team_the_llm_did_not_review_keeps_the_class_view():
+    class_only = _shares(compute_round(_class_inputs()))
+    t = _shares(compute_round(_with_llm({1: 5, 2: 1})))
+    assert t[3] == pytest.approx(class_only[3])
+    assert sum(t.values()) == pytest.approx(1.0)
+    # On the two teams it reviewed, the AI only moves mass from team 2 to team 1.
+    assert t[1] > class_only[1] and t[2] < class_only[2]
+    assert t[1] + t[2] == pytest.approx(class_only[1] + class_only[2])
+
+
+def test_llm_alone_does_not_score_a_team():
+    inputs = _with_llm({1: 5, 2: 1, 3: 4})
+    inputs.reviews = [r for r in inputs.reviews if r.student_id is None or r.presentation_id != 3]
     result = compute_round(inputs)
-    assert {s.student_id for s in result.students} == set(inputs.roster)
-    assert all(team.valid_reviews == 5 for team in result.teams)  # 4 students + LLM
-    baseline = compute_round(_class_inputs())
-    t_with = {t.presentation_id: t.share for t in result.teams}
-    t_without = {t.presentation_id: t.share for t in baseline.teams}
-    assert t_with[1] > t_without[1]  # LLM liked team 1 most
+    team3 = next(t for t in result.teams if t.presentation_id == 3)
+    assert team3.share is None and team3.class_relative is None
+    assert team3.llm_relative is not None  # the instructor still sees the AI's view
+    assert {s.student_id for s in result.students if "team_not_scored" in s.flags} == {31, 32}
+
+
+def test_llm_anchors_review_scores_toward_reviewers_who_agree_with_it():
+    # Student 31 rated team 2 above team 1; student 32 rated them level. An AI
+    # that rates team 1 far above team 2 widens 32's lead over 31.
+    def lead(result) -> float:
+        r = {s.student_id: s.review_score for s in result.students}
+        return r[32] - r[31]
+
+    assert lead(compute_round(_with_llm({1: 5, 2: 1, 3: 3}))) > lead(compute_round(_class_inputs()))
 
 
 def test_student_without_team_or_unscored_team_is_flagged_not_scored():

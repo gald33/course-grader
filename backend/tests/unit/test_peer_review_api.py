@@ -442,13 +442,13 @@ class _FakeStream:
         )
 
 
-def test_llm_grader_is_one_reviewer_and_rerun_replaces_it(env, course, monkeypatch):
-    _schedule_and_open(env, course)
-    captured = {}
+def _fake_llm(captured: dict | None = None):
+    """A client whose model gives every team it is sent GOOD scores."""
 
     def fake_stream(**kwargs):
-        captured.update(kwargs)
-        keys = [k for k in kwargs["extra_body"]["output_config"]["format"]["schema"]["required"]]
+        if captured is not None:
+            captured.update(kwargs)
+        keys = kwargs["extra_body"]["output_config"]["format"]["schema"]["required"]
         body = {
             k: {
                 "scores": GOOD,
@@ -459,25 +459,88 @@ def test_llm_grader_is_one_reviewer_and_rerun_replaces_it(env, course, monkeypat
         }
         return _FakeStream(json.dumps(body))
 
-    fake_client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(stream=fake_stream)))
+    return SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(stream=fake_stream)))
+
+
+def _set_materials(env, course, **texts: str) -> None:
+    with env.Session() as db:
+        for team, text in texts.items():
+            db.get(Presentation, course.pres[team]).materials_text = text
+        db.commit()
+
+
+def test_llm_grader_reviews_teams_with_materials_and_rerun_replaces_it(env, course, monkeypatch):
+    _schedule_and_open(env, course)
+    captured: dict = {}
     with env.Session() as db:
         rnd = db.get(ReviewRound, course.round_id)
-        saved = llm_peer_review.run_llm_round_review(db, rnd, client=fake_client)
-        assert len(saved) == 3
-        llm_peer_review.run_llm_round_review(db, rnd, client=fake_client)  # re-run updates in place
+        with pytest.raises(llm_peer_review.PeerReviewError, match="No team"):
+            llm_peer_review.run_llm_round_review(db, rnd, client=_fake_llm())
+
+    # Team C uploads nothing: it is not sent, rather than scored on nothing.
+    _set_materials(env, course, A="Our assistant drafts replies", B="Recipe planner")
+    with env.Session() as db:
+        rnd = db.get(ReviewRound, course.round_id)
+        result = llm_peer_review.run_llm_round_review(db, rnd, client=_fake_llm(captured))
+        assert len(result.saved) == 2 and result.skipped == ["Team C"]
+        assert set(captured["extra_body"]["output_config"]["format"]["schema"]["required"]) == {
+            f"p{course.pres['A']}",
+            f"p{course.pres['B']}",
+        }
+        llm_peer_review.run_llm_round_review(db, rnd, client=_fake_llm())  # re-run updates in place
         rows = db.scalars(select(PeerReview).where(PeerReview.reviewer_kind == "llm")).all()
-        assert len(rows) == 3 and all(r.reviewer_student_id is None for r in rows)
+        assert len(rows) == 2 and all(r.reviewer_student_id is None for r in rows)
     assert captured["betas"] == ["server-side-fallback-2026-07-01"]
     assert captured["extra_body"]["fallbacks"] == "default"
 
+    # The AI anchors the class's view but never replaces it: with no student
+    # reviews yet, nothing is scored, and the instructor still sees the AI's view.
     scores = _ok(env.client.get(f"{_base(course)}/rounds/{course.round_id}/scores"))
-    assert all(t["valid_reviews"] == 1 and t["share"] == pytest.approx(1 / 3) for t in scores["teams"])
+    teams = {t["team_name"]: t for t in scores["teams"]}
+    assert all(t["share"] is None for t in teams.values())
+    assert teams["Team A"]["llm_relative"] == pytest.approx(1.0)
+    assert teams["Team C"]["llm_relative"] is None
+
+    # B removes its materials: the re-run (through the endpoint) drops B's earlier AI review.
+    _set_materials(env, course, B="")
+    monkeypatch.setattr(env.settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(llm_peer_review.anthropic, "Anthropic", lambda api_key: _fake_llm())
+    res = _ok(env.client.post(f"{_base(course)}/rounds/{course.round_id}/llm-review"))
+    assert res == {"status": "ok", "reviews": 1, "skipped": ["Team B", "Team C"]}
+    with env.Session() as db:
+        rows = db.scalars(select(PeerReview).where(PeerReview.reviewer_kind == "llm")).all()
+        assert [r.presentation_id for r in rows] == [course.pres["A"]]
 
     _ok(env.client.post(f"{_base(course)}/rounds/{course.round_id}/actions/close"))
     _ok(env.client.post(f"{_base(course)}/rounds/{course.round_id}/actions/release"))
     home = _ok(env.client.get(f"/api/r/{course.tokens['a1']}"))
     results = next(r for r in home["rounds"] if r["id"] == course.round_id)["results"]
     assert [f["source"] for f in results["feedback"]] == ["ai"]
+
+
+def test_round_llm_weight_is_the_ai_share_of_each_team_score(env, course):
+    _schedule_and_open(env, course)
+    # One student review: the class puts A at 80/(80+40) = 2/3 of the mass.
+    _ok(_review(env, course, "c1", "A", scores={**GOOD, "final_score": 80}))
+    _ok(_review(env, course, "c1", "B", scores={**GOOD, "final_score": 40}))
+    _set_materials(env, course, A="Our assistant drafts replies", B="Recipe planner")
+    with env.Session() as db:
+        # The AI rates A and B the same: 1/2 each.
+        llm_peer_review.run_llm_round_review(db, db.get(ReviewRound, course.round_id), client=_fake_llm())
+
+    def share_of_a() -> float:
+        scores = _ok(env.client.get(f"{_base(course)}/rounds/{course.round_id}/scores"))
+        return next(t["share"] for t in scores["teams"] if t["team_name"] == "Team A")
+
+    overview = _ok(env.client.get(f"{_base(course)}/overview"))
+    assert next(r for r in overview["rounds"] if r["id"] == course.round_id)["llm_weight"] == pytest.approx(1 / 3)
+    assert share_of_a() == pytest.approx(2 / 3 * 2 / 3 + 1 / 3 * 1 / 2)
+
+    _ok(env.client.patch(f"{_base(course)}/rounds/{course.round_id}", json={"llm_weight": 0}))
+    assert share_of_a() == pytest.approx(2 / 3)
+    _ok(env.client.patch(f"{_base(course)}/rounds/{course.round_id}", json={"llm_weight": 1}))
+    assert share_of_a() == pytest.approx(1 / 2)
+    _ok(env.client.patch(f"{_base(course)}/rounds/{course.round_id}", json={"llm_weight": 1.5}), 422)
 
 
 def test_llm_parse_rejects_out_of_scale_scores():

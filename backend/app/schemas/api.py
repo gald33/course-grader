@@ -418,6 +418,7 @@ class RoundUpdate(BaseModel):
     link_required: bool | None = None
     participation_factor: bool | None = None
     llm_enabled: bool | None = None
+    llm_weight: float | None = Field(default=None, ge=0, le=1)
     # "" clears the task
     gradebook_task: str | None = Field(default=None, pattern="^(hw1|hw2|project_code|presentation|)$")
     peer_weight: float | None = Field(default=None, ge=0, le=1)

@@ -165,6 +165,7 @@ def _round_payload(db: Session, rnd: ReviewRound, teams: dict[int, Team]) -> dic
         "missing_review_policy": rnd.missing_review_policy,
         "participation_factor": rnd.participation_factor,
         "llm_enabled": rnd.llm_enabled,
+        "llm_weight": rnd.llm_weight,
         "counts_toward_grade": rnd.counts_toward_grade,
         "link_required": rnd.link_required,
         "gradebook_task": rnd.gradebook_task,
@@ -473,7 +474,16 @@ def update_round(course_id: int, round_id: int, payload: RoundUpdate, db: Sessio
         rnd.review_deadline = to_utc_naive(payload.review_deadline)
     if payload.gradebook_task is not None:
         rnd.gradebook_task = payload.gradebook_task or None
-    for field in ("target_mean", "target_std", "missing_review_policy", "participation_factor", "llm_enabled", "link_required", "peer_weight"):
+    for field in (
+        "target_mean",
+        "target_std",
+        "missing_review_policy",
+        "participation_factor",
+        "llm_enabled",
+        "llm_weight",
+        "link_required",
+        "peer_weight",
+    ):
         value = getattr(payload, field)
         if value is not None:
             setattr(rnd, field, value)
@@ -828,6 +838,7 @@ def round_scores_payload(db: Session, rnd: ReviewRound) -> dict:
             "target_std": rnd.target_std,
             "missing_review_policy": rnd.missing_review_policy,
             "participation_factor": rnd.participation_factor,
+            "llm_weight": rnd.llm_weight,
         },
         "teams": [
             {
@@ -841,6 +852,8 @@ def round_scores_payload(db: Session, rnd: ReviewRound) -> dict:
                 "relative": t.relative,
                 "mean_total": t.mean_total,
                 "criterion_means": t.criterion_means,
+                "class_relative": t.class_relative,
+                "llm_relative": t.llm_relative,
             }
             for t in result.teams
         ],
@@ -894,10 +907,10 @@ def remove_from_gradebook(course_id: int, round_id: int, db: Session = Depends(g
 def llm_review(course_id: int, round_id: int, db: Session = Depends(get_db)) -> dict:
     rnd = _round(db, course_id, round_id)
     try:
-        saved = run_llm_round_review(db, rnd)
+        result = run_llm_round_review(db, rnd)
     except svc.PeerReviewError as exc:
         raise_domain(exc)
-    return {"status": "ok", "reviews": len(saved)}
+    return {"status": "ok", "reviews": len(result.saved), "skipped": result.skipped}
 
 
 @router.get("/rounds/{round_id}/export.xlsx")

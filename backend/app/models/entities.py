@@ -486,6 +486,9 @@ class ReviewRound(Base):
     # | presentation), and the peer share of that task: T = (1-w)·A + w·P.
     gradebook_task: Mapped[str | None] = mapped_column(String(32), nullable=True)
     peer_weight: Mapped[float] = mapped_column(Float, default=0.3, server_default=text("0.3"))
+    # Share of each team score that comes from the AI grader; the class's
+    # reviews make up the rest (services/peer_scoring.py, step 3).
+    llm_weight: Mapped[float] = mapped_column(Float, default=1 / 3, server_default=text(repr(1 / 3)))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     rubric_version: Mapped[PeerRubricVersion | None] = relationship()

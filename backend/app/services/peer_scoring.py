@@ -6,15 +6,21 @@ Pipeline (one assignment grade per round):
    rubric weights, normalised by the sum of weights (stays on the 1–5 scale).
 2. Reviewer shares — each reviewer's totals are normalised to sum to 1 over
    every presentation they reviewed in the round: n[r, p].
-3. Team score — the share of all normalised score mass given to the team:
-       zero policy:     T[p] = Σ_r n[r, p] / Σ_r Σ_q n[r, q]
-       missing policy:  m[r, p] = n[r, p] · |P_r|   (1.0 = "average" for r)
-                        T[p] ∝ mean over reviewers of p of m[r, p], Σ T = 1
+3. Team score — the class's view C, anchored by the AI grader's view A:
+       T[p] = (1 − a) · C[p] + a · A[p]          a = the round's llm_weight
+   C is the share of all students' normalised score mass given to the team:
+       zero policy:     C[p] = Σ_s n[s, p] / Σ_s Σ_q n[s, q]
+       missing policy:  m[s, p] = n[s, p] · |P_s|   (1.0 = "average" for s)
+                        C[p] ∝ mean over student reviewers of p of m[s, p]
    The two coincide when every reviewer covers the same number of teams and
    every team gets the same number of reviewers. The missing policy (default)
    keeps a missing review from acting as a zero for the presenting team, e.g.
    a larger team (fewer eligible reviewers) or a session with absences.
-   A presentation with no valid reviews is "not yet scored" (None).
+   A is the AI's own shares n[AI, p]. Where the AI reviewed only some of the
+   teams, its shares are rescaled to the class's mass on those teams, so
+   Σ T = 1 still holds and a team the AI did not review keeps C[p].
+   A presentation with no valid student reviews is "not yet scored" (None):
+   the AI anchors the class's view but never replaces it.
 4. Review score — R[s] = Σ_p T[p] · n[s, p]: how much of the student's own
    mass went to the teams everyone else rated highly.
    Optional participation factor: R'[s] = R[s] · completed / expected, where
@@ -24,8 +30,9 @@ Pipeline (one assignment grade per round):
    standard deviation (population), clamped to 0–100.
 7. Final — normalised score + instructor bonus.
 
-The LLM grader is one more reviewer in steps 2–3; it has no review score.
-Every reviewer has equal weight; there is no reputation weighting.
+The AI grader enters only through A in step 3; it has no review score of its
+own, but since R[s] is measured against T, it anchors every review score too.
+Every student reviewer has equal weight; there is no reputation weighting.
 """
 
 from __future__ import annotations
@@ -49,6 +56,8 @@ from app.models.entities import (
 )
 
 LLM_REVIEWER = "llm"
+# Share of each team score that comes from the AI grader (ReviewRound.llm_weight).
+DEFAULT_LLM_WEIGHT = 1 / 3
 
 
 def bonus_component(round_number: int) -> str:
@@ -89,6 +98,7 @@ class RoundInputs:
     participation_factor: bool = True
     target_mean: float = 80.0
     target_std: float = 10.0
+    llm_weight: float = DEFAULT_LLM_WEIGHT
 
 
 @dataclass
@@ -100,6 +110,10 @@ class TeamResult:
     relative: float | None  # share × number of scored presentations (1.0 = average)
     mean_total: float | None  # mean weighted total on the rubric scale
     criterion_means: dict[str, float]
+    # The two views T blends, each as ×average over the teams it covers:
+    # the class's C[p] and the AI's own n[AI, p]. None where that view is absent.
+    class_relative: float | None = None
+    llm_relative: float | None = None
 
 
 @dataclass
@@ -162,13 +176,16 @@ def reviewer_shares(reviews: list[ScoredReview], criteria: list[dict]) -> dict[s
     return shares
 
 
-def team_scores(
+def class_scores(
     shares: dict[str, dict[int, float]],
     presentation_ids: list[int],
     policy: str = "missing",
 ) -> dict[int, float | None]:
+    """C[p]: the students' consensus. The AI grader's shares are left out."""
     received: dict[int, list[float]] = defaultdict(list)
-    for by_pres in shares.values():
+    for reviewer, by_pres in shares.items():
+        if reviewer == LLM_REVIEWER:
+            continue
         k = len(by_pres)
         for p, n in by_pres.items():
             received[p].append(n * k if policy == "missing" else n)
@@ -181,6 +198,46 @@ def team_scores(
     return {p: (raw[p] / total if p in raw and total > 0 else None) for p in presentation_ids}
 
 
+def anchor_to_llm(
+    consensus: dict[int, float | None],
+    llm: dict[int, float],
+    weight: float,
+) -> dict[int, float | None]:
+    """T[p] = (1 − weight)·C[p] + weight·A[p] on the teams both views cover.
+
+    A is the AI's shares rescaled to the class's mass on those teams, so the
+    result still sums to 1 and a team the AI did not review keeps C[p]. A team
+    only the AI reviewed stays unscored."""
+    both = {p: c for p, c in consensus.items() if c is not None and p in llm}
+    llm_total = sum(llm[p] for p in both)
+    if weight <= 0 or llm_total <= 0:
+        return dict(consensus)
+    mass = sum(both.values())
+    out = dict(consensus)
+    for p, c in both.items():
+        out[p] = (1 - weight) * c + weight * mass * llm[p] / llm_total
+    return out
+
+
+def team_scores(
+    shares: dict[str, dict[int, float]],
+    presentation_ids: list[int],
+    policy: str = "missing",
+    llm_weight: float = DEFAULT_LLM_WEIGHT,
+) -> dict[int, float | None]:
+    """T[p]: the class's view anchored by the AI grader's (module docstring, step 3)."""
+    return anchor_to_llm(
+        class_scores(shares, presentation_ids, policy), shares.get(LLM_REVIEWER, {}), llm_weight
+    )
+
+
+def _relative(values: dict[int, float | None]) -> dict[int, float]:
+    """Shares as ×average over the teams they cover (1.0 = an average team)."""
+    present = {p: v for p, v in values.items() if v is not None}
+    total = sum(present.values())
+    return {p: v * len(present) / total for p, v in present.items()} if total > 0 else {}
+
+
 def _pop_stats(values: list[float]) -> tuple[float, float]:
     mean = sum(values) / len(values)
     var = sum((v - mean) ** 2 for v in values) / len(values)
@@ -190,8 +247,12 @@ def _pop_stats(values: list[float]) -> tuple[float, float]:
 def compute_round(inputs: RoundInputs) -> RoundResult:
     shares = reviewer_shares(inputs.reviews, inputs.criteria)
     pres_ids = sorted(inputs.presentations)
-    t = team_scores(shares, pres_ids, inputs.missing_review_policy)
+    consensus = class_scores(shares, pres_ids, inputs.missing_review_policy)
+    llm = shares.get(LLM_REVIEWER, {})
+    t = anchor_to_llm(consensus, llm, inputs.llm_weight)
     scored = [p for p in pres_ids if t[p] is not None]
+    class_rel = _relative(consensus)
+    llm_rel = _relative(dict(llm))
 
     reviews_by_pres: dict[int, list[ScoredReview]] = defaultdict(list)
     for r in inputs.reviews:
@@ -215,6 +276,8 @@ def compute_round(inputs: RoundInputs) -> RoundResult:
                 relative=(t[p] * len(scored)) if t[p] is not None else None,
                 mean_total=(sum(totals) / len(totals)) if totals else None,
                 criterion_means=crit_means,
+                class_relative=class_rel.get(p),
+                llm_relative=llm_rel.get(p),
             )
         )
     team_share_by_team = {inputs.presentations[p]: t[p] for p in pres_ids}
@@ -379,6 +442,7 @@ def load_round_inputs(db: Session, rnd: ReviewRound) -> RoundInputs:
         participation_factor=rnd.participation_factor,
         target_mean=rnd.target_mean,
         target_std=rnd.target_std,
+        llm_weight=rnd.llm_weight,
     )
 
 

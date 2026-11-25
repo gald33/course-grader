@@ -8,9 +8,11 @@ which is what the per-reviewer normalisation in peer_scoring assumes.
 
 Inputs per team: name, project title, demo link (not visited), the team's
 written materials, and their slides PDF when uploaded. The model does not
-watch the live presentation; the prompt says so. A team with neither written
-materials nor readable slides is not sent: the model would be scoring nothing,
-so the team keeps the class's view alone.
+watch the live presentation; the prompt says so. The model judges a team only
+on everything the team submitted, so a team is not sent (and keeps the class's
+view alone) when it has neither written materials nor slides, or when its slides
+can't be sent: over MAX_PDF_BYTES, missing from storage, or not fitting in the
+one request with the other teams' slides (the API takes 32 MB per request).
 
 Output is constrained with structured outputs (output_config.format) and the
 request opts into server-side refusal fallbacks.
@@ -21,6 +23,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,6 +39,9 @@ from app.services.peer_review import PeerReviewError, utcnow
 logger = logging.getLogger(__name__)
 
 MAX_PDF_BYTES = 10 * 1024 * 1024
+# PDFs travel base64-encoded (4/3 their size) in one request of at most 32 MB;
+# the rest of the request (rubric, materials text, schema) is a few hundred KB.
+MAX_SLIDES_IN_REQUEST = 28_000_000
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 SYSTEM_PROMPT = """You are one of the reviewers in a university course where student teams
@@ -66,17 +72,26 @@ class TeamMaterials:
     demo_url: str
     materials_text: str
     slides_pdf: bytes | None
+    unread: str = ""  # why the team's uploaded slides can't be sent, if they can't
 
     @property
     def reviewable(self) -> bool:
-        """Whether the model has anything of the team's to judge."""
-        return bool(self.materials_text.strip() or self.slides_pdf)
+        """Whether the model can judge the team on everything it submitted."""
+        return not self.unread and bool(self.materials_text.strip() or self.slides_pdf)
+
+    @property
+    def skip_reason(self) -> str:
+        return self.unread or "no written materials or slides"
+
+    @property
+    def encoded_slides(self) -> int:
+        return 4 * math.ceil(len(self.slides_pdf) / 3) if self.slides_pdf else 0
 
 
 @dataclass
 class RoundReviewResult:
     saved: list[PeerReview]
-    skipped: list[str]  # names of teams with nothing for the model to read
+    skipped: list[dict[str, str]]  # {"team", "reason"} for each team not sent to the model
 
 
 def _key(presentation_id: int) -> str:
@@ -222,9 +237,17 @@ def _load_materials(db: Session, presentations: list[Presentation]) -> list[Team
     for p in presentations:
         team = db.get(Team, p.team_id)
         pdf: bytes | None = None
+        unread = ""
         if p.slides_artifact_id:
             artifact = db.get(Artifact, p.slides_artifact_id)
-            if artifact and artifact.size_bytes <= MAX_PDF_BYTES and storage.exists(artifact.path):
+            if artifact is None or not storage.exists(artifact.path):
+                unread = "its slides file is missing"
+            elif artifact.size_bytes > MAX_PDF_BYTES:
+                unread = (
+                    f"its slides are {artifact.size_bytes / 1e6:.1f} MB; "
+                    f"the AI reads decks up to {MAX_PDF_BYTES / 1e6:.0f} MB"
+                )
+            else:
                 pdf = storage.read_bytes(artifact.path)
         out.append(
             TeamMaterials(
@@ -234,9 +257,21 @@ def _load_materials(db: Session, presentations: list[Presentation]) -> list[Team
                 demo_url=p.demo_url,
                 materials_text=p.materials_text,
                 slides_pdf=pdf,
+                unread=unread,
             )
         )
     return out
+
+
+def _fit_one_request(teams: list[TeamMaterials]) -> None:
+    """Hold back the largest decks until the rest fit in one request. A team
+    held back is not sent at all, rather than judged without its slides."""
+    total = sum(t.encoded_slides for t in teams if t.reviewable)
+    for t in sorted((t for t in teams if t.reviewable and t.slides_pdf), key=lambda t: t.encoded_slides, reverse=True):
+        if total <= MAX_SLIDES_IN_REQUEST:
+            break
+        t.unread = "its slides didn't fit in one request with the other teams' slides"
+        total -= t.encoded_slides
 
 
 def _call_model(request: dict[str, Any], client: Any | None = None) -> tuple[str, str]:
@@ -304,11 +339,11 @@ def run_llm_round_review(db: Session, rnd: ReviewRound, client: Any | None = Non
         "instructions": rnd.rubric_version.instructions,
     }
     materials = _load_materials(db, presentations)
+    _fit_one_request(materials)
     teams = [m for m in materials if m.reviewable]
     if not teams:
-        raise PeerReviewError(
-            "invalid_state", "No team in this round has uploaded written materials or slides yet", 409
-        )
+        reasons = "; ".join(f"{m.team_name}: {m.skip_reason}" for m in materials)
+        raise PeerReviewError("invalid_state", f"No team in this round has materials the AI can read ({reasons})", 409)
     request = build_request(rnd.kind, rubric, teams)
     text, model = _call_model(request, client)
     reviewed = {t.presentation_id for t in teams}
@@ -346,4 +381,7 @@ def run_llm_round_review(db: Session, rnd: ReviewRound, client: Any | None = Non
         review.updated_at = utcnow()
         saved.append(review)
     db.commit()
-    return RoundReviewResult(saved=saved, skipped=[m.team_name for m in materials if not m.reviewable])
+    return RoundReviewResult(
+        saved=saved,
+        skipped=[{"team": m.team_name, "reason": m.skip_reason} for m in materials if not m.reviewable],
+    )

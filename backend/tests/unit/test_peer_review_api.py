@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -15,6 +16,7 @@ from app.api.deps import get_db
 from app.core.config import get_settings
 from app.main import app
 from app.models.entities import (
+    Artifact,
     Enrollment,
     PeerReview,
     Presentation,
@@ -22,7 +24,7 @@ from app.models.entities import (
     ReviewRound,
     Student,
 )
-from app.services import llm_peer_review
+from app.services import llm_peer_review, storage
 
 STUDENTS = {
     "a1": ("100000001", "Alice Avraham"),
@@ -482,7 +484,7 @@ def test_llm_grader_reviews_teams_with_materials_and_rerun_replaces_it(env, cour
     with env.Session() as db:
         rnd = db.get(ReviewRound, course.round_id)
         result = llm_peer_review.run_llm_round_review(db, rnd, client=_fake_llm(captured))
-        assert len(result.saved) == 2 and result.skipped == ["Team C"]
+        assert len(result.saved) == 2 and result.skipped == [{"team": "Team C", "reason": "no written materials or slides"}]
         assert set(captured["extra_body"]["output_config"]["format"]["schema"]["required"]) == {
             f"p{course.pres['A']}",
             f"p{course.pres['B']}",
@@ -506,7 +508,7 @@ def test_llm_grader_reviews_teams_with_materials_and_rerun_replaces_it(env, cour
     monkeypatch.setattr(env.settings, "anthropic_api_key", "test-key")
     monkeypatch.setattr(llm_peer_review.anthropic, "Anthropic", lambda api_key: _fake_llm())
     res = _ok(env.client.post(f"{_base(course)}/rounds/{course.round_id}/llm-review"))
-    assert res == {"status": "ok", "reviews": 1, "skipped": ["Team B", "Team C"]}
+    assert res["reviews"] == 1 and [s["team"] for s in res["skipped"]] == ["Team B", "Team C"]
     with env.Session() as db:
         rows = db.scalars(select(PeerReview).where(PeerReview.reviewer_kind == "llm")).all()
         assert [r.presentation_id for r in rows] == [course.pres["A"]]
@@ -516,6 +518,47 @@ def test_llm_grader_reviews_teams_with_materials_and_rerun_replaces_it(env, cour
     home = _ok(env.client.get(f"/api/r/{course.tokens['a1']}"))
     results = next(r for r in home["rounds"] if r["id"] == course.round_id)["results"]
     assert [f["source"] for f in results["feedback"]] == ["ai"]
+
+
+def _set_slides(env, course, team: str, data: bytes) -> None:
+    with env.Session() as db:
+        p = db.get(Presentation, course.pres[team])
+        loc = storage.save(f"test/{team}.pdf", data, "application/pdf")
+        artifact = Artifact(kind="presentation_slides", filename=f"{team}.pdf", path=loc, size_bytes=len(data))
+        db.add(artifact)
+        db.flush()
+        p.slides_artifact_id = artifact.id
+        db.commit()
+
+
+def test_llm_grader_never_judges_a_team_without_the_slides_it_uploaded(env, course, monkeypatch):
+    _schedule_and_open(env, course)
+    _set_materials(env, course, A="notes", B="notes", C="notes")
+    small = b"%PDF-1.4 " + b"x" * 3000
+    for team, deck in (("A", small), ("B", small), ("C", small + b"y" * 3000)):
+        _set_slides(env, course, team, deck)
+
+    def run(captured=None):
+        with env.Session() as db:
+            rnd = db.get(ReviewRound, course.round_id)
+            return llm_peer_review.run_llm_round_review(db, rnd, client=_fake_llm(captured))
+
+    # C's deck is over the size the AI reads: C is not sent, rather than judged on its notes alone.
+    monkeypatch.setattr(llm_peer_review, "MAX_PDF_BYTES", 5000)
+    skipped = run().skipped
+    assert [s["team"] for s in skipped] == ["Team C"] and "MB" in skipped[0]["reason"]
+
+    # Room in the request for two small decks only: the largest deck is held back.
+    monkeypatch.setattr(llm_peer_review, "MAX_PDF_BYTES", 10**6)
+    monkeypatch.setattr(llm_peer_review, "MAX_SLIDES_IN_REQUEST", 2 * 4 * math.ceil(len(small) / 3))
+    captured: dict = {}
+    skipped = run(captured).skipped
+    assert [s["team"] for s in skipped] == ["Team C"] and "fit" in skipped[0]["reason"]
+    sent = [b for b in captured["messages"][0]["content"] if b["type"] == "document"]
+    assert len(sent) == 2
+    with env.Session() as db:
+        rows = db.scalars(select(PeerReview).where(PeerReview.reviewer_kind == "llm")).all()
+        assert sorted(r.presentation_id for r in rows) == sorted([course.pres["A"], course.pres["B"]])
 
 
 def test_round_llm_weight_is_the_ai_share_of_each_team_score(env, course):

@@ -241,8 +241,9 @@ The AI grader reviews every team in one call per round, from the team's written 
 frozen rubric (needs `ANTHROPIC_API_KEY`). `AI[p]` is its own normalised score for the team, and the round's **AI share**
 `a` (Scores & export; default 1/3, `llm_weight` on `PATCH /rounds/{round_id}`) is how much of each team score it makes up;
 the class's reviews make up the rest. Because a review score is measured against the team scores, the AI anchors review
-scores too: a student whose ranking agrees with it gains. A team with neither written materials nor slides is not sent
-to the AI and keeps its class score; if the AI reviewed only some teams, its scores are rescaled to the class's share of
+scores too: a student whose ranking agrees with it gains. The AI judges a team only on everything it uploaded: a team with neither written materials
+nor slides, or whose slides can't be sent (over 10 MB, or not fitting in the API's 32 MB request with the other
+teams' decks), is not sent to it and keeps its class score; if the AI reviewed only some teams, its scores are rescaled to the class's share of
 those teams, so the others keep theirs. The team table shows the class's and the AI's view side by side (× the average
 team), and AI share 0 takes the AI out of the scores.
 

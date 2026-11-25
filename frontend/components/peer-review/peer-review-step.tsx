@@ -2193,8 +2193,12 @@ function ScoresTab({
       return;
     setLlmBusy(true);
     try {
-      const res = await apiPost<{ reviews: number; skipped: string[] }>(`${base}/rounds/${round.id}/llm-review`);
-      const skipped = res.skipped.length ? ` · not sent (no materials or slides): ${res.skipped.join(', ')}` : '';
+      const res = await apiPost<{ reviews: number; skipped: { team: string; reason: string }[] }>(
+        `${base}/rounds/${round.id}/llm-review`
+      );
+      const skipped = res.skipped.length
+        ? ` · not sent, so they keep the class score: ${res.skipped.map((s) => `${s.team} (${s.reason})`).join('; ')}`
+        : '';
       setToast(`AI grader reviewed ${res.reviews} presentations${skipped}`);
     } catch (err) {
       setToast(errorMessage(err));
@@ -2261,7 +2265,7 @@ function ScoresTab({
           <strong className="text-ink">Raw</strong> = review score × own team’s score, normalised to sum to 1, then rescaled
           to the target mean and SD. <strong className="text-ink">Final</strong> = normalised + bonus. Once the AI grader has
           run, a team score is (1 − AI share) × the class’s view + AI share × the AI’s, so the AI also anchors every review
-          score; teams with no materials or slides aren’t sent to it and keep the class’s view. Missing reviews are never
+          score; a team is sent to it only if it can read everything the team uploaded, otherwise the team keeps the class’s view. Missing reviews are never
           zeros for the presenting team; a team with no valid student reviews is “not yet scored”.
         </div>
       </div>

@@ -189,7 +189,9 @@ Instructor workflow (course page → **Peer review**):
    still move any student. Hosted, students reach their page by logging in; locally, share the links privately.
 2. **Schedule & windows** — open date selection (teams volunteer for a session until the deadline), random-assign the rest,
    move / postpone / swap presentations (a presentation keeps its round and reviews when moved), open reviewing (freezes the
-   rubric and snapshots team membership), open each session for reviews, close the round, release results.
+   rubric and snapshots team membership), open each session for reviews (or **All presentations** at once, the only
+   switch for presentations without a session), close the round, release results. The page warns while a practice round
+   is still open beside a graded one, and while a graded round is open for reviewing but no presentation accepts reviews.
 3. **Rubrics** — criteria, descriptions, weights, scale labels, text prompts (required or not) and instructions, separately for
    progress and final rounds. A round pins the version current when its reviewing opened; later edits create a new version.
    **+ Add practice round** creates an ungraded round: every presentation accepts reviews while it is open, team

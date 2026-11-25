@@ -1,0 +1,33 @@
+id: reviews-land-in-an-open-practice-round
+title: Students' reviews land in a practice round left open, and a round without sessions can't be opened
+status: claimed
+priority: now
+claim:
+  by: claude/determined-curie-uj8oky
+  at: '2026-11-25'
+blocked_on: []
+refs:
+- 'frontend/components/peer-review/peer-review-step.tsx'
+- 'backend/app/services/peer_review.py'
+- 'backend/app/services/peer_review_repair.py'
+- 'backend/scripts/copy_practice_reviews_oneoff.py'
+evidence: |
+  The operator, 2026-11-25: "students have submitted reviews for
+  presentations 1 and 2 but I don't see it".
+
+  VERIFIED on the hosted app (course 11126, through the instructor API).
+  Round 1 held 0 reviews: none of its 9 presentations was ever accepting
+  reviews, and none had a session, so the per-session switches that open
+  them never appeared. The practice round stayed open, every presentation
+  accepting reviews, and held 60 reviews written Nov 4-12 (7 each for the
+  four teams presenting on Nov 4) and 17 written on presentation day 2
+  (Nov 25), beside round 2's 29. The practice round was closed on the
+  operator's go-ahead on 2026-11-25.
+
+  Done when: a round's presentations can all be opened at once, with or
+  without sessions; the Peer review page warns while a practice round is
+  open beside a graded one and while a graded round is open for reviewing
+  with no presentation accepting reviews; and the misplaced reviews are
+  copied into rounds 1 and 2 (scripts/copy_practice_reviews_oneoff.py,
+  run by the operator after `make migrate-hosted`: the sandbox cannot
+  reach the hosted database).

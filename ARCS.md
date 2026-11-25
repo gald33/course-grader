@@ -55,6 +55,7 @@ Startable and legitimate — an item does not need an arc. Listed so the narrati
 - `project-bonus-has-no-editor` — The per-student project bonus can't be edited directly
 - `readme-describes-a-localhost-only-app` — README still says "no login, localhost-only" and leaves out recent features
 - `retire-bonus-points-phase-2-drop-column` — enrollments.bonus_points is zeroed but still in the schema
+- `reviews-land-in-an-open-practice-round` — Students' reviews land in a practice round left open, and a round without sessions can't be opened
 - `roster-cannot-be-edited-per-student` — Add, remove, withdraw or fix a single student without re-importing the roster
 - `roster-reimport-email-conflicts-are-not-shown` — Roster re-import reports email conflicts that the UI never shows
 - `student-portal-is-one-long-scroll` — The student portal is one long scroll with no navigation

@@ -937,6 +937,20 @@ def set_session_review_open(db: Session, rnd: ReviewRound, session_number: int, 
     return changed
 
 
+def set_round_review_open(db: Session, rnd: ReviewRound, is_open: bool) -> int:
+    """Open or close every presentation of the round for reviews, with or
+    without a session: a round whose presentations have no session has no
+    per-session switch to open them with."""
+    if is_open and rnd.status != "reviewing":
+        raise PeerReviewError("invalid_state", "Open reviewing for the round first", 409)
+    changed = 0
+    for p in db.scalars(select(Presentation).where(Presentation.round_id == rnd.id)):
+        p.review_open = is_open
+        changed += 1
+    db.commit()
+    return changed
+
+
 def close_round(db: Session, rnd: ReviewRound) -> None:
     if rnd.status != "reviewing":
         raise PeerReviewError("invalid_state", "Only a round that is reviewing can be closed", 409)

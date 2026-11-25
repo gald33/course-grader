@@ -219,6 +219,8 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
         </div>
       ) : null}
 
+      <RoundWarnings base={base} rounds={overview.rounds} run={run} />
+
       {tab === 'schedule' ? <ScheduleTab base={base} overview={overview} round={round} run={run} /> : null}
       {tab === 'rubrics' ? <RubricsTab base={base} setToast={setToast} /> : null}
       {tab === 'reviews' ? <ReviewsTab key={round.id} base={base} round={round} run={run} /> : null}
@@ -228,6 +230,54 @@ export function PeerReviewStep({ courseId, setToast }: { courseId: number; setTo
 }
 
 type Run = (fn: () => Promise<unknown>, success?: string) => Promise<void>;
+
+/* Two states in which students' reviews go missing: a practice round left open
+ * beside a graded round (students review its teams there instead), and a graded
+ * round open for reviewing in which no presentation accepts reviews. */
+function RoundWarnings({ base, rounds, run }: { base: string; rounds: RoundRow[]; run: Run }) {
+  const gradedOpen = rounds.filter((r) => r.counts_toward_grade && r.status === 'reviewing');
+  const practiceOpen = gradedOpen.length ? rounds.filter((r) => !r.counts_toward_grade && r.status === 'reviewing') : [];
+  const shut = gradedOpen.filter((r) => r.presentations.length && !r.presentations.some((p) => p.review_open));
+  if (!practiceOpen.length && !shut.length) return null;
+  return (
+    <div className="grid gap-2">
+      {practiceOpen.map((r) => (
+        <div key={r.id} className="hint hint-warm items-center">
+          <span className="hint-icon">!</span>
+          <div className="flex-1">
+            <strong className="text-ink">{roundName(r)} is still open.</strong> Students can review its teams there by
+            mistake instead of in {gradedOpen.map(roundName).join(', ')}, and those reviews never count.
+          </div>
+          <Button
+            size="sm"
+            variant="soft"
+            onClick={() => run(() => apiPost(`${base}/rounds/${r.id}/actions/close`), `${roundName(r)} closed`)}
+          >
+            Close practice round
+          </Button>
+        </div>
+      ))}
+      {shut.map((r) => (
+        <div key={r.id} className="hint hint-warm items-center">
+          <span className="hint-icon">!</span>
+          <div className="flex-1">
+            <strong className="text-ink">{roundName(r)} is open for reviewing, but no presentation accepts reviews,</strong>{' '}
+            so students can’t review it yet.
+          </div>
+          <Button
+            size="sm"
+            variant="soft"
+            onClick={() =>
+              run(() => apiPost(`${base}/rounds/${r.id}/reviewing`, { open: true }), `All of ${roundName(r)} accepts reviews`)
+            }
+          >
+            Open all presentations
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* =============== Schedule =============== */
 
@@ -356,6 +406,25 @@ function ScheduleTab({ base, overview, round, run }: { base: string; overview: O
         {round.status === 'reviewing' && round.counts_toward_grade ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-forest-tint px-3 py-2.5 text-[13px]">
             <span className="font-semibold text-forest">Reviews per session:</span>
+            {(() => {
+              const allOpen = round.presentations.length > 0 && round.presentations.every((p) => p.review_open);
+              const unscheduled = round.presentations.filter((p) => p.session_number == null).length;
+              return (
+                <Button
+                  size="sm"
+                  variant={allOpen ? 'default' : 'outline'}
+                  title={unscheduled ? `${unscheduled} presentations have no session; this switch covers them too` : undefined}
+                  onClick={() =>
+                    run(
+                      () => apiPost(`${base}/rounds/${round.id}/reviewing`, { open: !allOpen }),
+                      allOpen ? 'All presentations closed for reviews' : 'All presentations open for reviews'
+                    )
+                  }
+                >
+                  All presentations: {allOpen ? 'open ✓' : 'closed'}
+                </Button>
+              );
+            })()}
             {sessionsShown.map((n) => {
               const inSession = round.presentations.filter((p) => p.session_number === n);
               if (!inSession.length) return null;

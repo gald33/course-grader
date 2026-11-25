@@ -39,6 +39,7 @@ _Nothing deferred._
 | `lesson-3-restructure-two-parts` | claude/lesson-3-restructure-two-parts | 2026-11-03T18:20:00Z |
 | `lesson-title-sync-on-install` | claude/exit-check-no-chatbot | 2026-11-03T19:15:00Z |
 | `notebooks-per-step` | claude/notebooks-per-step | 2026-11-03T19:35:00Z |
+| `reviews-land-in-an-open-practice-round` | claude/determined-curie-uj8oky | 2026-11-25T00:00:00Z |
 | `lesson-complete-celebration` | claude/lesson-complete-celebration | 2026-11-03T00:00:00Z |
 
 A claim's only trace is this row, so a session that merged or died leaves its hold behind forever and the item silently stops being offered to anyone. If **since** is more than 3 days ago, check whether that branch still has work in flight before assuming the hold is live — if it is merged or gone, `roadmap release <key>`.
@@ -93,6 +94,7 @@ graph TD
   project_bonus_has_no_editor["✓ The per-student project bonus can't be edited directly"]:::done
   readme_describes_a_localhost_only_app["✓ README still says 'no login, localhost-only' and leaves out recent features"]:::done
   retire_bonus_points_phase_2_drop_column["enrollments.bonus_points is zeroed but still in the schema"]:::ready
+  reviews_land_in_an_open_practice_round["Students' reviews land in a practice round left open, and a round without sessions can't be opened"]:::claimed
   roster_cannot_be_edited_per_student["✓ Add, remove, withdraw or fix a single student without re-importing the roster"]:::done
   roster_reimport_email_conflicts_are_not_shown["Roster re-import reports email conflicts that the UI never shows"]:::ready
   student_portal_is_one_long_scroll["✓ The student portal is one long scroll with no navigation"]:::done
@@ -1680,6 +1682,42 @@ graph TD
 > `bonus` overrides (the same tagged reason as phase 1), then drops the
 > column. No code reads or writes it. The downgrade restores it from the
 > tagged overrides. Safe to deploy code first, migrate right after.
+
+</details>
+
+### `reviews-land-in-an-open-practice-round`
+
+- **title:** Students' reviews land in a practice round left open, and a round without sessions can't be opened
+- **status:** claimed
+- **priority:** now
+- **claimed by:** claude/determined-curie-uj8oky (since 2026-11-25T00:00:00Z)
+- **refs:**
+  - `frontend/components/peer-review/peer-review-step.tsx`
+  - `backend/app/services/peer_review.py`
+  - `backend/app/services/peer_review_repair.py`
+  - `backend/scripts/copy_practice_reviews_oneoff.py`
+
+<details><summary>evidence</summary>
+
+> The operator, 2026-11-25: "students have submitted reviews for
+> presentations 1 and 2 but I don't see it".
+>
+> VERIFIED on the hosted app (course 11126, through the instructor API).
+> Round 1 held 0 reviews: none of its 9 presentations was ever accepting
+> reviews, and none had a session, so the per-session switches that open
+> them never appeared. The practice round stayed open, every presentation
+> accepting reviews, and held 60 reviews written Nov 4-12 (7 each for the
+> four teams presenting on Nov 4) and 17 written on presentation day 2
+> (Nov 25), beside round 2's 29. The practice round was closed on the
+> operator's go-ahead on 2026-11-25.
+>
+> Done when: a round's presentations can all be opened at once, with or
+> without sessions; the Peer review page warns while a practice round is
+> open beside a graded one and while a graded round is open for reviewing
+> with no presentation accepting reviews; and the misplaced reviews are
+> copied into rounds 1 and 2 (scripts/copy_practice_reviews_oneoff.py,
+> run by the operator after `make migrate-hosted`: the sandbox cannot
+> reach the hosted database).
 
 </details>
 

@@ -1037,3 +1037,79 @@ def test_applied_rounds_count_toward_their_gradebook_task(env, course):
     assert "peer" not in _ok(c.get(f"/api/r/{course.tokens['a2']}"))["grades"]["hw2"]
     csv_text = c.get(f"/api/courses/{course.id}/gradebook/csv").text
     assert "hw2_peer" in csv_text.splitlines()[0]
+
+
+def test_reviews_written_in_the_practice_round_are_copied_into_the_graded_round(env, course):
+    from app.services.peer_review_repair import copy_reviews
+
+    _schedule_and_open(env, course)
+    c = env.client
+    practice_id = _ok(c.post(f"{_base(course)}/rounds/practice", json={"title": "Try it", "open_now": True}))["round_id"]
+    with env.Session() as db:
+        practice_pres = {
+            p.team_id: p.id for p in db.scalars(select(Presentation).where(Presentation.round_id == practice_id))
+        }
+        test_enrollment = db.scalar(select(Enrollment).where(Enrollment.student_id == course.students["b1"]))
+        test_enrollment.is_test = True
+        db.commit()
+
+    def review_in_practice(who, team, final):
+        res = c.put(
+            f"/api/r/{course.tokens[who]}/reviews/{practice_pres[course.teams[team]]}",
+            json={"scores": {**GOOD, "final_score": final}, "responses": TEXT},
+        )
+        _ok(res)
+
+    # c1 already reviewed A in round 1 itself; everything else went to the practice round.
+    _ok(_review(env, course, "c1", "A", scores={**GOOD, "final_score": 90}))
+    for who, team, final in (("c1", "A", 10), ("c1", "B", 70), ("c2", "A", 60), ("a1", "B", 55), ("a1", "C", 65), ("b1", "A", 50)):
+        review_in_practice(who, team, final)
+
+    with env.Session() as db:
+        nothing = copy_reviews(
+            db, from_round_id=practice_id, to_round_id=course.round_id,
+            created_from=datetime(2000, 1, 1), created_to=datetime(2000, 1, 2),
+        )
+        assert nothing.candidates == 0 and not nothing.copied
+        result = copy_reviews(
+            db, from_round_id=practice_id, to_round_id=course.round_id,
+            created_from=datetime(2000, 1, 1), created_to=datetime(2100, 1, 1),
+        )
+        db.commit()
+        assert result.candidates == 6
+        assert len(result.copied) == 4 and result.already_reviewed == 1 and result.test_students == 1
+        graded = {
+            (r.reviewer_student_id, r.presentation_id): r
+            for r in db.scalars(select(PeerReview).where(PeerReview.round_id == course.round_id))
+        }
+        # Same student, the graded round's presentation of the same team, same scores and text.
+        copied_b = graded[(course.students["c1"], course.pres["B"])]
+        assert json.loads(copied_b.scores_json)["final_score"] == 70
+        assert json.loads(copied_b.responses_json) == TEXT
+        # c1's own round-1 review of A is kept, not overwritten by the practice one.
+        assert json.loads(graded[(course.students["c1"], course.pres["A"])].scores_json)["final_score"] == 90
+        assert (course.students["b1"], course.pres["A"]) not in graded
+        # The practice round keeps its reviews.
+        assert db.scalars(select(PeerReview).where(PeerReview.round_id == practice_id)).all().__len__() == 6
+
+    reviews = _ok(c.get(f"{_base(course)}/rounds/{course.round_id}/reviews"))
+    assert len(reviews) == 5
+    with env.Session() as db:  # running it again copies nothing twice
+        again = copy_reviews(
+            db, from_round_id=practice_id, to_round_id=course.round_id,
+            created_from=datetime(2000, 1, 1), created_to=datetime(2100, 1, 1),
+        )
+        assert not again.copied and again.already_reviewed == 5
+
+
+def test_every_presentation_of_a_round_opens_for_reviews_at_once(env, course):
+    c = env.client
+    base = f"{_base(course)}/rounds/{course.round_id}"
+    # Nobody chose a session: no per-session switch could open these presentations.
+    _ok(c.post(f"{base}/reviewing", json={"open": True}), 409)  # reviewing is not open yet
+    _ok(c.post(f"{base}/actions/open-reviewing"))
+    assert _review(env, course, "c1", "A").status_code == 409  # not accepting reviews
+    assert _ok(c.post(f"{base}/reviewing", json={"open": True}))["changed"] == 3
+    _ok(_review(env, course, "c1", "A"))
+    _ok(c.post(f"{base}/reviewing", json={"open": False}))
+    assert _review(env, course, "c1", "B").status_code == 409

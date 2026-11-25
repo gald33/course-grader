@@ -535,6 +535,17 @@ def round_action(course_id: int, round_id: int, action: str, db: Session = Depen
     return {"status": "ok"}
 
 
+@router.post("/rounds/{round_id}/reviewing")
+def toggle_round_reviewing(course_id: int, round_id: int, payload: SessionReviewToggle, db: Session = Depends(get_db)) -> dict:
+    """Open or close every presentation of the round for reviews."""
+    rnd = _round(db, course_id, round_id)
+    try:
+        changed = svc.set_round_review_open(db, rnd, payload.open)
+    except svc.PeerReviewError as exc:
+        raise_domain(exc)
+    return {"status": "ok", "changed": changed}
+
+
 @router.post("/rounds/{round_id}/sessions/{session_number}/reviewing")
 def toggle_session_reviewing(
     course_id: int, round_id: int, session_number: int, payload: SessionReviewToggle, db: Session = Depends(get_db)
